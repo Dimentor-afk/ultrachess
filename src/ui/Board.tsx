@@ -2,7 +2,7 @@ import { getCard } from '../engine/cards';
 import { fileOf, isBoardSquare, rankOf, sq } from '../engine/coords';
 import type { Color, Square } from '../engine/types';
 import type { PlayerView, ViewPiece } from '../engine/view';
-import { Glyph } from './common';
+import { Emblem, PieceSvg } from './art';
 
 export type Mark = 'move' | 'capture' | 'option';
 
@@ -37,7 +37,6 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
       const classes = ['cell'];
       if (onBoard) classes.push((f + r) % 2 === 0 ? 'dark' : 'light');
       else classes.push('ring');
-      if (!onBoard && (piece || mark)) classes.push('platform');
       if (s === selected) classes.push('selected');
       if (lastMove.has(s)) classes.push('last');
       if (hint.has(s)) classes.push('hint');
@@ -53,6 +52,13 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
         else if (f === labelFile && r >= 0 && r <= 7) label = String(r + 1);
       }
 
+      const content = (
+        <>
+          {piece && <PieceView piece={piece} />}
+          {mark && <span className={`mark mark-${mark}`} />}
+        </>
+      );
+
       cells.push(
         <button
           key={s}
@@ -60,11 +66,19 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
           className={classes.join(' ')}
           onClick={() => onSquare(s)}
           disabled={!onBoard && !piece && !mark}
-          aria-label={squareLabel(s, piece)}
+          aria-label={squareLabel(s, piece, !!mark)}
         >
           {label && <span className="coord">{label}</span>}
-          {piece && <PieceView piece={piece} />}
-          {mark && <span className={`mark mark-${mark}`} />}
+          {onBoard ? (
+            content
+          ) : (
+            (piece || mark) && (
+              // A platform outside the board is drawn full size, overhanging the frame.
+              <span className={`platform-tile ${mark ? 'is-target' : ''} ${s === selected ? 'is-selected' : ''}`}>
+                {content}
+              </span>
+            )
+          )}
         </button>,
       );
     }
@@ -72,25 +86,38 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
   return <div className="board">{cells}</div>;
 }
 
-function squareLabel(s: Square, piece: ViewPiece | null): string {
+function squareLabel(s: Square, piece: ViewPiece | null, marked: boolean): string {
   const f = fileOf(s);
   const r = rankOf(s);
   const name = isBoardSquare(s) ? `${FILES[f]}${r + 1}` : 'платформа за дошкою';
-  if (!piece) return name;
-  return `${name}: ${getCard(piece.cardId).name}${piece.color === 'w' ? ' (білі)' : ' (чорні)'}`;
+  const suffix = marked ? ', можна піти' : '';
+  if (!piece) return name + suffix;
+  return `${name}: ${getCard(piece.cardId).name}${piece.color === 'w' ? ' (білі)' : ' (чорні)'}${suffix}`;
 }
 
 export function PieceView({ piece }: { piece: ViewPiece }) {
   const card = getCard(piece.cardId);
-  const classic = card.rarity === 'common' && card.id.endsWith('-classic');
+  const special = !card.id.endsWith('-classic');
   return (
-    <span className={`piece ${piece.illusion ? 'illusion' : ''}`} title={`${card.name}\n${card.rulesText}`}>
-      <Glyph type={piece.type} color={piece.color} />
-      {!classic && <span className={`rarity-dot r-${card.rarity}`} />}
+    <span
+      className={`piece r-${card.rarity} ${special ? 'special' : ''} ${piece.illusion ? 'illusion' : ''}`}
+      title={`${card.name}\n${card.rulesText}`}
+    >
+      {special && <span className="piece-aura" />}
+      <PieceSvg type={piece.type} color={piece.color} />
+      {special && (
+        <span className="piece-emblem">
+          <Emblem cardId={card.id} />
+        </span>
+      )}
       {piece.frozen && <span className="badge badge-frozen" title="Пропускає хід">❄</span>}
-      {piece.passenger && <span className="badge badge-passenger" title="Пішак-пасажир">♟{'︎'}</span>}
+      {piece.passenger && (
+        <span className="badge badge-passenger" title="Пішак-пасажир">
+          <PieceSvg type="pawn" color={piece.color} />
+        </span>
+      )}
       {piece.platformTurnsLeft !== null && (
-        <span className="badge badge-platform" title="Ходів до зникнення платформи">
+        <span className="badge badge-platform" title="Ходів суперника до зникнення платформи">
           {piece.platformTurnsLeft}
         </span>
       )}

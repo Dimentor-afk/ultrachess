@@ -46,7 +46,7 @@ export function App() {
     <div className="app">
       <header className="topbar">
         <a className="brand" href="#/match">
-          <Glyph type="knight" color="w" /> Ultrachess
+          <Glyph type="knight" color="w" /> Ultra<b>chess</b>
         </a>
         <nav>
           {ROUTES.map((r) => (

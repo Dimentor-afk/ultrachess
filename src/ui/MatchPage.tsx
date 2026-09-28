@@ -6,7 +6,7 @@ import { opposite, squareName } from '../engine/coords';
 import { legalMoves } from '../engine/legal';
 import { type Action, type MatchState, createMatch, fullMoves, performAction, resign, withHint } from '../engine/match';
 import { findKing } from '../engine/position';
-import type { Color, Deck, Move, Square } from '../engine/types';
+import type { Color, Deck, Move, PieceType, Square } from '../engine/types';
 import { playerView } from '../engine/view';
 import { Board, type Mark } from './Board';
 import { requestBotTurn, requestHint } from './botClient';
@@ -282,10 +282,11 @@ function Game({ cfg, onNew, onRematch }: { cfg: GameConfig; onNew: () => void; o
   return (
     <section className="page game">
       <div className="game-board-col">
-        <div className="player-bar">
+        <div className={`player-bar ${match.turn === bot && !match.result ? 'to-move' : ''}`}>
           <span>
             <Glyph type="king" color={bot} /> Бот · {cfg.botDeck.name}
           </span>
+          <Captured types={lostPieces(match, human)} color={human} />
           {thinking && <span className="thinking" aria-live="polite">думає…</span>}
         </div>
         <Board
@@ -299,10 +300,11 @@ function Game({ cfg, onNew, onRematch }: { cfg: GameConfig; onNew: () => void; o
           checkSquare={checkSquare}
           onSquare={onSquare}
         />
-        <div className="player-bar">
+        <div className={`player-bar ${myTurn ? 'to-move' : ''}`}>
           <span>
             <Glyph type="king" color={human} /> Ви · {cfg.myDeck.name}
           </span>
+          <Captured types={lostPieces(match, bot)} color={bot} />
           <span className="muted small">Хід {fullMoves(match.ply) + (match.turn === 'w' ? 1 : 0)}</span>
         </div>
       </div>
@@ -311,7 +313,10 @@ function Game({ cfg, onNew, onRematch }: { cfg: GameConfig; onNew: () => void; o
         <div className={`panel status status-${match.result ? 'over' : myTurn ? 'mine' : 'bot'}`} aria-live="polite">
           <strong>{statusText}</strong>
           {error && <p className="error-text">{error}</p>}
-          {mirage && <p className="small">Міраж увімкнено: оберіть стрибок коня без взяття.</p>}
+          {mirage && <p className="tip">Міраж увімкнено: оберіть стрибок коня без взяття.</p>}
+          {fromSelected.some((m) => m.kind === 'levitate') && (
+            <p className="tip">Сині плитки за краєм дошки — платформи левітації. Фігура мусить повернутися за 3 ходи суперника.</p>
+          )}
         </div>
 
         {myAbilityPieces.length > 0 && (
@@ -477,5 +482,31 @@ function Game({ cfg, onNew, onRematch }: { cfg: GameConfig; onNew: () => void; o
         </div>
       )}
     </section>
+  );
+}
+
+const START_COUNT: Record<PieceType, number> = { pawn: 8, knight: 2, bishop: 2, rook: 2, queen: 1, king: 1 };
+
+/** Pieces of `color` no longer in play (approximate after promotions). */
+function lostPieces(match: MatchState, color: Color): PieceType[] {
+  const have: Record<PieceType, number> = { pawn: 0, knight: 0, bishop: 0, rook: 0, queen: 0, king: 0 };
+  for (const p of match.board) if (p && p.color === color) have[p.type]++;
+  for (const pc of match.pending) if (pc.piece.color === color) have[pc.piece.type]++;
+  for (const p of Object.values(match.passengers)) if (p.color === color) have.pawn++;
+  const out: PieceType[] = [];
+  for (const t of ['queen', 'rook', 'bishop', 'knight', 'pawn'] as PieceType[]) {
+    for (let i = have[t]; i < START_COUNT[t]; i++) out.push(t);
+  }
+  return out;
+}
+
+function Captured({ types, color }: { types: PieceType[]; color: Color }) {
+  if (!types.length) return null;
+  return (
+    <span className="captured" title="Взяті фігури">
+      {types.map((t, i) => (
+        <Glyph key={i} type={t} color={color} />
+      ))}
+    </span>
   );
 }

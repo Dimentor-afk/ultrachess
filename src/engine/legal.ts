@@ -36,8 +36,11 @@ function kingSafeAfter(pos: Position, m: Move, color: Color): boolean {
   return k >= 0 && !isSquareAttacked(after, k, opposite(color), after.ply);
 }
 
-/** Legal moves of the side to move (empty while a choice is pending). */
-export function legalMoves(pos: Position): Move[] {
+/**
+ * Legal moves of the side to move (empty while a choice is pending).
+ * `capturesOnly` skips quiet moves before the costly king-safety check.
+ */
+export function legalMoves(pos: Position, capturesOnly = false): Move[] {
   const color = pos.turn;
   if (pos.pending.some((pc) => pc.color === color)) return [];
   const enemy = opposite(color);
@@ -50,6 +53,7 @@ export function legalMoves(pos: Position): Move[] {
     const p = pos.board[s];
     if (!p || p.color !== color || isFrozen(pos, p.id, ply)) continue;
     for (const m of generatorFor(p.cardId)(ctx, p, s)) {
+      if (capturesOnly && m.captures.length === 0 && !m.promotion) continue;
       if (m.captures.some((c) => pos.board[c]?.type === 'king')) continue;
       if (barrierBlocks(pos, color, ply, m)) continue;
       // Taking an illusion is judged as if it were the real piece the player

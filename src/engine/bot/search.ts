@@ -65,10 +65,7 @@ function negamax(pos: Position, depth: number, alpha: number, beta: number, sc: 
     }
     return best;
   }
-  if (depth <= 0) {
-    if (inCheck(pos) && legalMoves(pos).length === 0) return -MATE + fromRoot;
-    return evaluate(pos, pos.turn);
-  }
+  if (depth <= 0) return quiesce(pos, alpha, beta, sc, fromRoot, QUIESCENCE_DEPTH);
   const moves = legalMoves(pos);
   if (moves.length === 0) return inCheck(pos) ? -MATE + fromRoot : 0;
   let best = -Infinity;
@@ -81,24 +78,69 @@ function negamax(pos: Position, depth: number, alpha: number, beta: number, sc: 
   return best;
 }
 
+const QUIESCENCE_DEPTH = 4;
+
+/**
+ * Resolve captures before judging a position, so the bot does not stop
+ * its search in the middle of an exchange and hang pieces.
+ */
+function quiesce(pos: Position, alpha: number, beta: number, sc: SearchState, fromRoot: number, q: number): number {
+  tick(sc);
+  if (pos.pending.some((p) => p.color === pos.turn)) return evaluate(pos, pos.turn);
+  if (inCheck(pos)) {
+    const moves = legalMoves(pos);
+    if (moves.length === 0) return -MATE + fromRoot;
+    if (q <= 0) return evaluate(pos, pos.turn);
+    let best = -Infinity;
+    for (const m of ordered(pos, moves)) {
+      const v = -quiesce(applyMove(pos, m), -beta, -alpha, sc, fromRoot + 1, q - 1);
+      if (v > best) best = v;
+      if (v > alpha) alpha = v;
+      if (alpha >= beta) break;
+    }
+    return best;
+  }
+  // Fail-soft: return real scores, not the window edge, so root moves that
+  // merely touch the bound are never mistaken for equally good ones.
+  const stand = evaluate(pos, pos.turn);
+  if (stand >= beta || q <= 0) return stand;
+  if (stand > alpha) alpha = stand;
+  let best = stand;
+  for (const m of ordered(pos, legalMoves(pos, true))) {
+    const v = -quiesce(applyMove(pos, m), -beta, -alpha, sc, fromRoot + 1, q - 1);
+    if (v > best) best = v;
+    if (v > alpha) alpha = v;
+    if (alpha >= beta) break;
+  }
+  return best;
+}
+
 interface RootResult {
   move: Move | null;
   score: number;
 }
 
+const NOISE = 3;
+
 function searchRoot(pos: Position, depth: number, sc: SearchState, first: Move | null): RootResult {
   const moves = legalMoves(pos);
   if (moves.length === 0) return { move: null, score: inCheck(pos) ? -MATE : 0 };
-  let alpha = -Infinity;
+  let best = -Infinity; // noisy score of the chosen move
+  let bestRaw = -Infinity;
   let bestMove: Move | null = null;
   for (const m of ordered(pos, moves, first)) {
-    const v = -negamax(applyMove(pos, m), depth - 1, -Infinity, -alpha, sc, 1);
-    if (bestMove === null || v > alpha) {
-      alpha = v;
+    // A little noise keeps the bot from replaying the same game. The window
+    // is widened by twice the noise, so a move that only returned a bound can
+    // never overtake the best one by luck.
+    const raw = -negamax(applyMove(pos, m), depth - 1, -Infinity, -(bestRaw - 2 * NOISE), sc, 1);
+    const v = raw + (Math.random() * 2 - 1) * NOISE;
+    if (bestMove === null || v > best) {
+      best = v;
+      bestRaw = raw;
       bestMove = m;
     }
   }
-  return { move: bestMove, score: alpha };
+  return { move: bestMove, score: bestRaw };
 }
 
 /** Iterative deepening; always returns at least a depth-1 answer. */
@@ -133,7 +175,7 @@ export interface BotTurn {
   score: number;
 }
 
-const ABILITY_MARGIN = 25;
+const ABILITY_MARGIN = 60;
 
 /**
  * The bot's full turn: an optional ability press or pending choice followed
@@ -165,15 +207,18 @@ export function chooseTurn(state: MatchState, color: Color, opts: BotOptions = D
   for (const { piece, def } of abilityPieces(belief, color)) {
     if (def.id === 'hint' || def.viaMove || !abilityReady(belief, piece.id)) continue;
     const options = abilityOptions(belief, piece.id);
-    if (!options.length || Date.now() > deadline) continue;
+    // Abilities only get the time left over from the main search.
+    if (!options.length || deadline - Date.now() < opts.timeMs * 0.4) continue;
     // Cheap screening first, then a full search on the two best options.
-    const shallow = options
-      .map((o) => ({ o, s: iterative(applyAbility(belief, piece.id, o.key).pos, 1, Infinity).score }))
-      .sort((a, b) => b.s - a.s)
-      .slice(0, 2);
+    const screened: { o: (typeof options)[number]; s: number }[] = [];
+    for (const o of options) {
+      if (Date.now() > deadline) break;
+      screened.push({ o, s: iterative(applyAbility(belief, piece.id, o.key).pos, 1, Infinity).score });
+    }
+    const shallow = screened.sort((a, b) => b.s - a.s).slice(0, 2);
     for (const { o } of shallow) {
       if (Date.now() > deadline) break;
-      const res = iterative(applyAbility(belief, piece.id, o.key).pos, depth, deadline + opts.timeMs / 2);
+      const res = iterative(applyAbility(belief, piece.id, o.key).pos, depth, deadline);
       const bar = (chosen?.res.score ?? base.score) + ABILITY_MARGIN;
       if (res.move && res.score > bar) chosen = { pieceId: piece.id, key: o.key, res };
     }
