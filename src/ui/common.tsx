@@ -1,6 +1,9 @@
 import { EFFECT_NAMES, PIECE_NAMES, RARITY_NAMES, getCard } from '../engine/cards';
 import type { Card, Color, PieceType } from '../engine/types';
+import type { ReactNode } from 'react';
 import { Emblem, PieceSvg } from './art';
+import { cardArt } from './cardArt';
+import { Icon } from './icons';
 
 /** Inline piece icon sized to the surrounding text. */
 export function Glyph({ type, color, className = '' }: { type: PieceType; color: Color; className?: string }) {
@@ -17,20 +20,41 @@ export function RarityTag({ card }: { card: Card }) {
 }
 
 /** Game card: rarity frame, piece art with the card's emblem, rules text. */
-export function CardView({ card, compact = false }: { card: Card; compact?: boolean }) {
+export function CardView({
+  card,
+  compact = false,
+  locked = false,
+  badge,
+}: {
+  card: Card;
+  compact?: boolean;
+  locked?: boolean;
+  badge?: ReactNode;
+}) {
+  const art = cardArt(card.id);
   return (
-    <article className={`gcard r-${card.rarity} ${compact ? 'gcard-compact' : ''}`}>
+    <article className={`gcard r-${card.rarity} ${compact ? 'gcard-compact' : ''} ${locked ? 'locked' : ''}`}>
       <div className="gcard-art">
         {!compact && (
           <span className="gcard-watermark">
             <Emblem cardId={card.id} />
           </span>
         )}
-        <PieceSvg type={card.pieceType} color="w" className="gcard-piece" />
+        {art ? (
+          <img className="gcard-pixel" src={art} alt="" loading="lazy" />
+        ) : (
+          <PieceSvg type={card.pieceType} color="w" className="gcard-piece" />
+        )}
         <span className="gcard-emblem">
           <Emblem cardId={card.id} />
         </span>
         {!compact && <span className="gcard-type">{PIECE_NAMES[card.pieceType]}</span>}
+        {locked && (
+          <span className="gcard-lock">
+            <Icon name="lock" />
+          </span>
+        )}
+        {badge}
       </div>
       <div className="gcard-body">
         <h3 className="gcard-name">{card.name}</h3>
@@ -48,6 +72,13 @@ export function CardView({ card, compact = false }: { card: Card; compact?: bool
       </div>
     </article>
   );
+}
+
+/** Card art only (pixel art when available). */
+export function CardArt({ cardId, className = '' }: { cardId: string; className?: string }) {
+  const art = cardArt(cardId);
+  const card = getCard(cardId);
+  return art ? <img className={`pixel ${className}`} src={art} alt="" loading="lazy" /> : <PieceSvg type={card.pieceType} color="w" className={className} />;
 }
 
 export function cardName(id: string): string {

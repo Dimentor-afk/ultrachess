@@ -1,31 +1,43 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CARDS, CARD_BY_ID, PIECE_NAMES, PIECE_ORDER, RARITY_ORDER } from '../engine/cards';
-import { cardAt, classicDeck, deckPositions, placeCard, slotType, validateDeck } from '../engine/deck';
+import { cardAt, deckPositions, placeCard, slotType, validateDeck } from '../engine/deck';
 import type { Deck, PieceType } from '../engine/types';
-import { Emblem, PieceSvg } from './art';
-import { CardView, RarityTag } from './common';
-import { CLASSIC_DECK, newDeckId } from './storage';
+import { Emblem } from './art';
+import { CardArt, CardView, RarityTag } from './common';
+import { Icon } from './icons';
+import { errorText, useSession } from './state';
 
-interface Props {
-  saved: Deck[];
-  activeId: string;
-  onSave: (deck: Deck) => void;
-  onDelete: (id: string) => void;
-  onActivate: (id: string) => void;
-}
+const newDeckId = () => `deck-${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
 
-export function DeckPage({ saved, activeId, onSave, onDelete, onActivate }: Props) {
+export function DeckPage() {
+  const s = useSession();
+  const saved = s.decks;
+  const activeId = s.profile.activeDeckId ?? saved[0]?.id ?? '';
   const [draft, setDraft] = useState<Deck | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
-  const startNew = (base: Deck = CLASSIC_DECK) => {
-    setDraft({
-      ...base,
-      pawnVersions: [...base.pawnVersions],
-      id: newDeckId(),
-      name: base === CLASSIC_DECK ? 'Нова колода' : `${base.name} (копія)`,
+  const run = async (fn: () => Promise<void>) => {
+    try {
+      await fn();
+    } catch (e) {
+      s.toast(errorText(e), 'error');
+    }
+  };
+  const onSave = (deck: Deck) =>
+    run(async () => {
+      s.setDecks(await s.api.saveDeck(deck));
+      s.setProfile(await s.api.me().then((p) => p!));
+      s.toast(`Колоду «${deck.name}» збережено.`);
+      setIsNew(false);
+      setDraft(null);
     });
+  const onDelete = (id: string) => run(async () => s.setDecks(await s.api.deleteDeck(id)));
+  const onActivate = (id: string) => run(async () => s.setProfile(await s.api.setActiveDeck(id)));
+
+  const startNew = (base: Deck | undefined = saved.find((d) => d.id === activeId) ?? saved[0]) => {
+    if (!base) return s.toast('Спочатку відкрийте стартовий пак.', 'error');
+    setDraft({ ...base, pawnVersions: [...base.pawnVersions], id: newDeckId(), name: saved.includes(base) ? `${base.name} (копія)` : 'Нова колода' });
     setIsNew(true);
   };
 
@@ -36,13 +48,10 @@ export function DeckPage({ saved, activeId, onSave, onDelete, onActivate }: Prop
           key={draft.id}
           draft={draft}
           isNew={isNew}
+          owned={s.collection.owned}
           onChange={setDraft}
           onCancel={() => setDraft(null)}
-          onSave={() => {
-            onSave(draft);
-            setIsNew(false);
-            setDraft(null);
-          }}
+          onSave={() => onSave(draft)}
         />
       </section>
     );
@@ -53,7 +62,7 @@ export function DeckPage({ saved, activeId, onSave, onDelete, onActivate }: Prop
       <div className="page-head page-head-row">
         <div>
           <h1>Колоди</h1>
-          <p className="muted">Зберіть 16 фігур: перетягніть картки на дошку. Колода для матчу позначена зеленим.</p>
+          <p className="muted">Зберіть 16 фігур із карток своєї колекції: перетягніть їх на дошку. Колода для бою позначена.</p>
         </div>
         <button className="btn btn-primary btn-lg" onClick={() => startNew()}>
           + Нова колода
@@ -61,51 +70,45 @@ export function DeckPage({ saved, activeId, onSave, onDelete, onActivate }: Prop
       </div>
 
       <div className="deck-grid">
-        {[CLASSIC_DECK, ...saved].map((d) => (
+        {saved.map((d) => (
           <article key={d.id} className={`deck-tile ${d.id === activeId ? 'active' : ''}`}>
             <MiniBoard deck={d} />
             <div className="deck-tile-body">
               <div className="deck-tile-title">
                 <strong>{d.name}</strong>
-                {d.id === activeId && <span className="pill pill-ok">для матчу</span>}
+                {d.id === activeId && <span className="pill pill-ok">у бій</span>}
               </div>
               <DeckSummary deck={d} />
               <div className="deck-item-actions">
                 {d.id !== activeId && (
                   <button className="btn btn-sm" onClick={() => onActivate(d.id)}>
-                    Грати нею
+                    Брати в бій
                   </button>
                 )}
-                {d.id === CLASSIC_DECK.id ? (
-                  <button className="btn btn-sm" onClick={() => startNew(CLASSIC_DECK)}>
-                    Створити на її основі
+                <button
+                  className="btn btn-sm"
+                  onClick={() => {
+                    setDraft({ ...d, pawnVersions: [...d.pawnVersions] });
+                    setIsNew(false);
+                  }}
+                >
+                  Змінити
+                </button>
+                <button className="btn btn-sm" onClick={() => startNew(d)}>
+                  Копія
+                </button>
+                {saved.length > 1 && (
+                  <button
+                    className="btn btn-sm btn-danger"
+                    onClick={() => {
+                      if (confirmDelete !== d.id) return setConfirmDelete(d.id);
+                      setConfirmDelete(null);
+                      onDelete(d.id);
+                    }}
+                    onBlur={() => setConfirmDelete(null)}
+                  >
+                    {confirmDelete === d.id ? 'Точно видалити?' : 'Видалити'}
                   </button>
-                ) : (
-                  <>
-                    <button
-                      className="btn btn-sm"
-                      onClick={() => {
-                        setDraft({ ...d, pawnVersions: [...d.pawnVersions] });
-                        setIsNew(false);
-                      }}
-                    >
-                      Змінити
-                    </button>
-                    <button className="btn btn-sm" onClick={() => startNew(d)}>
-                      Копія
-                    </button>
-                    <button
-                      className="btn btn-sm btn-danger"
-                      onClick={() => {
-                        if (confirmDelete !== d.id) return setConfirmDelete(d.id);
-                        setConfirmDelete(null);
-                        onDelete(d.id);
-                      }}
-                      onBlur={() => setConfirmDelete(null)}
-                    >
-                      {confirmDelete === d.id ? 'Точно видалити?' : 'Видалити'}
-                    </button>
-                  </>
                 )}
               </div>
             </div>
@@ -137,7 +140,7 @@ function DeckSummary({ deck }: { deck: Deck }) {
 }
 
 /** Small read-only picture of the deck's two ranks. */
-function MiniBoard({ deck }: { deck: Deck }) {
+export function MiniBoard({ deck }: { deck: Deck }) {
   return (
     <div className="mini-board">
       {[8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7].map((i) => {
@@ -145,8 +148,8 @@ function MiniBoard({ deck }: { deck: Deck }) {
         const file = i % 8;
         const light = (file + (i >= 8 ? 1 : 0)) % 2 === 1;
         return (
-          <div key={i} className={`mini-sq ${light ? 'light' : 'dark'} r-${card.rarity}`}>
-            <PieceSvg type={card.pieceType} color="w" />
+          <div key={i} className={`mini-sq ${light ? 'light' : 'dark'} r-${card.rarity}`} title={card.name}>
+            <CardArt cardId={card.id} />
             {!card.id.endsWith('-classic') && <span className="mini-dot" />}
           </div>
         );
@@ -168,12 +171,13 @@ interface DragState {
 interface EditorProps {
   draft: Deck;
   isNew: boolean;
+  owned: Record<string, { dupes: number }>;
   onChange: (d: Deck) => void;
   onCancel: () => void;
   onSave: () => void;
 }
 
-function DeckEditor({ draft, isNew, onChange, onCancel, onSave }: EditorProps) {
+function DeckEditor({ draft, isNew, owned, onChange, onCancel, onSave }: EditorProps) {
   const errors = useMemo(() => validateDeck(draft), [draft]);
   const [selected, setSelected] = useState<number>(4);
   const [filter, setFilter] = useState<PieceType | 'auto'>('auto');
@@ -191,6 +195,10 @@ function DeckEditor({ draft, isNew, onChange, onCancel, onSave }: EditorProps) {
   const inspected = CARD_BY_ID[inspect ?? cardAt(draft, selected)];
 
   const place = (index: number, cardId: string, allPawns = false) => {
+    if (!owned[cardId]) {
+      setMessage({ text: `«${CARD_BY_ID[cardId].name}» ще не відкрита — шукайте її в паках.`, bad: true });
+      return;
+    }
     const res = placeCard(draft, index, cardId, allPawns);
     if (!res.deck) {
       setMessage({ text: res.error, bad: true });
@@ -260,7 +268,7 @@ function DeckEditor({ draft, isNew, onChange, onCancel, onSave }: EditorProps) {
       >
         <span className={`deck-piece r-${card.rarity}`}>
           {!card.id.endsWith('-classic') && <span className="piece-aura" />}
-          <PieceSvg type={card.pieceType} color="w" />
+          <CardArt cardId={card.id} className="deck-art" />
           {!card.id.endsWith('-classic') && (
             <span className="piece-emblem">
               <Emblem cardId={card.id} />
@@ -291,9 +299,7 @@ function DeckEditor({ draft, isNew, onChange, onCancel, onSave }: EditorProps) {
           <button className="btn" onClick={onCancel}>
             {isNew ? 'Скасувати' : 'Закрити'}
           </button>
-          <button className="btn btn-ghost" onClick={() => onChange({ ...classicDeck(draft.id, draft.name) })}>
-            Скинути до класики
-          </button>
+
         </div>
       </div>
       {errors.length > 0 && (
@@ -370,12 +376,13 @@ function DeckEditor({ draft, isNew, onChange, onCancel, onSave }: EditorProps) {
           <div className="mini-cards">
             {collection.map((c) => {
               const inDeck = deckPositions(draft).includes(c.id);
+              const locked = !owned[c.id];
               return (
                 <div
                   key={c.id}
-                  className={`mini-card r-${c.rarity} ${inDeck ? 'in-deck' : ''} ${drag?.cardId === c.id ? 'dragging' : ''}`}
+                  className={`mini-card r-${c.rarity} ${inDeck ? 'in-deck' : ''} ${locked ? 'locked' : ''} ${drag?.cardId === c.id ? 'dragging' : ''}`}
                   onPointerDown={(e) => {
-                    if (e.button !== 0) return;
+                    if (e.button !== 0 || locked) return;
                     e.preventDefault();
                     pressRef.current = { cardId: c.id, x: e.clientX, y: e.clientY, started: false };
                   }}
@@ -384,7 +391,12 @@ function DeckEditor({ draft, isNew, onChange, onCancel, onSave }: EditorProps) {
                   title={c.rulesText}
                 >
                   <div className="mini-card-art">
-                    <PieceSvg type={c.pieceType} color="w" />
+                    <CardArt cardId={c.id} />
+                    {locked && (
+                      <span className="mini-lock">
+                        <Icon name="lock" />
+                      </span>
+                    )}
                     <span className="mini-card-emblem">
                       <Emblem cardId={c.id} />
                     </span>
@@ -403,7 +415,7 @@ function DeckEditor({ draft, isNew, onChange, onCancel, onSave }: EditorProps) {
 
       {drag && (
         <div className={`drag-ghost r-${CARD_BY_ID[drag.cardId].rarity}`} style={{ left: drag.x, top: drag.y }}>
-          <PieceSvg type={CARD_BY_ID[drag.cardId].pieceType} color="w" />
+          <CardArt cardId={drag.cardId} />
           <span>{CARD_BY_ID[drag.cardId].name}</span>
         </div>
       )}

@@ -1,82 +1,129 @@
-import { useEffect, useState } from 'react';
-import type { Deck } from '../engine/types';
-import { CatalogPage } from './CatalogPage';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { type Api, type Profile, createApi } from '../api/client';
+import { AdminPage } from './AdminPage';
+import { AuthPage } from './AuthPage';
+import { CollectionPage } from './CollectionPage';
 import { DeckPage } from './DeckPage';
-import { MatchPage } from './MatchPage';
-import { Glyph } from './common';
-import { CLASSIC_DECK, allDecks, loadActiveDeckId, loadDecks, saveActiveDeckId, saveDecks } from './storage';
+import { HomePage } from './HomePage';
+import { LeaderboardPage } from './LeaderboardPage';
+import { cardArt } from './cardArt';
+import { Icon } from './icons';
+import { type Loaded, SessionProvider, type Toast, errorText, loadAll, useSession } from './state';
 
-type Route = 'cards' | 'deck' | 'match';
+type Route = 'play' | 'cards' | 'deck' | 'top' | 'admin';
 
-const ROUTES: { id: Route; label: string }[] = [
-  { id: 'cards', label: 'Колекція' },
-  { id: 'deck', label: 'Колода' },
-  { id: 'match', label: 'Матч' },
+const ROUTES: { id: Route; label: string; icon: string; admin?: boolean }[] = [
+  { id: 'play', label: 'Грати', icon: 'play' },
+  { id: 'cards', label: 'Колекція', icon: 'cards' },
+  { id: 'deck', label: 'Колоди', icon: 'deck' },
+  { id: 'top', label: 'Рейтинг', icon: 'trophy' },
+  { id: 'admin', label: 'Адмін', icon: 'shield', admin: true },
 ];
 
 function readRoute(): Route {
   const h = window.location.hash.replace(/^#\/?/, '');
-  return (ROUTES.find((r) => r.id === h)?.id ?? 'match') as Route;
+  return ROUTES.find((r) => r.id === h)?.id ?? 'play';
 }
 
 export function App() {
-  const [route, setRoute] = useState<Route>(readRoute);
-  const [saved, setSaved] = useState<Deck[]>(loadDecks);
-  const [activeId, setActiveId] = useState<string>(() => {
-    const id = loadActiveDeckId();
-    return allDecks(loadDecks()).some((d) => d.id === id) ? id : CLASSIC_DECK.id;
-  });
+  const [api, setApi] = useState<Api | null>(null);
+  const [loaded, setLoaded] = useState<Loaded | null | 'anon'>(null);
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const toastId = useRef(0);
 
+  const toast = useCallback((text: string, kind: Toast['kind'] = 'ok') => {
+    const id = ++toastId.current;
+    setToasts((t) => [...t, { id, text, kind }]);
+    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 4200);
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      const a = await createApi();
+      setApi(a);
+      const me = await a.me().catch(() => null);
+      setLoaded(me ? await loadAll(a, me) : 'anon');
+    })().catch((e) => {
+      toast(errorText(e), 'error');
+      setLoaded('anon');
+    });
+  }, [toast]);
+
+  const onAuth = async (p: Profile) => setLoaded(await loadAll(api!, p));
+
+  return (
+    <>
+      {!api || loaded === null ? (
+        <div className="splash">
+          <img src={cardArt('knight-berserk')!} alt="" className="pixel splash-art" />
+          <span className="logo">
+            Ultra<b>chess</b>
+          </span>
+        </div>
+      ) : loaded === 'anon' ? (
+        <AuthPage api={api} onAuth={onAuth} />
+      ) : (
+        <SessionProvider api={api} initial={loaded} onLogout={() => setLoaded('anon')} toast={toast}>
+          <Shell />
+        </SessionProvider>
+      )}
+      <div className="toasts" aria-live="polite">
+        {toasts.map((t) => (
+          <div key={t.id} className={`toast toast-${t.kind}`}>
+            {t.text}
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+function Shell() {
+  const s = useSession();
+  const [route, setRoute] = useState<Route>(readRoute);
   useEffect(() => {
     const onHash = () => setRoute(readRoute());
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
-
-  const updateSaved = (next: Deck[]) => {
-    setSaved(next);
-    saveDecks(next);
-  };
-  const activate = (id: string) => {
-    setActiveId(id);
-    saveActiveDeckId(id);
-  };
+  const routes = ROUTES.filter((r) => !r.admin || s.profile.role === 'admin');
+  const readyPacks = s.packs.filter((p) => p.status === 'ready' || (p.status === 'unlocking' && (p.unlockAt ?? 0) <= Date.now())).length;
 
   return (
-    <div className="app">
-      <header className="topbar">
-        <a className="brand" href="#/match">
-          <Glyph type="knight" color="w" /> Ultra<b>chess</b>
+    <div className="shell">
+      <aside className="sidebar">
+        <a className="brand" href="#/play">
+          <img src={cardArt('knight-berserk')!} alt="" className="pixel brand-art" />
+          <span>
+            Ultra<b>chess</b>
+          </span>
         </a>
-        <nav>
-          {ROUTES.map((r) => (
+        <nav className="nav">
+          {routes.map((r) => (
             <a key={r.id} href={`#/${r.id}`} className={route === r.id ? 'active' : ''}>
-              {r.label}
+              <Icon name={r.icon} />
+              <span>{r.label}</span>
+              {r.id === 'play' && readyPacks > 0 && <span className="nav-badge">{readyPacks}</span>}
             </a>
           ))}
         </nav>
-      </header>
-      <main>
-        {route === 'cards' && <CatalogPage />}
-        {route === 'deck' && (
-          <DeckPage
-            saved={saved}
-            activeId={activeId}
-            onActivate={activate}
-            onSave={(deck) => {
-              const exists = saved.some((d) => d.id === deck.id);
-              updateSaved(exists ? saved.map((d) => (d.id === deck.id ? deck : d)) : [...saved, deck]);
-            }}
-            onDelete={(id) => {
-              updateSaved(saved.filter((d) => d.id !== id));
-              if (activeId === id) activate(CLASSIC_DECK.id);
-            }}
-          />
-        )}
-        {/* Kept mounted so a running game survives visits to other tabs. */}
-        <div hidden={route !== 'match'}>
-          <MatchPage decks={allDecks(saved)} activeId={activeId} />
+        <div className="me">
+          <span className="avatar">{s.profile.name.slice(0, 1).toUpperCase()}</span>
+          <span className="me-info">
+            <b>{s.profile.name}</b>
+            <small>🏆 {s.profile.trophies}</small>
+          </span>
+          <button className="icon-btn" onClick={() => s.logout()} aria-label="Вийти" title="Вийти">
+            <Icon name="logout" />
+          </button>
         </div>
+      </aside>
+      <main className="content">
+        {route === 'play' && <HomePage />}
+        {route === 'cards' && <CollectionPage />}
+        {route === 'deck' && <DeckPage />}
+        {route === 'top' && <LeaderboardPage />}
+        {route === 'admin' && s.profile.role === 'admin' && <AdminPage />}
       </main>
     </div>
   );

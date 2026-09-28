@@ -6,128 +6,59 @@ import { opposite, squareName } from '../engine/coords';
 import { legalMoves } from '../engine/legal';
 import { type Action, type MatchState, createMatch, fullMoves, performAction, resign, withHint } from '../engine/match';
 import { findKing } from '../engine/position';
-import type { Color, Deck, Move, PieceType, Square } from '../engine/types';
+import type { Color, Move, PieceType, Square } from '../engine/types';
+import type { MatchFinish, MatchStart } from '../api/client';
+import { packArt } from './cardArt';
 import { playerView } from '../engine/view';
 import { Board, type Mark } from './Board';
 import { requestBotTurn, requestHint } from './botClient';
 import { CardView, Glyph } from './common';
-import { CLASSIC_DECK } from './storage';
 
-interface Props {
-  decks: Deck[];
-  activeId: string;
+export interface GameProps {
+  start: MatchStart;
+  playerName: string;
+  trophies: number;
+  /** Report the finished game; resolves to the server's verdict. */
+  onFinish: (actions: Action[], resigned: boolean) => Promise<MatchFinish>;
+  onExit: () => void;
+  onRematch: () => void;
 }
-
-interface GameConfig {
-  human: Color;
-  level: number;
-  myDeck: Deck;
-  botDeck: Deck;
-}
-
-const LEVELS = [
-  { level: 1, name: 'Легкий', desc: 'дивиться на 1 хід уперед' },
-  { level: 2, name: 'Середній', desc: 'свій хід + відповідь суперника' },
-  { level: 3, name: 'Складний', desc: 'на 3 півходи, думає довше' },
-];
 
 export function botOptions(level: number): BotOptions {
   return { depth: level, timeMs: level >= 3 ? 2500 : 1500 };
 }
 
-export function MatchPage({ decks, activeId }: Props) {
-  const [myDeckId, setMyDeckId] = useState(activeId);
-  const [botDeckId, setBotDeckId] = useState(CLASSIC_DECK.id);
-  const [human, setHuman] = useState<Color>('w');
-  const [level, setLevel] = useState(2);
-  const [game, setGame] = useState<{ id: number; cfg: GameConfig } | null>(null);
-
-  useEffect(() => setMyDeckId(activeId), [activeId]);
-
-  const find = (id: string) => decks.find((d) => d.id === id) ?? CLASSIC_DECK;
-  const start = (cfg?: GameConfig) =>
-    setGame({
-      id: Date.now(),
-      cfg: cfg ?? { human, level, myDeck: find(myDeckId), botDeck: find(botDeckId) },
-    });
-
-  if (game) {
-    return (
-      <Game
-        key={game.id}
-        cfg={game.cfg}
-        onNew={() => setGame(null)}
-        onRematch={() => start({ ...game.cfg })}
-      />
-    );
-  }
-
-  return (
-    <section className="page">
-      <div className="page-head">
-        <h1>Матч проти бота</h1>
-        <p className="muted">Дошка 8×8, ваша колода проти колоди бота. Партія йде лише в цьому браузері.</p>
-      </div>
-      <div className="panel setup">
-        <label className="field">
-          <span>Ваша колода</span>
-          <select value={myDeckId} onChange={(e) => setMyDeckId(e.target.value)}>
-            {decks.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="field">
-          <span>Колода бота</span>
-          <select value={botDeckId} onChange={(e) => setBotDeckId(e.target.value)}>
-            {decks.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="field">
-          <span>Ваш колір</span>
-          <div className="chip-row">
-            <button className={`chip ${human === 'w' ? 'on' : ''}`} onClick={() => setHuman('w')}>
-              <Glyph type="king" color="w" /> Білі (ходять першими)
-            </button>
-            <button className={`chip ${human === 'b' ? 'on' : ''}`} onClick={() => setHuman('b')}>
-              <Glyph type="king" color="b" /> Чорні
-            </button>
-          </div>
-        </div>
-        <div className="field">
-          <span>Рівень бота</span>
-          <div className="chip-row">
-            {LEVELS.map((l) => (
-              <button key={l.level} className={`chip ${level === l.level ? 'on' : ''}`} onClick={() => setLevel(l.level)} title={l.desc}>
-                {l.name}
-              </button>
-            ))}
-          </div>
-          <span className="muted small">{LEVELS.find((l) => l.level === level)?.desc}</span>
-        </div>
-        <button className="btn btn-primary btn-lg" onClick={() => start()}>
-          Почати партію
-        </button>
-      </div>
-    </section>
-  );
-}
-
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-function Game({ cfg, onNew, onRematch }: { cfg: GameConfig; onNew: () => void; onRematch: () => void }) {
-  const { human } = cfg;
+export function Game({ start, playerName, trophies, onFinish, onExit, onRematch }: GameProps) {
+  const human = start.color;
   const bot = opposite(human);
-  const botOpts = botOptions(cfg.level);
-  const [match, setMatch] = useState<MatchState>(() =>
-    human === 'w' ? createMatch(cfg.myDeck, cfg.botDeck) : createMatch(cfg.botDeck, cfg.myDeck),
+  const botOpts = botOptions(start.botLevel);
+  const [match, setMatchState] = useState<MatchState>(() =>
+    human === 'w' ? createMatch(start.playerDeck, start.botDeck) : createMatch(start.botDeck, start.playerDeck),
   );
+  // Every action is recorded so the server can replay and verify the game.
+  const actionsRef = useRef<Action[]>([]);
+  const matchRef = useRef(match);
+  const setMatch = (next: MatchState) => {
+    matchRef.current = next;
+    setMatchState(next);
+  };
+  const apply = (m: MatchState, a: Action): MatchState => {
+    const next = performAction(m, a);
+    actionsRef.current.push(a);
+    return next;
+  };
+  const [verdict, setVerdict] = useState<MatchFinish | null>(null);
+  const [verdictError, setVerdictError] = useState<string | null>(null);
+  const reported = useRef(false);
+  const report = (resigned: boolean) => {
+    if (reported.current) return;
+    reported.current = true;
+    onFinish(actionsRef.current, resigned)
+      .then((v) => alive.current && setVerdict(v))
+      .catch((e) => alive.current && setVerdictError(e instanceof Error ? e.message : String(e)));
+  };
   const [selected, setSelected] = useState<Square | null>(null);
   const [choice, setChoice] = useState<Move[] | null>(null);
   const [menu, setMenu] = useState<string | null>(null);
@@ -170,7 +101,7 @@ function Game({ cfg, onNew, onRematch }: { cfg: GameConfig; onNew: () => void; o
   const act = useCallback(
     (action: Action) => {
       try {
-        setMatch((m) => performAction(m, action));
+        setMatch(apply(matchRef.current, action));
         setError(null);
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
@@ -199,14 +130,21 @@ function Game({ cfg, onNew, onRematch }: { cfg: GameConfig; onNew: () => void; o
       try {
         const turn = await requestBotTurn(match, bot, botOpts);
         await sleep(Math.max(0, 450 - (Date.now() - started)));
-        for (const a of turn.actions) next = performAction(next, a);
+        const recorded: Action[] = [];
+        for (const a of turn.actions) {
+          next = performAction(next, a);
+          recorded.push(a);
+        }
+        if (token !== botToken.current || !alive.current) return;
+        actionsRef.current.push(...recorded);
       } catch (e) {
         console.error('Bot failed, playing a fallback move', e);
+        if (token !== botToken.current || !alive.current) return;
         next = match;
         const pc = next.pending.find((p) => p.color === bot);
-        if (pc) next = performAction(next, { type: 'choose', square: pc.options[0] });
+        if (pc) next = apply(next, { type: 'choose', square: pc.options[0] });
         const fallback = legalMoves(next)[0];
-        if (fallback) next = performAction(next, { type: 'move', move: fallback });
+        if (fallback) next = apply(next, { type: 'move', move: fallback });
       }
       if (token !== botToken.current || !alive.current) return;
       setMatch(next);
@@ -233,10 +171,15 @@ function Game({ cfg, onNew, onRematch }: { cfg: GameConfig; onNew: () => void; o
     setSelected(cell && s !== selected ? s : null);
   };
 
+  useEffect(() => {
+    if (match.result) report(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [match.result]);
+
   const showHint = async (pieceId: string) => {
     let armed: MatchState;
     try {
-      armed = performAction(match, { type: 'ability', pieceId, key: 'show' });
+      armed = apply(match, { type: 'ability', pieceId, key: 'show' });
     } catch (e) {
       setError(String(e));
       return;
@@ -245,7 +188,7 @@ function Game({ cfg, onNew, onRematch }: { cfg: GameConfig; onNew: () => void; o
     setHintBusy(true);
     try {
       const move = await requestHint(armed, human, { ...botOpts, depth: Math.max(2, botOpts.depth) });
-      if (alive.current) setMatch((m) => (m.ply === armed.ply ? withHint(m, human, move) : m));
+      if (alive.current && matchRef.current.ply === armed.ply) setMatch(withHint(matchRef.current, human, move));
     } finally {
       if (alive.current) setHintBusy(false);
     }
@@ -283,8 +226,12 @@ function Game({ cfg, onNew, onRematch }: { cfg: GameConfig; onNew: () => void; o
     <section className="page game">
       <div className="game-board-col">
         <div className={`player-bar ${match.turn === bot && !match.result ? 'to-move' : ''}`}>
-          <span>
-            <Glyph type="king" color={bot} /> Бот · {cfg.botDeck.name}
+          <span className="pb-who">
+            <span className="avatar avatar-bot">🤖</span>
+            <span>
+              <b>Бот · рівень {start.botLevel}</b>
+              <small className="muted">{start.botDeck.name}</small>
+            </span>
           </span>
           <Captured types={lostPieces(match, human)} color={human} />
           {thinking && <span className="thinking" aria-live="polite">думає…</span>}
@@ -301,8 +248,14 @@ function Game({ cfg, onNew, onRematch }: { cfg: GameConfig; onNew: () => void; o
           onSquare={onSquare}
         />
         <div className={`player-bar ${myTurn ? 'to-move' : ''}`}>
-          <span>
-            <Glyph type="king" color={human} /> Ви · {cfg.myDeck.name}
+          <span className="pb-who">
+            <span className="avatar">{playerName.slice(0, 1).toUpperCase()}</span>
+            <span>
+              <b>{playerName}</b>
+              <small className="muted">
+                🏆 {trophies} · {start.playerDeck.name}
+              </small>
+            </span>
           </span>
           <Captured types={lostPieces(match, bot)} color={bot} />
           <span className="muted small">Хід {fullMoves(match.ply) + (match.turn === 'w' ? 1 : 0)}</span>
@@ -311,6 +264,8 @@ function Game({ cfg, onNew, onRematch }: { cfg: GameConfig; onNew: () => void; o
 
       <aside className="game-side">
         <div className={`panel status status-${match.result ? 'over' : myTurn ? 'mine' : 'bot'}`} aria-live="polite">
+          <span className="eyebrow mode-tag">{start.ranked ? 'Рейтинговий бій' : 'Тренування'}</span>
+          <br />
           <strong>{statusText}</strong>
           {error && <p className="error-text">{error}</p>}
           {mirage && <p className="tip">Міраж увімкнено: оберіть стрибок коня без взяття.</p>}
@@ -430,15 +385,21 @@ function Game({ cfg, onNew, onRematch }: { cfg: GameConfig; onNew: () => void; o
           {!match.result && (
             <button
               className="btn btn-danger"
-              onClick={() => (confirmResign ? setMatch((m) => resign(m, human)) : setConfirmResign(true))}
+              onClick={() => {
+                if (!confirmResign) return setConfirmResign(true);
+                setMatch(resign(matchRef.current, human));
+                report(true);
+              }}
               onBlur={() => setConfirmResign(false)}
             >
               {confirmResign ? 'Точно здатися?' : 'Здатися'}
             </button>
           )}
-          <button className="btn" onClick={onNew}>
-            Нова партія
-          </button>
+          {match.result && (
+            <button className="btn" onClick={onExit}>
+              До меню
+            </button>
+          )}
         </div>
       </aside>
 
@@ -462,20 +423,43 @@ function Game({ cfg, onNew, onRematch }: { cfg: GameConfig; onNew: () => void; o
       {match.result && showSummary && (
         <div className="modal-backdrop">
           <div className="modal summary" role="dialog" aria-label="Підсумок партії">
-            <h2>{match.result.winner === null ? 'Нічия' : match.result.winner === human ? 'Перемога!' : 'Поразка'}</h2>
-            <p>{match.result.reason}</p>
-            <p className="muted">
-              Переможець: {match.result.winner === null ? '—' : match.result.winner === human ? 'ви' : 'бот'} · Ходів: {match.result.moves}
+            <h2 className={`outcome outcome-${match.result.winner === null ? 'draw' : match.result.winner === human ? 'win' : 'loss'}`}>
+              {match.result.winner === null ? 'Нічия' : match.result.winner === human ? 'Перемога!' : 'Поразка'}
+            </h2>
+            <p>
+              {match.result.reason} · ходів: {match.result.moves}
             </p>
+            {!verdict && !verdictError && <p className="muted">Перевіряємо партію…</p>}
+            {verdictError && <p className="error-text">{verdictError}</p>}
+            {verdict && start.ranked && (
+              <div className="verdict">
+                <span className={`trophy-delta ${verdict.trophiesDelta >= 0 ? 'up' : 'down'}`}>
+                  🏆 {verdict.trophiesDelta >= 0 ? '+' : ''}
+                  {verdict.trophiesDelta}
+                </span>
+                <span className="muted">Тепер: {verdict.profile.trophies} · {verdict.profile.arena}</span>
+                {verdict.reward && (
+                  <div className="reward">
+                    <img className="pack-img" src={packArt(verdict.reward.type)} alt="" />
+                    <div>
+                      <b>{verdict.reward.name}</b>
+                      <small className="muted">у слоті на головній · відкривається {verdict.reward.unlockMinutes} хв</small>
+                    </div>
+                  </div>
+                )}
+                {verdict.rewardSkipped && <p className="error-text small">Усі 4 слоти зайняті — пак не отримано. Відкрийте паки!</p>}
+              </div>
+            )}
+            {verdict && !start.ranked && <p className="muted">Тренування: кубки й паки не нараховуються.</p>}
             <div className="editor-actions">
               <button className="btn btn-primary" onClick={onRematch}>
-                Реванш
+                Ще бій
               </button>
-              <button className="btn" onClick={onNew}>
-                Нова партія
+              <button className="btn" onClick={onExit}>
+                До меню
               </button>
               <button className="btn btn-ghost" onClick={() => setShowSummary(false)}>
-                Переглянути дошку
+                Дошка
               </button>
             </div>
           </div>

@@ -1,0 +1,117 @@
+// Persistence contract for the game service. Implemented by SQLite on the
+// server (server/sqliteStore.ts) and by localStorage in the browser demo.
+
+import type { Deck } from '../engine/types';
+import type { PackType } from './packs';
+
+export type Role = 'player' | 'admin';
+
+export interface UserRow {
+  id: string;
+  email: string;
+  name: string;
+  role: Role;
+  /** null for a seeded account whose owner has not set a password yet. */
+  passHash: string | null;
+  trophies: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  /** Ranked wins so far (drives the reward cycle). */
+  cycle: number;
+  starterGiven: boolean;
+  activeDeckId: string | null;
+  createdAt: number;
+}
+
+export interface SessionRow {
+  token: string;
+  userId: string;
+  expiresAt: number;
+}
+
+export interface CardRow {
+  userId: string;
+  cardId: string;
+  dupes: number;
+}
+
+export type PackStatus = 'locked' | 'unlocking' | 'ready' | 'opened';
+
+export interface PackRow {
+  id: string;
+  userId: string;
+  type: PackType;
+  /** Occupies one of the 4 reward slots (packs won in matches). */
+  slot: boolean;
+  status: PackStatus;
+  unlockAt: number | null;
+  source: string;
+  createdAt: number;
+  openedAt: number | null;
+  /** Card ids revealed when opened (JSON). */
+  result: string | null;
+}
+
+export interface DeckRow {
+  id: string;
+  userId: string;
+  deck: Deck;
+  updatedAt: number;
+}
+
+export interface MatchRow {
+  id: string;
+  userId: string;
+  ranked: boolean;
+  color: 'w' | 'b';
+  botLevel: number;
+  playerDeck: Deck;
+  botDeck: Deck;
+  status: 'active' | 'finished';
+  result: string | null;
+  createdAt: number;
+}
+
+export interface Store {
+  getUser(id: string): Promise<UserRow | null>;
+  getUserByEmail(email: string): Promise<UserRow | null>;
+  insertUser(u: UserRow): Promise<void>;
+  updateUser(id: string, patch: Partial<UserRow>): Promise<void>;
+  listUsers(limit: number): Promise<UserRow[]>;
+
+  insertSession(s: SessionRow): Promise<void>;
+  getSession(token: string): Promise<SessionRow | null>;
+  deleteSession(token: string): Promise<void>;
+
+  listCards(userId: string): Promise<CardRow[]>;
+  /** Add a copy: creates the card or adds a duplicate. Returns true if new. */
+  addCard(userId: string, cardId: string): Promise<boolean>;
+  setDupes(userId: string, cardId: string, dupes: number): Promise<void>;
+
+  listPacks(userId: string): Promise<PackRow[]>;
+  getPack(id: string): Promise<PackRow | null>;
+  insertPack(p: PackRow): Promise<void>;
+  updatePack(id: string, patch: Partial<PackRow>): Promise<void>;
+  /** Atomically mark a ready pack as opened; false if it was not ready. */
+  claimPack(id: string, userId: string, openedAt: number): Promise<boolean>;
+
+  listDecks(userId: string): Promise<DeckRow[]>;
+  upsertDeck(d: DeckRow): Promise<void>;
+  deleteDeck(userId: string, id: string): Promise<void>;
+
+  insertMatch(m: MatchRow): Promise<void>;
+  getMatch(id: string): Promise<MatchRow | null>;
+  updateMatch(id: string, patch: Partial<MatchRow>): Promise<void>;
+}
+
+export interface Hasher {
+  hash(password: string): Promise<string>;
+  verify(password: string, hash: string): Promise<boolean>;
+}
+
+export function randomId(bytes = 16): string {
+  const a = new Uint8Array(bytes);
+  globalThis.crypto.getRandomValues(a);
+  return [...a].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
