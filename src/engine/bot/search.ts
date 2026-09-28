@@ -207,19 +207,21 @@ export function chooseTurn(state: MatchState, color: Color, opts: BotOptions = D
   for (const { piece, def } of abilityPieces(belief, color)) {
     if (def.id === 'hint' || def.viaMove || !abilityReady(belief, piece.id)) continue;
     const options = abilityOptions(belief, piece.id);
-    // Abilities only get the time left over from the main search.
-    if (!options.length || deadline - Date.now() < opts.timeMs * 0.4) continue;
+    // Abilities only get the time left over from the main search, unless a
+    // button is the only way to make a move at all.
+    const stuck = !base.move;
+    if (!options.length || (!stuck && deadline - Date.now() < opts.timeMs * 0.4)) continue;
     // Cheap screening first, then a full search on the two best options.
     const screened: { o: (typeof options)[number]; s: number }[] = [];
     for (const o of options) {
-      if (Date.now() > deadline) break;
+      if (!stuck && Date.now() > deadline) break;
       screened.push({ o, s: iterative(applyAbility(belief, piece.id, o.key).pos, 1, Infinity).score });
     }
     const shallow = screened.sort((a, b) => b.s - a.s).slice(0, 2);
     for (const { o } of shallow) {
-      if (Date.now() > deadline) break;
+      if (!stuck && Date.now() > deadline) break;
       const res = iterative(applyAbility(belief, piece.id, o.key).pos, depth, deadline);
-      const bar = (chosen?.res.score ?? base.score) + ABILITY_MARGIN;
+      const bar = stuck && !chosen ? -Infinity : (chosen?.res.score ?? base.score) + ABILITY_MARGIN;
       if (res.move && res.score > bar) chosen = { pieceId: piece.id, key: o.key, res };
     }
   }
@@ -234,7 +236,12 @@ export function chooseTurn(state: MatchState, color: Color, opts: BotOptions = D
       score: chosen.res.score,
     };
   }
-  if (!base.move) return { actions: [], score: base.score };
+  if (!base.move) {
+    // The believed position (with the opponent's illusions as real pieces)
+    // can have no moves while the real one does: play any real legal move.
+    const real = legalMoves(state);
+    return { actions: real.length ? [{ type: 'move', move: real[0] }] : [], score: base.score };
+  }
   return { actions: [{ type: 'move', move: toRealMove(state, base.move) }], score: base.score };
 }
 
