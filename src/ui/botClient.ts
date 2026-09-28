@@ -16,6 +16,8 @@ let worker: Worker | null = null;
 let workerFailed = false;
 let nextId = 1;
 const waiting = new Map<number, (r: BotResponse) => void>();
+const pending = new Map<number, Omit<BotRequest, 'id'>>();
+const resolvers = new Map<number, (r: BotResponse) => void>();
 
 function getWorker(): Worker | null {
   if (worker || workerFailed) return worker;
@@ -24,13 +26,20 @@ function getWorker(): Worker | null {
     worker.onmessage = (e: MessageEvent<BotResponse>) => {
       const cb = waiting.get(e.data.id);
       waiting.delete(e.data.id);
+      pending.delete(e.data.id);
+      resolvers.delete(e.data.id);
       cb?.(e.data);
     };
     worker.onerror = () => {
       workerFailed = true;
       worker = null;
-      for (const [id, cb] of waiting) cb({ id, error: 'worker failed' });
+      // Workers can be blocked by the host page: finish the requests here.
+      const stuck = [...pending.entries()];
       waiting.clear();
+      pending.clear();
+      const done = new Map(resolvers);
+      resolvers.clear();
+      for (const [id, req] of stuck) void run(req).then((r) => done.get(id)?.({ ...r, id }));
     };
   } catch {
     workerFailed = true;
@@ -59,6 +68,8 @@ function run(req: Omit<BotRequest, 'id'>): Promise<BotResponse> {
   }
   return new Promise((resolve) => {
     waiting.set(id, resolve);
+    pending.set(id, req);
+    resolvers.set(id, resolve);
     w.postMessage({ ...req, id });
   });
 }

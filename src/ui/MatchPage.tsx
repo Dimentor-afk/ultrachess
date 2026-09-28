@@ -137,6 +137,7 @@ function Game({ cfg, onNew, onRematch }: { cfg: GameConfig; onNew: () => void; o
   const [hintBusy, setHintBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showSummary, setShowSummary] = useState(true);
+  const [confirmResign, setConfirmResign] = useState(false);
   const alive = useRef(true);
   const historyRef = useRef<HTMLOListElement>(null);
   useEffect(() => () => void (alive.current = false), []);
@@ -422,8 +423,12 @@ function Game({ cfg, onNew, onRematch }: { cfg: GameConfig; onNew: () => void; o
 
         <div className="game-actions">
           {!match.result && (
-            <button className="btn btn-danger" onClick={() => confirm('Здатися?') && setMatch((m) => resign(m, human))}>
-              Здатися
+            <button
+              className="btn btn-danger"
+              onClick={() => (confirmResign ? setMatch((m) => resign(m, human)) : setConfirmResign(true))}
+              onBlur={() => setConfirmResign(false)}
+            >
+              {confirmResign ? 'Точно здатися?' : 'Здатися'}
             </button>
           )}
           <button className="btn" onClick={onNew}>

@@ -18,6 +18,7 @@ const PAWN_CARDS = CARDS.filter((c) => c.pieceType === 'pawn');
 export function DeckPage({ saved, activeId, onSave, onDelete, onActivate }: Props) {
   const [draft, setDraft] = useState<Deck | null>(null);
   const [isNew, setIsNew] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   const startNew = (base: Deck = CLASSIC_DECK) => {
     setDraft({ ...base, pawnVersions: [...base.pawnVersions], id: newDeckId(), name: base === CLASSIC_DECK ? 'Нова колода' : `${base.name} (копія)` });
@@ -77,13 +78,14 @@ export function DeckPage({ saved, activeId, onSave, onDelete, onActivate }: Prop
                       <button
                         className="btn btn-sm btn-danger"
                         onClick={() => {
-                          if (confirm(`Видалити колоду «${d.name}»?`)) {
-                            onDelete(d.id);
-                            if (draft?.id === d.id) setDraft(null);
-                          }
+                          if (confirmDelete !== d.id) return setConfirmDelete(d.id);
+                          setConfirmDelete(null);
+                          onDelete(d.id);
+                          if (draft?.id === d.id) setDraft(null);
                         }}
+                        onBlur={() => setConfirmDelete(null)}
                       >
-                        Видалити
+                        {confirmDelete === d.id ? 'Точно видалити?' : 'Видалити'}
                       </button>
                     </>
                   )}
