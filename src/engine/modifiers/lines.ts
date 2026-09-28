@@ -1,6 +1,6 @@
 // Special moves shared by line pieces (bishops, rooks, queens).
 
-import { NO_SQUARE, fileOf, isBoardSquare, isEdgeSquare, lastRank, offset, onBoard, rankOf, sq } from '../coords';
+import { NO_SQUARE, fileOf, isBoardSquare, isEdgeSquare, lastRank, offset, rankOf, sq } from '../coords';
 import {
   type GenCtx,
   defaultPassOwn,
@@ -128,18 +128,23 @@ export function turnMoves(ctx: GenCtx, p: Piece, from: Square, dirs: Dir[]): Mov
   return out;
 }
 
-/** Левітація: from an edge square step onto a platform outside the board. */
+/**
+ * Левітація: slide along a free line past the board edge onto a platform.
+ * An edge square steps straight off; from further away the whole line must
+ * be clear up to the edge.
+ */
 export function levitateMoves(ctx: GenCtx, p: Piece, from: Square, dirs: Dir[]): Move[] {
   const out: Move[] = [];
   if (ctx.attack || !isBoardSquare(from) || (ctx.pos.cooldowns[p.id] ?? 0) > 0) return out;
   for (const [df, dr] of dirs) {
-    const t = offset(from, df, dr);
-    if (t === NO_SQUARE || isBoardSquare(t) || ctx.pos.board[t] !== null) continue;
+    const { steps, block } = walk(ctx, from, df, dr, 9, defaultPassOwn(p));
+    if (!block || !block.ring || block.piece !== null) continue;
     out.push(
-      mk(p, from, t, {
+      mk(p, from, block.s, {
         kind: 'levitate',
         levitate: true,
         cooldown: LEVITATION_COOLDOWN,
+        path: [...stepSquares(steps), block.s],
         label: 'Левітація на платформу',
       }),
     );
@@ -171,47 +176,43 @@ export function pierceMoves(ctx: GenCtx, p: Piece, from: Square, dirs: Dir[]): M
   return out;
 }
 
-/** Портальний слон: leave through a side edge and re-enter from the opposite one. */
+/**
+ * Портальний слон: slide to the board edge, leave through it and reappear on
+ * the point-mirrored square (a6 → h3), then keep moving the same way.
+ */
 export function portalMoves(ctx: GenCtx, p: Piece, from: Square, dirs: Dir[]): Move[] {
   const out: Move[] = [];
   if (ctx.pos.onceUsed[p.id] || !isBoardSquare(from)) return out;
   const passOwn = defaultPassOwn(p);
+  const add = (s: Square, path: Square[], capture: boolean) => {
+    if (!capture && ctx.attack) return;
+    out.push(
+      mk(p, from, s, {
+        kind: 'special',
+        once: true,
+        captures: capture ? [s] : [],
+        path: path.slice(),
+        label: capture ? 'Взяття через портал (раз за гру)' : 'Через портал (раз за гру)',
+      }),
+    );
+  };
   for (const [df, dr] of dirs) {
-    let s = from;
-    let wrapped = false;
-    const path: Square[] = [];
-    for (let k = 0; k < 16; k++) {
-      let f = fileOf(s) + df;
-      let r = rankOf(s) + dr;
-      if (!onBoard(f, r)) {
-        // The portal links the side edges only (a↔h), like cylinder chess.
-        if (wrapped || r < 0 || r > 7) break;
-        wrapped = true;
-        f = (f + 8) % 8;
-      }
-      s = sq(f, r);
-      if (s === from) break;
+    // 1. Reach the edge along a free line (at least one square of travel).
+    const { steps, block } = walk(ctx, from, df, dr, 9, passOwn);
+    if (steps.length === 0 || (block && !block.ring)) continue;
+    const last = steps[steps.length - 1].s;
+    const path = stepSquares(steps);
+    // 2. Reappear on the mirrored square and continue the same direction.
+    let s = sq(7 - fileOf(last), 7 - rankOf(last));
+    while (s !== NO_SQUARE && isBoardSquare(s) && s !== from) {
       path.push(s);
       const q = seen(ctx, s);
-      if (!q) {
-        if (wrapped && !ctx.attack) {
-          out.push(mk(p, from, s, { kind: 'special', once: true, path: path.slice(), label: 'Через портал (раз за гру)' }));
-        }
-        continue;
-      }
-      if (q.color === ctx.color && passOwn?.(q)) continue;
-      if (q.color === ctx.enemy && wrapped) {
-        out.push(
-          mk(p, from, s, {
-            kind: 'special',
-            once: true,
-            captures: [s],
-            path: path.slice(),
-            label: 'Взяття через портал (раз за гру)',
-          }),
-        );
-      }
-      break;
+      if (!q) add(s, path, false);
+      else if (q.color === ctx.enemy) {
+        add(s, path, true);
+        break;
+      } else if (!passOwn?.(q)) break;
+      s = offset(s, df, dr);
     }
   }
   return out;

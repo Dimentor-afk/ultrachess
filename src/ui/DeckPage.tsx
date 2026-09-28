@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
-import { CARDS, CARD_BY_ID, RARITY_NAMES, RARITY_ORDER } from '../engine/cards';
-import { DECK_SLOTS, FORMATION_PRESETS, classicDeck, deckPositions, validateDeck } from '../engine/deck';
-import type { Deck } from '../engine/types';
-import { CardView, Glyph, RarityTag } from './common';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { CARDS, CARD_BY_ID, PIECE_NAMES, PIECE_ORDER, RARITY_ORDER } from '../engine/cards';
+import { cardAt, classicDeck, deckPositions, placeCard, slotType, validateDeck } from '../engine/deck';
+import type { Deck, PieceType } from '../engine/types';
+import { Emblem, PieceSvg } from './art';
+import { CardView, RarityTag } from './common';
 import { CLASSIC_DECK, newDeckId } from './storage';
 
 interface Props {
@@ -13,118 +14,111 @@ interface Props {
   onActivate: (id: string) => void;
 }
 
-const PAWN_CARDS = CARDS.filter((c) => c.pieceType === 'pawn');
-
 export function DeckPage({ saved, activeId, onSave, onDelete, onActivate }: Props) {
   const [draft, setDraft] = useState<Deck | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   const startNew = (base: Deck = CLASSIC_DECK) => {
-    setDraft({ ...base, pawnVersions: [...base.pawnVersions], id: newDeckId(), name: base === CLASSIC_DECK ? 'Нова колода' : `${base.name} (копія)` });
+    setDraft({
+      ...base,
+      pawnVersions: [...base.pawnVersions],
+      id: newDeckId(),
+      name: base === CLASSIC_DECK ? 'Нова колода' : `${base.name} (копія)`,
+    });
     setIsNew(true);
   };
 
+  if (draft) {
+    return (
+      <section className="page">
+        <DeckEditor
+          key={draft.id}
+          draft={draft}
+          isNew={isNew}
+          onChange={setDraft}
+          onCancel={() => setDraft(null)}
+          onSave={() => {
+            onSave(draft);
+            setIsNew(false);
+            setDraft(null);
+          }}
+        />
+      </section>
+    );
+  }
+
   return (
     <section className="page">
-      <div className="page-head">
-        <h1>Конструктор колоди</h1>
-        <p className="muted">
-          16 позицій: 8 пішаків (1–2 версії та формація), дві тури, два слони, два коні, ферзь і король. У всій колоді —
-          не більше однієї міфологічної картки.
-        </p>
+      <div className="page-head page-head-row">
+        <div>
+          <h1>Колоди</h1>
+          <p className="muted">Зберіть 16 фігур: перетягніть картки на дошку. Колода для матчу позначена зеленим.</p>
+        </div>
+        <button className="btn btn-primary btn-lg" onClick={() => startNew()}>
+          + Нова колода
+        </button>
       </div>
 
-      <div className="deck-layout">
-        <aside className="deck-list panel">
-          <div className="panel-title-row">
-            <h2>Мої колоди</h2>
-            <button className="btn btn-primary btn-sm" onClick={() => startNew()}>
-              + Нова
-            </button>
-          </div>
-          <ul>
-            {[CLASSIC_DECK, ...saved].map((d) => (
-              <li key={d.id} className={`deck-item ${draft?.id === d.id ? 'editing' : ''}`}>
-                <div className="deck-item-main">
-                  <strong>{d.name}</strong>
-                  {d.id === activeId && <span className="pill pill-ok">для матчу</span>}
-                  <DeckSummary deck={d} />
-                </div>
-                <div className="deck-item-actions">
-                  {d.id !== activeId && (
-                    <button className="btn btn-sm" onClick={() => onActivate(d.id)}>
-                      Грати нею
+      <div className="deck-grid">
+        {[CLASSIC_DECK, ...saved].map((d) => (
+          <article key={d.id} className={`deck-tile ${d.id === activeId ? 'active' : ''}`}>
+            <MiniBoard deck={d} />
+            <div className="deck-tile-body">
+              <div className="deck-tile-title">
+                <strong>{d.name}</strong>
+                {d.id === activeId && <span className="pill pill-ok">для матчу</span>}
+              </div>
+              <DeckSummary deck={d} />
+              <div className="deck-item-actions">
+                {d.id !== activeId && (
+                  <button className="btn btn-sm" onClick={() => onActivate(d.id)}>
+                    Грати нею
+                  </button>
+                )}
+                {d.id === CLASSIC_DECK.id ? (
+                  <button className="btn btn-sm" onClick={() => startNew(CLASSIC_DECK)}>
+                    Створити на її основі
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      className="btn btn-sm"
+                      onClick={() => {
+                        setDraft({ ...d, pawnVersions: [...d.pawnVersions] });
+                        setIsNew(false);
+                      }}
+                    >
+                      Змінити
                     </button>
-                  )}
-                  {d.id === CLASSIC_DECK.id ? (
-                    <button className="btn btn-sm" onClick={() => startNew(CLASSIC_DECK)}>
-                      Копіювати
+                    <button className="btn btn-sm" onClick={() => startNew(d)}>
+                      Копія
                     </button>
-                  ) : (
-                    <>
-                      <button
-                        className="btn btn-sm"
-                        onClick={() => {
-                          setDraft({ ...d, pawnVersions: [...d.pawnVersions] });
-                          setIsNew(false);
-                        }}
-                      >
-                        Змінити
-                      </button>
-                      <button className="btn btn-sm" onClick={() => startNew(d)}>
-                        Копія
-                      </button>
-                      <button
-                        className="btn btn-sm btn-danger"
-                        onClick={() => {
-                          if (confirmDelete !== d.id) return setConfirmDelete(d.id);
-                          setConfirmDelete(null);
-                          onDelete(d.id);
-                          if (draft?.id === d.id) setDraft(null);
-                        }}
-                        onBlur={() => setConfirmDelete(null)}
-                      >
-                        {confirmDelete === d.id ? 'Точно видалити?' : 'Видалити'}
-                      </button>
-                    </>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-        </aside>
-
-        {draft ? (
-          <DeckEditor
-            key={draft.id}
-            draft={draft}
-            isNew={isNew}
-            onChange={setDraft}
-            onCancel={() => setDraft(null)}
-            onSave={() => {
-              onSave(draft);
-              setIsNew(false);
-              setDraft(null);
-            }}
-          />
-        ) : (
-          <div className="panel empty-editor">
-            <p>Оберіть колоду для редагування або створіть нову.</p>
-            <button className="btn btn-primary" onClick={() => startNew()}>
-              Створити колоду
-            </button>
-          </div>
-        )}
+                    <button
+                      className="btn btn-sm btn-danger"
+                      onClick={() => {
+                        if (confirmDelete !== d.id) return setConfirmDelete(d.id);
+                        setConfirmDelete(null);
+                        onDelete(d.id);
+                      }}
+                      onBlur={() => setConfirmDelete(null)}
+                    >
+                      {confirmDelete === d.id ? 'Точно видалити?' : 'Видалити'}
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </article>
+        ))}
       </div>
     </section>
   );
 }
 
 function DeckSummary({ deck }: { deck: Deck }) {
-  const positions = deckPositions(deck);
-  const counts = { rare: 0, epic: 0, legendary: 0, mythological: 0 } as Record<string, number>;
-  for (const id of new Set(positions)) {
+  const counts: Record<string, number> = { rare: 0, epic: 0, legendary: 0, mythological: 0 };
+  for (const id of new Set(deckPositions(deck))) {
     const r = CARD_BY_ID[id]?.rarity;
     if (r && r in counts) counts[r]++;
   }
@@ -132,7 +126,7 @@ function DeckSummary({ deck }: { deck: Deck }) {
   return (
     <span className="deck-summary">
       {parts.length === 0
-        ? 'тільки звичайні'
+        ? 'тільки звичайні картки'
         : parts.map(([r, n]) => (
             <span key={r} className={`dot-count r-${r}`}>
               {n}
@@ -140,6 +134,35 @@ function DeckSummary({ deck }: { deck: Deck }) {
           ))}
     </span>
   );
+}
+
+/** Small read-only picture of the deck's two ranks. */
+function MiniBoard({ deck }: { deck: Deck }) {
+  return (
+    <div className="mini-board">
+      {[8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7].map((i) => {
+        const card = CARD_BY_ID[cardAt(deck, i)];
+        const file = i % 8;
+        const light = (file + (i >= 8 ? 1 : 0)) % 2 === 1;
+        return (
+          <div key={i} className={`mini-sq ${light ? 'light' : 'dark'} r-${card.rarity}`}>
+            <PieceSvg type={card.pieceType} color="w" />
+            {!card.id.endsWith('-classic') && <span className="mini-dot" />}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Drag & drop editor ──
+
+const FILES = 'abcdefgh';
+
+interface DragState {
+  cardId: string;
+  x: number;
+  y: number;
 }
 
 interface EditorProps {
@@ -152,105 +175,127 @@ interface EditorProps {
 
 function DeckEditor({ draft, isNew, onChange, onCancel, onSave }: EditorProps) {
   const errors = useMemo(() => validateDeck(draft), [draft]);
-  const set = (patch: Partial<Deck>) => onChange({ ...draft, ...patch });
+  const [selected, setSelected] = useState<number>(4);
+  const [filter, setFilter] = useState<PieceType | 'auto'>('auto');
+  const [message, setMessage] = useState<{ text: string; bad: boolean } | null>(null);
+  const [drag, setDrag] = useState<DragState | null>(null);
+  const [inspect, setInspect] = useState<string | null>(null);
+  const pressRef = useRef<{ cardId: string; x: number; y: number; started: boolean } | null>(null);
 
-  const togglePawn = (id: string) => {
-    const v = draft.pawnVersions;
-    if (v.includes(id)) {
-      if (v.length > 1) set({ pawnVersions: v.filter((x) => x !== id) });
-    } else if (v.length < 2) {
-      set({ pawnVersions: [...v, id] });
+  const selectedType = slotType(selected);
+  const shownType: PieceType = filter === 'auto' ? selectedType : filter;
+  const collection = CARDS.filter((c) => c.pieceType === shownType).sort(
+    (a, b) => RARITY_ORDER.indexOf(a.rarity) - RARITY_ORDER.indexOf(b.rarity),
+  );
+  const dragType = drag ? CARD_BY_ID[drag.cardId].pieceType : null;
+  const inspected = CARD_BY_ID[inspect ?? cardAt(draft, selected)];
+
+  const place = (index: number, cardId: string, allPawns = false) => {
+    const res = placeCard(draft, index, cardId, allPawns);
+    if (!res.deck) {
+      setMessage({ text: res.error, bad: true });
+      return;
     }
+    onChange(res.deck);
+    setSelected(index);
+    setInspect(null);
+    const name = CARD_BY_ID[cardId].name;
+    setMessage({ text: allPawns ? `«${name}» на всіх 8 пішаках.` : `«${name}» поставлено на ${squareName(index)}.`, bad: false });
   };
 
-  const mythicElsewhere = (slotKey: keyof Deck) =>
-    DECK_SLOTS.some((s) => s.key !== slotKey && CARD_BY_ID[draft[s.key] as string]?.rarity === 'mythological');
+  // Pointer-based drag so it works with a mouse and on touch screens alike.
+  useEffect(() => {
+    const move = (e: PointerEvent) => {
+      const p = pressRef.current;
+      if (!p) return;
+      if (!p.started && Math.hypot(e.clientX - p.x, e.clientY - p.y) < 6) return;
+      p.started = true;
+      setDrag({ cardId: p.cardId, x: e.clientX, y: e.clientY });
+    };
+    const up = (e: PointerEvent) => {
+      const p = pressRef.current;
+      pressRef.current = null;
+      if (!p) return;
+      if (!p.started) {
+        // A tap: put the card on the selected square.
+        place(selected, p.cardId);
+        return;
+      }
+      setDrag(null);
+      const el = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>('[data-drop]');
+      if (!el) return;
+      const target = el.dataset.drop!;
+      if (target === 'all-pawns') place(8, p.cardId, true);
+      else place(Number(target), p.cardId);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+    return () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
+    };
+  });
+
+  const square = (index: number) => {
+    const card = CARD_BY_ID[cardAt(draft, index)];
+    const file = index % 8;
+    const light = (file + (index >= 8 ? 1 : 0)) % 2 === 1;
+    const fits = dragType !== null && dragType === slotType(index);
+    return (
+      <button
+        key={index}
+        type="button"
+        data-drop={index}
+        className={`deck-sq ${light ? 'light' : 'dark'} ${selected === index ? 'selected' : ''} ${fits ? 'can-drop' : ''} ${
+          dragType && !fits ? 'no-drop' : ''
+        }`}
+        onClick={() => {
+          setSelected(index);
+          setInspect(null);
+          setFilter('auto');
+        }}
+        aria-label={`${squareName(index)}: ${card.name}`}
+      >
+        <span className={`deck-piece r-${card.rarity}`}>
+          {!card.id.endsWith('-classic') && <span className="piece-aura" />}
+          <PieceSvg type={card.pieceType} color="w" />
+          {!card.id.endsWith('-classic') && (
+            <span className="piece-emblem">
+              <Emblem cardId={card.id} />
+            </span>
+          )}
+        </span>
+        <span className="deck-sq-name">{card.name}</span>
+      </button>
+    );
+  };
+
+  const pawnVersions = draft.pawnVersions.map((id) => CARD_BY_ID[id]);
 
   return (
-    <div className="panel deck-editor">
-      <label className="field">
-        <span>Назва колоди</span>
-        <input value={draft.name} maxLength={40} onChange={(e) => set({ name: e.target.value })} />
-      </label>
-
-      <h2>Пішаки</h2>
-      <p className="muted small">Оберіть 1 або 2 версії. Порядок вибору: перша — «1», друга — «2».</p>
-      <div className="pawn-picker">
-        {PAWN_CARDS.map((c) => {
-          const idx = draft.pawnVersions.indexOf(c.id);
-          const disabled = idx < 0 && draft.pawnVersions.length >= 2;
-          return (
-            <button
-              key={c.id}
-              className={`pawn-option r-border-${c.rarity} ${idx >= 0 ? 'on' : ''}`}
-              disabled={disabled}
-              title={c.rulesText}
-              onClick={() => togglePawn(c.id)}
-            >
-              {idx >= 0 && <span className="version-badge">{idx + 1}</span>}
-              <span className="pawn-option-name">{c.name}</span>
-              <RarityTag card={c} />
-            </button>
-          );
-        })}
-      </div>
-
-      {draft.pawnVersions.length === 2 && (
-        <div className="formation">
-          <span>Формація (вертикалі a–h):</span>
-          <div className="chip-row">
-            {FORMATION_PRESETS.map((f) => (
-              <button key={f} className={`chip mono ${draft.pawnFormation === f ? 'on' : ''}`} onClick={() => set({ pawnFormation: f })}>
-                {f}
-              </button>
-            ))}
-            <input
-              className="mono formation-input"
-              aria-label="Своя формація"
-              value={draft.pawnFormation}
-              maxLength={8}
-              onChange={(e) => set({ pawnFormation: e.target.value.replace(/[^12]/g, '') })}
-            />
-          </div>
+    <div className="deck-editor">
+      <div className="editor-bar">
+        <input
+          className="deck-name"
+          aria-label="Назва колоди"
+          value={draft.name}
+          maxLength={40}
+          onChange={(e) => onChange({ ...draft, name: e.target.value })}
+        />
+        <div className="editor-actions">
+          <button className="btn btn-primary" disabled={errors.length > 0} onClick={onSave}>
+            Зберегти колоду
+          </button>
+          <button className="btn" onClick={onCancel}>
+            {isNew ? 'Скасувати' : 'Закрити'}
+          </button>
+          <button className="btn btn-ghost" onClick={() => onChange({ ...classicDeck(draft.id, draft.name) })}>
+            Скинути до класики
+          </button>
         </div>
-      )}
-
-      <h2>Фігури</h2>
-      <div className="slot-grid">
-        {DECK_SLOTS.map((slot) => {
-          const current = CARD_BY_ID[draft[slot.key] as string];
-          const blockMythic = mythicElsewhere(slot.key);
-          const options = CARDS.filter((c) => c.pieceType === slot.type);
-          return (
-            <div key={slot.key} className="slot">
-              <label className="field">
-                <span>{slot.label}</span>
-                <select value={draft[slot.key] as string} onChange={(e) => set({ [slot.key]: e.target.value } as Partial<Deck>)}>
-                  {RARITY_ORDER.map((r) => {
-                    const group = options.filter((c) => c.rarity === r);
-                    if (!group.length) return null;
-                    return (
-                      <optgroup key={r} label={RARITY_NAMES[r]}>
-                        {group.map((c) => (
-                          <option key={c.id} value={c.id} disabled={r === 'mythological' && blockMythic}>
-                            {c.name}
-                            {r === 'mythological' && blockMythic ? ' — вже є міфологічна' : ''}
-                          </option>
-                        ))}
-                      </optgroup>
-                    );
-                  })}
-                </select>
-              </label>
-              {current && <CardView card={current} compact />}
-            </div>
-          );
-        })}
       </div>
-
-      <h2>Розстановка</h2>
-      <DeckPreview deck={draft} />
-
       {errors.length > 0 && (
         <ul className="errors" aria-live="polite">
           {errors.map((e) => (
@@ -258,45 +303,114 @@ function DeckEditor({ draft, isNew, onChange, onCancel, onSave }: EditorProps) {
           ))}
         </ul>
       )}
-      <div className="editor-actions">
-        <button className="btn btn-primary" disabled={errors.length > 0} onClick={onSave}>
-          Зберегти колоду
-        </button>
-        <button className="btn" onClick={onCancel}>
-          {isNew ? 'Скасувати' : 'Закрити'}
-        </button>
-        <button className="btn btn-ghost" onClick={() => onChange({ ...classicDeck(draft.id, draft.name) })}>
-          Скинути до класики
-        </button>
+
+      <div className="builder">
+        <div className="builder-board-col">
+          <div className="builder-board">
+            <div className="builder-rank">
+              <span className="rank-label">2</span>
+              {[8, 9, 10, 11, 12, 13, 14, 15].map(square)}
+            </div>
+            <div className="builder-rank">
+              <span className="rank-label">1</span>
+              {[0, 1, 2, 3, 4, 5, 6, 7].map(square)}
+            </div>
+            <div className="builder-files">
+              <span />
+              {FILES.split('').map((f) => (
+                <span key={f}>{f}</span>
+              ))}
+            </div>
+          </div>
+
+          <div
+            data-drop="all-pawns"
+            className={`all-pawns-drop ${dragType === 'pawn' ? 'can-drop' : ''}`}
+          >
+            Перетягніть сюди пішака, щоб поставити його на всі 8 клітинок
+          </div>
+
+          <div className="pawn-versions">
+            <span className="muted small">Версії пішаків:</span>
+            {pawnVersions.map((c, i) => (
+              <span key={c.id} className={`version-chip r-${c.rarity}`}>
+                <b>{i + 1}</b> {c.name}
+              </span>
+            ))}
+            {pawnVersions.length === 2 && <span className="mono muted small">формація {draft.pawnFormation}</span>}
+          </div>
+
+          {message && <p className={message.bad ? 'error-text' : 'ok-text'}>{message.text}</p>}
+
+          <div className="inspect">
+            <p className="muted small">
+              {inspect ? 'Картка з колекції' : `Клітинка ${squareName(selected)}`}
+            </p>
+            <CardView card={inspected} />
+          </div>
+        </div>
+
+        <aside className="collection panel">
+          <div className="collection-head">
+            <h2>Колекція</h2>
+            <span className="muted small">
+              Тягніть картку на дошку або натисніть її — вона стане на {squareName(selected)}
+            </span>
+          </div>
+          <div className="chip-row">
+            <button className={`chip ${filter === 'auto' ? 'on' : ''}`} onClick={() => setFilter('auto')}>
+              Для {squareName(selected)}
+            </button>
+            {PIECE_ORDER.map((t) => (
+              <button key={t} className={`chip ${filter === t ? 'on' : ''}`} onClick={() => setFilter(t)}>
+                {PIECE_NAMES[t]}
+              </button>
+            ))}
+          </div>
+          <div className="mini-cards">
+            {collection.map((c) => {
+              const inDeck = deckPositions(draft).includes(c.id);
+              return (
+                <div
+                  key={c.id}
+                  className={`mini-card r-${c.rarity} ${inDeck ? 'in-deck' : ''} ${drag?.cardId === c.id ? 'dragging' : ''}`}
+                  onPointerDown={(e) => {
+                    if (e.button !== 0) return;
+                    e.preventDefault();
+                    pressRef.current = { cardId: c.id, x: e.clientX, y: e.clientY, started: false };
+                  }}
+                  onMouseEnter={() => setInspect(c.id)}
+                  onMouseLeave={() => setInspect(null)}
+                  title={c.rulesText}
+                >
+                  <div className="mini-card-art">
+                    <PieceSvg type={c.pieceType} color="w" />
+                    <span className="mini-card-emblem">
+                      <Emblem cardId={c.id} />
+                    </span>
+                  </div>
+                  <div className="mini-card-body">
+                    <strong>{c.name}</strong>
+                    <RarityTag card={c} />
+                  </div>
+                  {inDeck && <span className="in-deck-mark">у колоді</span>}
+                </div>
+              );
+            })}
+          </div>
+        </aside>
       </div>
+
+      {drag && (
+        <div className={`drag-ghost r-${CARD_BY_ID[drag.cardId].rarity}`} style={{ left: drag.x, top: drag.y }}>
+          <PieceSvg type={CARD_BY_ID[drag.cardId].pieceType} color="w" />
+          <span>{CARD_BY_ID[drag.cardId].name}</span>
+        </div>
+      )}
     </div>
   );
 }
 
-function DeckPreview({ deck }: { deck: Deck }) {
-  const positions = deckPositions(deck);
-  const pawns = positions.slice(0, 8);
-  const back = ['rook1', 'knight1', 'bishop1', 'queen', 'king', 'bishop2', 'knight2', 'rook2'] as (keyof Deck)[];
-  const row = (ids: string[]) =>
-    ids.map((id, i) => {
-      const c = CARD_BY_ID[id];
-      if (!c) return <div key={i} className="preview-cell" />;
-      return (
-        <div key={i} className={`preview-cell ${(i + (ids === pawns ? 1 : 0)) % 2 ? 'light' : 'dark'}`} title={`${c.name} — ${c.rulesText}`}>
-          <Glyph type={c.pieceType} color="w" />
-          {c.rarity !== 'common' && <span className={`rarity-dot r-${c.rarity}`} />}
-        </div>
-      );
-    });
-  return (
-    <div className="deck-preview">
-      <div className="preview-row">{row(pawns)}</div>
-      <div className="preview-row">{row(back.map((k) => deck[k] as string))}</div>
-      <div className="preview-files mono">
-        {'abcdefgh'.split('').map((f) => (
-          <span key={f}>{f}</span>
-        ))}
-      </div>
-    </div>
-  );
+function squareName(index: number): string {
+  return `${FILES[index % 8]}${index >= 8 ? 2 : 1}`;
 }

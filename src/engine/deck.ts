@@ -78,3 +78,60 @@ export function validateDeck(deck: Deck): string[] {
   if (mythicCount(deck) > 1) errors.push('У колоді може бути не більше 1 міфологічної картки.');
   return errors;
 }
+
+/** Deck board squares: 0–7 = back rank a–h, 8–15 = pawns a–h. */
+export const BACK_SLOTS: (keyof Deck)[] = ['rook1', 'knight1', 'bishop1', 'queen', 'king', 'bishop2', 'knight2', 'rook2'];
+
+export function slotType(index: number): PieceType {
+  if (index >= 8) return 'pawn';
+  return DECK_SLOTS.find((s) => s.key === BACK_SLOTS[index])!.type;
+}
+
+export function cardAt(deck: Deck, index: number): string {
+  return index >= 8 ? deckPositions(deck)[index - 8] : (deck[BACK_SLOTS[index]] as string);
+}
+
+/** Rebuild pawn versions and formation from the 8 pawn cards (a–h). */
+export function withPawns(deck: Deck, pawns: string[]): Deck {
+  const versions = [...new Set(pawns)];
+  const pawnFormation = versions.length === 2 ? pawns.map((p) => (p === versions[0] ? '1' : '2')).join('') : deck.pawnFormation;
+  return { ...deck, pawnVersions: versions, pawnFormation };
+}
+
+export type PlaceResult = { deck: Deck; error?: undefined } | { deck?: undefined; error: string };
+
+/**
+ * Put a card on a deck square (drag & drop builder). `allPawns` fills the
+ * whole pawn row. Returns an error when a deck rule would break.
+ */
+export function placeCard(deck: Deck, index: number, cardId: string, allPawns = false): PlaceResult {
+  const card = CARD_BY_ID[cardId];
+  const type = slotType(index);
+  if (!card) return { error: 'Невідома картка.' };
+  if (card.pieceType !== type) {
+    return { error: `«${card.name}» — картка для іншої фігури. Сюди потрібна картка: ${TYPE_LABEL[type]}.` };
+  }
+  if (card.rarity === 'mythological') {
+    const others = DECK_SLOTS.filter((s) => s.key !== BACK_SLOTS[index]).some(
+      (s) => CARD_BY_ID[deck[s.key] as string]?.rarity === 'mythological',
+    );
+    if (others) return { error: 'У колоді вже є міфологічна картка — дозволено лише одну.' };
+  }
+  if (type === 'pawn') {
+    const pawns = deckPositions(deck).slice(0, 8);
+    if (allPawns) pawns.fill(cardId);
+    else pawns[index - 8] = cardId;
+    if (new Set(pawns).size > 2) return { error: 'Пішаки можуть мати не більше 2 різних версій.' };
+    return { deck: withPawns(deck, pawns) };
+  }
+  return { deck: { ...deck, [BACK_SLOTS[index]]: cardId } };
+}
+
+const TYPE_LABEL: Record<PieceType, string> = {
+  pawn: 'пішак',
+  knight: 'кінь',
+  bishop: 'слон',
+  rook: 'тура',
+  queen: 'ферзь',
+  king: 'король',
+};

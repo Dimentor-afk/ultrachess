@@ -92,7 +92,7 @@ describe('bishop cards', () => {
     const base = { a3: 'w:bishop-levitation', e1: 'w:king-classic', e8: 'b:king-classic' };
     let pos = build(base);
     const lev = legalMoves(pos).filter((m) => m.kind === 'levitate');
-    expect(lev.map((m) => m.to).sort()).toEqual([sq(-1, 1), sq(-1, 3)].sort());
+    expect(lev.map((m) => m.to)).toEqual(expect.arrayContaining([sq(-1, 1), sq(-1, 3)]));
     pos = applyMove(pos, lev.find((m) => m.to === sq(-1, 3))!);
     expect(pos.platforms).toHaveLength(1);
     expect(pos.cooldowns['w-a3']).toBe(5);
@@ -110,13 +110,21 @@ describe('bishop cards', () => {
     expect(pos.platforms).toHaveLength(0);
   });
 
-  it('Портальний слон wraps around the board and captures', () => {
-    const pos = build({ g2: 'w:bishop-portal', c6: 'b:rook-classic', e1: 'w:king-classic', h8: 'b:king-classic' });
-    const m = findMove(pos, 'g2', 'c6', 'портал');
-    expect(m.once).toBe(true);
-    const after = play(pos, 'g2', 'c6', 'портал');
-    expect(at(after, 'c6')).toBe('w:bishop-portal');
-    expect(after.onceUsed['w-g2']).toBe(true);
+  it('Портальний слон leaves through the edge and reappears on the mirrored square', () => {
+    // f1 → a6, out of the board, back in on h3 and on to d7 (the user's example).
+    const pos = build({ f1: 'w:bishop-portal', d7: 'b:pawn-classic', e1: 'w:king-classic', h8: 'b:king-classic' });
+    const t = movesFrom(pos, 'f1').filter((m) => m.once).map((m) => m.target);
+    expect(t).toEqual(expect.arrayContaining([S('h3'), S('g4'), S('f5'), S('e6'), S('d7')]));
+    const after = play(pos, 'f1', 'd7', 'портал');
+    expect(at(after, 'd7')).toBe('w:bishop-portal');
+    expect(after.onceUsed['w-f1']).toBe(true);
+    expect(movesFrom(play(pos, 'f1', 'e2'), 'e2').length).toBe(0); // black to move now
+  });
+
+  it('Левітаційна ферзь can fly off at the end of any free line', () => {
+    const pos = build({ d1: 'w:queen-levitation', e1: 'w:king-classic', a8: 'b:king-classic' });
+    const lev = legalMoves(pos).filter((m) => m.kind === 'levitate').map((m) => m.to);
+    expect(lev).toEqual(expect.arrayContaining([sq(8, 5), sq(-1, 4), sq(3, 8), sq(3, -1)]));
   });
 
   it('Затемнювач blocks the opponent from crossing a diagonal for one ply', () => {
