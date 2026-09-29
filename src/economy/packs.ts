@@ -15,6 +15,11 @@ export interface PackDef {
   odds: Record<Rarity, number>;
   /** At least one card of this rarity or higher. */
   guarantee?: Rarity;
+  /**
+   * Caps: at most N cards of this rarity *or higher* in one pack. A roll that
+   * would break a cap drops to the next lower rarity.
+   */
+  limits: Partial<Record<Rarity, number>>;
   /** Time to unlock a pack won in a match, in minutes. */
   unlockMinutes: number;
   description: string;
@@ -28,6 +33,7 @@ export const PACKS: Record<Exclude<PackType, 'starter'>, PackDef> = {
     name: 'Звичайний пак',
     cards: 4,
     odds: { common: 64.5, rare: 25, epic: 8, legendary: 2, mythological: 0.5 },
+    limits: { epic: 1 },
     unlockMinutes: 3,
     description: 'Найчастіша нагорода за перемогу.',
   },
@@ -37,6 +43,7 @@ export const PACKS: Record<Exclude<PackType, 'starter'>, PackDef> = {
     cards: 5,
     odds: { common: 45, rare: 38, epic: 12.5, legendary: 3.5, mythological: 1 },
     guarantee: 'rare',
+    limits: { epic: 1 },
     unlockMinutes: 15,
     description: 'Щонайменше одна рідкісна картка.',
   },
@@ -46,6 +53,7 @@ export const PACKS: Record<Exclude<PackType, 'starter'>, PackDef> = {
     cards: 6,
     odds: { common: 25, rare: 40, epic: 27, legendary: 6.5, mythological: 1.5 },
     guarantee: 'epic',
+    limits: { epic: 2, legendary: 1 },
     unlockMinutes: 60,
     description: 'Щонайменше одна епічна картка.',
   },
@@ -55,6 +63,7 @@ export const PACKS: Record<Exclude<PackType, 'starter'>, PackDef> = {
     cards: 6,
     odds: { common: 15, rare: 35, epic: 33, legendary: 14, mythological: 3 },
     guarantee: 'legendary',
+    limits: { epic: 3, legendary: 1 },
     unlockMinutes: 180,
     description: 'Щонайменше одна легендарна картка.',
   },
@@ -64,6 +73,7 @@ export const PACKS: Record<Exclude<PackType, 'starter'>, PackDef> = {
     cards: 5,
     odds: { common: 0, rare: 30, epic: 40, legendary: 22, mythological: 8 },
     guarantee: 'mythological',
+    limits: { epic: 3, legendary: 2, mythological: 1 },
     unlockMinutes: 480,
     description: 'Гарантована міфологічна картка.',
   },
@@ -94,7 +104,7 @@ export function cardsOf(rarity: Rarity, type?: PieceType): Card[] {
   return CARDS.filter((c) => c.rarity === rarity && (!type || c.pieceType === type));
 }
 
-function rollRarity(odds: Record<Rarity, number>, rng: Rng, min: Rarity = 'common'): Rarity {
+export function rollRarity(odds: Record<Rarity, number>, rng: Rng, min: Rarity = 'common'): Rarity {
   const allowed = RARITIES.slice(RARITIES.indexOf(min)).filter((r) => odds[r] > 0);
   const total = allowed.reduce((s, r) => s + odds[r], 0);
   let x = rng() * total;
@@ -105,18 +115,35 @@ function rollRarity(odds: Record<Rarity, number>, rng: Rng, min: Rarity = 'commo
   return allowed[allowed.length - 1];
 }
 
+function breaksLimit(limits: PackDef['limits'], have: Rarity[], next: Rarity): boolean {
+  const n = RARITIES.indexOf(next);
+  return RARITIES.some((cap, i) => {
+    const max = limits[cap];
+    if (max === undefined || i > n) return false;
+    return have.filter((r) => RARITIES.indexOf(r) >= i).length + 1 > max;
+  });
+}
+
+/** Most cards of each rarity one pack can hold, as shown to players. */
+export function maxOfRarity(def: PackDef, rarity: Rarity): number {
+  let max = def.cards;
+  for (const [cap, n] of Object.entries(def.limits)) if (RARITIES.indexOf(cap as Rarity) <= RARITIES.indexOf(rarity)) max = Math.min(max, n!);
+  return max;
+}
+
 /** Roll the card ids inside a pack. */
 export function rollPack(type: PackType, rng: Rng = Math.random): string[] {
   if (type === 'starter') return rollStarter(rng);
   const def = PACKS[type];
   const rarities: Rarity[] = [];
-  for (let i = 0; i < def.cards; i++) rarities.push(rollRarity(def.odds, rng));
-  if (def.guarantee) {
-    const g = RARITIES.indexOf(def.guarantee);
-    if (!rarities.some((r) => RARITIES.indexOf(r) >= g)) {
-      rarities[rarities.length - 1] = rollRarity(def.odds, rng, def.guarantee);
-    }
-  }
+  const add = (rolled: Rarity) => {
+    let r = rolled;
+    while (r !== 'common' && breaksLimit(def.limits, rarities, r)) r = RARITIES[RARITIES.indexOf(r) - 1];
+    rarities.push(r);
+  };
+  // The guaranteed card is rolled first so the caps never squeeze it out.
+  if (def.guarantee) add(rollRarity(def.odds, rng, def.guarantee));
+  while (rarities.length < def.cards) add(rollRarity(def.odds, rng));
   // Best cards last, so the reveal builds up.
   rarities.sort((a, b) => RARITIES.indexOf(a) - RARITIES.indexOf(b));
   return rarities.map((r) => pick(cardsOf(r), rng).id);

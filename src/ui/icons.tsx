@@ -12,7 +12,8 @@ const PATHS: Record<string, string> = {
   gift: 'M3 8h18v4H3zM5 12h14v9H5zM12 8v13M12 8S9 3 7 4.5 8.5 8 12 8zM12 8s3-5 5-3.5S15.5 8 12 8z',
   swap: 'M4 8h15M15 4l4 4-4 4M20 16H5M9 12l-4 4 4 4',
   info: 'M12 3a9 9 0 1 0 .01 0M12 11v6M12 7.5v.5',
-  sword: 'M14.5 17.5L3 6V3h3l11.5 11.5M13 19l6-6M16 16l4 4M19 21l2-2',
+  edit: 'M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4',
+  sword:'M14.5 17.5L3 6V3h3l11.5 11.5M13 19l6-6M16 16l4 4M19 21l2-2',
 };
 
 export function Icon({ name, className = '' }: { name: keyof typeof PATHS | string; className?: string }) {

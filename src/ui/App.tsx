@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { type Api, type Profile, createApi } from '../api/client';
 import { AdminPage } from './AdminPage';
 import { AuthPage } from './AuthPage';
-import { CollectionPage } from './CollectionPage';
 import { DeckPage } from './DeckPage';
 import { HomePage } from './HomePage';
 import { LeaderboardPage } from './LeaderboardPage';
@@ -10,18 +9,18 @@ import { cardArt } from './cardArt';
 import { Icon } from './icons';
 import { type Loaded, SessionProvider, type Toast, errorText, loadAll, useSession } from './state';
 
-type Route = 'play' | 'cards' | 'deck' | 'top' | 'admin';
+type Route = 'play' | 'deck' | 'top' | 'admin';
 
 const ROUTES: { id: Route; label: string; icon: string; admin?: boolean }[] = [
   { id: 'play', label: 'Грати', icon: 'play' },
-  { id: 'cards', label: 'Колекція', icon: 'cards' },
-  { id: 'deck', label: 'Колоди', icon: 'deck' },
+  { id: 'deck', label: 'Колода', icon: 'cards' },
   { id: 'top', label: 'Рейтинг', icon: 'trophy' },
   { id: 'admin', label: 'Адмін', icon: 'shield', admin: true },
 ];
 
 function readRoute(): Route {
   const h = window.location.hash.replace(/^#\/?/, '');
+  if (h === 'cards') return 'deck'; // the old collection page lives on the deck page now
   return ROUTES.find((r) => r.id === h)?.id ?? 'play';
 }
 
@@ -80,7 +79,8 @@ export function App() {
 
 function Shell() {
   const s = useSession();
-  const [route, setRoute] = useState<Route>(readRoute);
+  // An unopened starter pack takes the player home, where it opens by itself.
+  const [route, setRoute] = useState<Route>(() => (s.packs.some((p) => p.type === 'starter') ? 'play' : readRoute()));
   useEffect(() => {
     const onHash = () => setRoute(readRoute());
     window.addEventListener('hashchange', onHash);
@@ -120,7 +120,6 @@ function Shell() {
       </aside>
       <main className="content">
         {route === 'play' && <HomePage />}
-        {route === 'cards' && <CollectionPage />}
         {route === 'deck' && <DeckPage />}
         {route === 'top' && <LeaderboardPage />}
         {route === 'admin' && s.profile.role === 'admin' && <AdminPage />}

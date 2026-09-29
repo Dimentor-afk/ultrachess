@@ -51,6 +51,11 @@ export function cardArt(cardId: string): string | null {
   return n === undefined ? null : `assets/pieces/p${n}.png`;
 }
 
+/** Sprite for a piece on the board: the card's own art, else the classic piece of that type. */
+export function pieceSprite(cardId: string, type: string): string {
+  return cardArt(cardId) ?? cardArt(`${type}-classic`)!;
+}
+
 export type PackType = 'starter' | 'common' | 'rare' | 'epic' | 'legendary' | 'mythic';
 
 export function packArt(type: PackType): string {

@@ -15,8 +15,10 @@ export function PackOpening({
   pack,
   open,
   onClose,
+  autoStart = false,
 }: {
   pack: PackView;
+  autoStart?: boolean;
   open: () => Promise<OpenResult>;
   onClose: (result: OpenResult | null) => void;
 }) {
@@ -40,6 +42,14 @@ export function PackOpening({
       setPhase('idle');
     }
   };
+
+  // The starter pack opens on its own, after a short look at it.
+  useEffect(() => {
+    if (!autoStart) return;
+    const t = setTimeout(() => void start(), 700);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (phase !== 'reveal') return;

@@ -5,7 +5,7 @@ import { classicDeck } from '../../engine/deck';
 import { legalMoves } from '../../engine/legal';
 import { type Action, createMatch, performAction } from '../../engine/match';
 import { MemoryStore } from '../memoryStore';
-import { PACKS, RARITIES, rollPack, rollStarter } from '../packs';
+import { PACKS, RARITIES, maxOfRarity, rollPack, rollRarity, rollStarter } from '../packs';
 import { GameService } from '../service';
 import type { Hasher } from '../store';
 
@@ -41,15 +41,34 @@ describe('packs', () => {
     }
   });
 
-  it('common pack odds match the table', () => {
+  it('per-card rarity roll matches the odds table', () => {
     const r = seeded(7);
     const counts: Record<string, number> = {};
     const N = 40000;
-    for (let i = 0; i < N / 4; i++) for (const id of rollPack('common', r)) counts[CARD_BY_ID[id].rarity] = (counts[CARD_BY_ID[id].rarity] ?? 0) + 1;
+    for (let i = 0; i < N; i++) {
+      const rarity = rollRarity(PACKS.common.odds, r);
+      counts[rarity] = (counts[rarity] ?? 0) + 1;
+    }
     for (const rarity of RARITIES) {
       const got = ((counts[rarity] ?? 0) / N) * 100;
       expect(Math.abs(got - PACKS.common.odds[rarity])).toBeLessThan(Math.max(0.5, PACKS.common.odds[rarity] * 0.12));
     }
+  });
+
+  it('packs never exceed their rarity caps', () => {
+    const r = seeded(11);
+    for (const def of Object.values(PACKS)) {
+      for (let i = 0; i < 3000; i++) {
+        const rarities = rollPack(def.type, r).map((id) => CARD_BY_ID[id].rarity);
+        for (const rarity of RARITIES) {
+          const atLeast = rarities.filter((x) => RARITIES.indexOf(x) >= RARITIES.indexOf(rarity)).length;
+          expect(atLeast).toBeLessThanOrEqual(maxOfRarity(def, rarity));
+        }
+      }
+    }
+    // A mythic pack holds one mythological card and at most one legendary.
+    expect(maxOfRarity(PACKS.mythic, 'mythological')).toBe(1);
+    expect(maxOfRarity(PACKS.mythic, 'legendary')).toBe(2);
   });
 
   it('guaranteed rarity is always present', () => {

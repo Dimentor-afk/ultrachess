@@ -2,7 +2,8 @@ import { getCard } from '../engine/cards';
 import { fileOf, isBoardSquare, rankOf, sq } from '../engine/coords';
 import type { Color, Square } from '../engine/types';
 import type { PlayerView, ViewPiece } from '../engine/view';
-import { Emblem, PieceSvg } from './art';
+import { Emblem } from './art';
+import { pieceSprite } from './cardArt';
 
 export type Mark = 'move' | 'capture' | 'option';
 
@@ -100,11 +101,12 @@ export function PieceView({ piece }: { piece: ViewPiece }) {
   const special = !card.id.endsWith('-classic');
   return (
     <span
-      className={`piece r-${card.rarity} ${special ? 'special' : ''} ${piece.illusion ? 'illusion' : ''}`}
+      className={`piece piece-${piece.color} r-${card.rarity} ${special ? 'special' : ''} ${piece.illusion ? 'illusion' : ''}`}
       title={`${card.name}\n${card.rulesText}`}
     >
+      <span className="piece-base" />
       {special && <span className="piece-aura" />}
-      <PieceSvg type={piece.type} color={piece.color} />
+      <img className="piece-sprite pixel" src={pieceSprite(card.id, piece.type)} alt="" draggable={false} />
       {special && (
         <span className="piece-emblem">
           <Emblem cardId={card.id} />
@@ -113,7 +115,7 @@ export function PieceView({ piece }: { piece: ViewPiece }) {
       {piece.frozen && <span className="badge badge-frozen" title="Пропускає хід">❄</span>}
       {piece.passenger && (
         <span className="badge badge-passenger" title="Пішак-пасажир">
-          <PieceSvg type="pawn" color={piece.color} />
+          <img className="piece-sprite pixel" src={pieceSprite('pawn-classic', 'pawn')} alt="" draggable={false} />
         </span>
       )}
       {piece.platformTurnsLeft !== null && (

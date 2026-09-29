@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { MatchStart, PackView } from '../api/client';
 import { ARENAS, PACKS, PACK_SLOTS, RARITIES, STARTER_PACK, packName } from '../economy/packs';
 import { RARITY_NAMES } from '../engine/cards';
+import type { Rarity } from '../engine/types';
 import { Game } from './MatchPage';
 import { PackOpening } from './PackOpening';
 import { MiniBoard } from './DeckPage';
@@ -49,6 +50,16 @@ export function HomePage() {
   const slotPacks = packs.filter((p) => p.slot);
   const extraPacks = packs.filter((p) => !p.slot);
   const unlocking = slotPacks.some((p) => p.status === 'unlocking' && (p.unlockAt ?? 0) > now);
+
+  // The starter pack opens by itself on the first visit.
+  const autoOpened = useRef(false);
+  useEffect(() => {
+    const starter = packs.find((p) => p.type === 'starter' && p.status === 'ready');
+    if (starter && !autoOpened.current) {
+      autoOpened.current = true;
+      setOpening(starter);
+    }
+  }, [packs]);
 
   const startMatch = async (ranked: boolean) => {
     if (!activeDeck) return s.toast('Спочатку відкрийте стартовий пак і зберіть колоду.', 'error');
@@ -98,6 +109,20 @@ export function HomePage() {
 
   return (
     <section className="page home">
+      {extraPacks.length > 0 && (
+        <div className="ready-packs">
+          {extraPacks.map((p) => (
+            <button key={p.id} className={`ready-pack pack-${p.type}`} onClick={() => setOpening(p)}>
+              <img src={packArt(p.type)} alt="" />
+              <span>
+                <b>{p.name}</b>
+                <small className="muted">{p.source}</small>
+              </span>
+              <span className="slot-state ready">Відкрити</span>
+            </button>
+          ))}
+        </div>
+      )}
       <div className="home-top">
         <div className="arena-card">
           <div className="arena-art" aria-hidden="true">
@@ -215,31 +240,12 @@ export function HomePage() {
         })}
       </div>
 
-      {extraPacks.length > 0 && (
-        <>
-          <div className="section-head">
-            <h2>Готові паки</h2>
-          </div>
-          <div className="ready-packs">
-            {extraPacks.map((p) => (
-              <button key={p.id} className={`ready-pack pack-${p.type}`} onClick={() => setOpening(p)}>
-                <img src={packArt(p.type)} alt="" />
-                <span>
-                  <b>{p.name}</b>
-                  <small className="muted">{p.source}</small>
-                </span>
-                <span className="slot-state ready">Відкрити</span>
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-
       {showOdds && <OddsTable />}
 
       {opening && (
         <PackOpening
           pack={opening}
+          autoStart={opening.type === 'starter'}
           open={() => api.openPack(opening.id)}
           onClose={async (res) => {
             setOpening(null);
@@ -267,6 +273,7 @@ function OddsTable() {
                 </th>
               ))}
               <th>Гарантія</th>
+              <th>Ліміт у паку</th>
               <th>Відкриття</th>
             </tr>
           </thead>
@@ -280,6 +287,7 @@ function OddsTable() {
                 {STARTER_PACK.description}
               </td>
               <td>—</td>
+              <td className="small">без лег і міфів</td>
               <td>одразу</td>
             </tr>
             {Object.values(PACKS).map((p) => (
@@ -294,6 +302,11 @@ function OddsTable() {
                   </td>
                 ))}
                 <td>{p.guarantee ? RARITY_NAMES[p.guarantee] : '—'}</td>
+                <td className="small">
+                  {Object.entries(p.limits)
+                    .map(([r, n]) => `${RARITY_NAMES[r as Rarity].toLowerCase()}${r === 'mythological' ? '' : '+'} ≤ ${n}`)
+                    .join(', ')}
+                </td>
                 <td>{p.unlockMinutes >= 60 ? `${p.unlockMinutes / 60} год` : `${p.unlockMinutes} хв`}</td>
               </tr>
             ))}
@@ -301,6 +314,9 @@ function OddsTable() {
         </table>
       </div>
       <p className="muted small">
+        Ліміт обмежує кількість сильних карток в одному паку: якщо випадає більше, зайві стають на рівень нижчими. Наприклад, міфічний пак
+        дає рівно одну міфологічну, щонайбільше одну легендарну й не більше трьох епічних і вище разом.
+        <br />
         Перемога в рейтингу дає +30 кубків і пак у вільний слот (цикл: звичайні, рідкісні, епічний, легендарний), поразка — −20. Паки зі
         слотів відкриваються по одному за таймером. Повторки карт збираються в скрині повторок і міняються на паки.
       </p>
