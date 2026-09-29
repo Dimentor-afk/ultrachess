@@ -379,7 +379,7 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
           />
           {popover && (
             <div
-              className="board-popover"
+              className={`board-popover ${squareCenter(popover.square, human).y < 50 ? 'grow-down' : 'grow-up'}`}
               style={{ left: `${squareCenter(popover.square, human).x}%`, top: `${squareCenter(popover.square, human).y}%` }}
               role="dialog"
               aria-label="Оберіть варіант ходу"
@@ -390,7 +390,7 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
                 </button>
               ))}
               <button className="btn btn-sm btn-ghost" onClick={() => setPopover(null)}>
-                ✕
+                Скасувати
               </button>
             </div>
           )}

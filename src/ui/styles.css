@@ -5255,3 +5255,86 @@ html.no-anim .fx {
 .flip-front {
   position: relative;
 }
+
+/* ── Team colours: both sides show the full-colour sprite; white is marked
+   blue, black red and mirrored (it faces the other way, like facing knights). ── */
+
+.piece.team > .piece-sprite {
+  --flip: 1;
+  transform: translateX(-50%) scaleX(var(--flip));
+}
+
+.piece.team.piece-b > .piece-sprite {
+  --flip: -1;
+  filter: drop-shadow(0.28cqw 0 0 #ff4d6d) drop-shadow(-0.28cqw 0 0 #ff4d6d) drop-shadow(0 0.28cqw 0 #ff4d6d)
+    drop-shadow(0 -0.28cqw 0 #ff4d6d) drop-shadow(0 0.7cqw 0.35cqw rgba(0, 0, 0, 0.55));
+}
+
+.piece.team.piece-w > .piece-sprite {
+  filter: drop-shadow(0.28cqw 0 0 #3d8bff) drop-shadow(-0.28cqw 0 0 #3d8bff) drop-shadow(0 0.28cqw 0 #3d8bff)
+    drop-shadow(0 -0.28cqw 0 #3d8bff) drop-shadow(0 0.7cqw 0.35cqw rgba(0, 0, 0, 0.45));
+}
+
+.cell.own:hover .piece.team > .piece-sprite {
+  transform: translateX(-50%) translateY(-0.4cqw) scale(calc(1.05 * var(--flip)), 1.05);
+}
+
+.piece.team > .piece-base {
+  left: 16%;
+  right: 16%;
+  height: 14%;
+  bottom: 3%;
+}
+
+.piece.team.piece-w > .piece-base {
+  background: radial-gradient(ellipse at 50% 35%, #ffffff 0%, #cfe0ff 55%, #5a86d6 100%);
+  box-shadow: 0 0 0 0.3cqw #3d8bff, 0 0 1.4cqw rgba(61, 139, 255, 0.8);
+}
+
+.piece.team.piece-b > .piece-base {
+  background: radial-gradient(ellipse at 50% 35%, #6a1f2f 0%, #33101a 60%, #12060a 100%);
+  box-shadow: 0 0 0 0.3cqw #ff4d6d, 0 0 1.4cqw rgba(255, 77, 109, 0.8);
+}
+
+.seg {
+  display: inline-flex;
+  flex-direction: row !important;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.seg button {
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-weight: 800;
+  padding: 0.3rem 0.7rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.seg button.on {
+  background: var(--gold);
+  color: #3a2303;
+}
+
+/* The popover opens towards the board's middle, so it never leaves the board. */
+.board-popover.grow-down {
+  transform: translate(-50%, -5.5cqw);
+}
+
+.board-popover.grow-up {
+  transform: translate(-50%, calc(-100% + 5.5cqw));
+}
+
+.board-popover {
+  container-type: normal;
+  max-width: min(240px, 60%);
+}
+
+.board-wrap {
+  container-type: inline-size;
+}

@@ -95,9 +95,15 @@ export function cardArt(cardId: string): string | null {
  * Sprite for a piece on the board. Cards without a dark sprite in the art set
  * use a generated "obsidian" recolour (p{N}d.png), which keeps the texture.
  */
-export function pieceSprite(cardId: string, type: string, color: 'w' | 'b'): { src: string; tint: boolean } {
+export function pieceSprite(
+  cardId: string,
+  type: string,
+  color: 'w' | 'b',
+  style: 'team' | 'dark' = 'team',
+): { src: string; tint: boolean } {
   const a = ART[cardId] ?? ART[`${type}-classic`];
-  if (color === 'w') return { src: src(a[0]), tint: false };
+  // "team" style: both sides show the full-colour sprite; the side is marked by colour.
+  if (color === 'w' || style === 'team') return { src: src(a[0]), tint: false };
   return { src: a[1] !== undefined ? src(a[1]) : `assets/pieces/p${a[0]}d.png`, tint: false };
 }
 

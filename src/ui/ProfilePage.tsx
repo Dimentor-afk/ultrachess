@@ -4,7 +4,7 @@ import { ARENAS } from '../economy/packs';
 import { CARDS, CARD_BY_ID, PIECE_ORDER, RARITY_NAMES, RARITY_ORDER } from '../engine/cards';
 import { Avatar } from './common';
 import { Icon } from './icons';
-import { type Settings, getSettings, onSettings, play, setSettings } from './settings';
+import { getSettings, onSettings, play, setSettings } from './settings';
 import { errorText, useSession } from './state';
 
 const KIND: Record<HistoryRow['kind'], string> = { ranked: 'Рейтинг', training: 'Тренування', friend: 'Друг' };
@@ -192,7 +192,7 @@ export function ProfilePage() {
 function SettingsPanel() {
   const [st, setSt] = useState(getSettings());
   useEffect(() => onSettings(() => setSt(getSettings())), []);
-  const rows: { key: keyof Settings; label: string; hint: string }[] = [
+  const rows: { key: 'sound' | 'animations' | 'coordinates'; label: string; hint: string }[] = [
     { key: 'sound', label: 'Звуки', hint: 'Ходи, взяття, шах, відкриття паків' },
     { key: 'animations', label: 'Анімації', hint: 'Рух фігур, тряска паків, світіння' },
     { key: 'coordinates', label: 'Координати дошки', hint: 'Літери й цифри навколо дошки' },
@@ -217,6 +217,24 @@ function SettingsPanel() {
           />
         </label>
       ))}
+      <div className="setting-row">
+        <span>
+          <b>Чорні фігури</b>
+          <small className="muted">Кольорові з червоним обідком чи темні версії</small>
+        </span>
+        <span className="seg" role="radiogroup" aria-label="Чорні фігури">
+          {(
+            [
+              ['team', 'Кольорові'],
+              ['dark', 'Темні'],
+            ] as const
+          ).map(([v, label]) => (
+            <button key={v} role="radio" aria-checked={st.blackStyle === v} className={st.blackStyle === v ? 'on' : ''} onClick={() => setSettings({ blackStyle: v })}>
+              {label}
+            </button>
+          ))}
+        </span>
+      </div>
       <p className="muted tiny">Налаштування зберігаються на цьому пристрої.</p>
     </div>
   );

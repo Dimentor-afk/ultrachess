@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+
 // Per-device settings (sound, animations, coordinates) and tiny synthesized
 // sound effects, so the game needs no audio files.
 
@@ -5,10 +7,12 @@ export interface Settings {
   sound: boolean;
   animations: boolean;
   coordinates: boolean;
+  /** team = same bright sprite for both sides, marked by colour; dark = dark sprites for black. */
+  blackStyle: 'team' | 'dark';
 }
 
 const KEY = 'ultrachess.settings.v1';
-const DEFAULTS: Settings = { sound: true, animations: true, coordinates: true };
+const DEFAULTS: Settings = { sound: true, animations: true, coordinates: true, blackStyle: 'team' };
 
 let current: Settings = load();
 const listeners = new Set<() => void>();
@@ -38,7 +42,14 @@ export function setSettings(patch: Partial<Settings>): void {
 
 export function onSettings(fn: () => void): () => void {
   listeners.add(fn);
-  return () => listeners.delete(fn);
+  return () => void listeners.delete(fn);
+}
+
+/** Current settings, re-rendering the component when they change. */
+export function useSettings(): Settings {
+  const [s, set] = useState(current);
+  useEffect(() => onSettings(() => set(current)), []);
+  return s;
 }
 
 /** Reflect settings as classes on <html> so CSS can react. */

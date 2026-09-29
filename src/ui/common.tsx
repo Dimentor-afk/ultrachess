@@ -3,6 +3,7 @@ import type { Card, Color, PieceType } from '../engine/types';
 import type { ReactNode } from 'react';
 import { Emblem, PieceSvg } from './art';
 import { cardArt, pieceSprite } from './cardArt';
+import { getSettings } from './settings';
 import { Icon } from './icons';
 
 /** Inline piece icon sized to the surrounding text. */
@@ -34,7 +35,7 @@ export function CardView({
   /** Show the sprite of this side, exactly as the piece looks on the board. */
   color?: Color;
 }) {
-  const sprite = color ? pieceSprite(card.id, card.pieceType, color) : null;
+  const sprite = color ? pieceSprite(card.id, card.pieceType, color, getSettings().blackStyle) : null;
   const art = sprite ? sprite.src : cardArt(card.id);
   return (
     <article className={`gcard r-${card.rarity} ${compact ? 'gcard-compact' : ''} ${locked ? 'locked' : ''}`}>

@@ -6,6 +6,7 @@ import type { PlayerView, ViewPiece } from '../engine/view';
 import { Emblem } from './art';
 import { pieceSprite } from './cardArt';
 import { FX, type FxName } from './fxSprites';
+import { useSettings } from './settings';
 
 export type Mark = 'move' | 'capture' | 'option' | 'stay';
 
@@ -189,10 +190,11 @@ function squareLabel(s: Square, piece: ViewPiece | null, marked: boolean): strin
 export function PieceView({ piece }: { piece: ViewPiece }) {
   const card = getCard(piece.cardId);
   const special = !card.id.endsWith('-classic');
-  const sprite = pieceSprite(card.id, piece.type, piece.color);
+  const { blackStyle } = useSettings();
+  const sprite = pieceSprite(card.id, piece.type, piece.color, blackStyle);
   return (
     <span
-      className={`piece piece-${piece.color} r-${card.rarity} ${special ? 'special' : ''} ${piece.illusion ? 'illusion' : ''} ${
+      className={`piece piece-${piece.color} ${blackStyle === 'team' ? 'team' : ''} r-${card.rarity} ${special ? 'special' : ''} ${piece.illusion ? 'illusion' : ''} ${
         sprite.tint ? 'tinted' : ''
       }`}
       title={`${card.name}\n${card.rulesText}`}
@@ -214,7 +216,7 @@ export function PieceView({ piece }: { piece: ViewPiece }) {
       {piece.frozen && <span className="badge badge-frozen" title="Пропускає хід">❄</span>}
       {piece.passenger && (
         <span className="badge badge-passenger" title="Пішак-пасажир">
-          <img className="piece-sprite pixel" src={pieceSprite('pawn-classic', 'pawn', piece.color).src} alt="" draggable={false} />
+          <img className="piece-sprite pixel" src={pieceSprite('pawn-classic', 'pawn', piece.color, blackStyle).src} alt="" draggable={false} />
         </span>
       )}
       {piece.platformTurnsLeft !== null && (
