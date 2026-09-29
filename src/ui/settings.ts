@@ -61,7 +61,23 @@ export function applySettings(): void {
 
 // ── Sound ──
 
-export type Sound = 'move' | 'capture' | 'check' | 'win' | 'loss' | 'pack' | 'rare' | 'epic' | 'legendary' | 'click';
+export type Sound =
+  | 'move'
+  | 'capture'
+  | 'check'
+  | 'win'
+  | 'loss'
+  | 'pack'
+  | 'rare'
+  | 'epic'
+  | 'legendary'
+  | 'mythic'
+  | 'tease0'
+  | 'tease1'
+  | 'tease2'
+  | 'tease3'
+  | 'whoosh'
+  | 'click';
 
 let ctx: AudioContext | null = null;
 
@@ -107,6 +123,23 @@ const NOTES: Record<Sound, [number, number, number, OscillatorType, number][]> =
     [523, 0, 0.12, 'triangle', 0.12],
     [784, 0.1, 0.12, 'triangle', 0.12],
     [1046, 0.2, 0.35, 'triangle', 0.14],
+  ],
+  mythic: [
+    [392, 0, 0.18, 'sawtooth', 0.05],
+    [523, 0.08, 0.18, 'triangle', 0.12],
+    [784, 0.18, 0.18, 'triangle', 0.12],
+    [1046, 0.28, 0.2, 'triangle', 0.14],
+    [1568, 0.4, 0.5, 'triangle', 0.12],
+  ],
+  // Rising heartbeat while a strong card is teased.
+  tease0: [[196, 0, 0.12, 'sine', 0.18], [196, 0.16, 0.1, 'sine', 0.12]],
+  tease1: [[262, 0, 0.12, 'sine', 0.18], [262, 0.16, 0.1, 'sine', 0.12]],
+  tease2: [[349, 0, 0.12, 'sine', 0.2], [349, 0.16, 0.1, 'sine', 0.14]],
+  tease3: [[466, 0, 0.12, 'sine', 0.22], [466, 0.16, 0.1, 'sine', 0.16]],
+  whoosh: [
+    [300, 0, 0.3, 'sawtooth', 0.03],
+    [600, 0.15, 0.3, 'sawtooth', 0.03],
+    [900, 0.3, 0.3, 'sawtooth', 0.03],
   ],
   click: [[700, 0, 0.04, 'sine', 0.05]],
 };

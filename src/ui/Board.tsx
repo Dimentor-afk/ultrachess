@@ -49,11 +49,14 @@ interface Props {
   celebrate?: boolean;
   /** Each side's capture effect sprite. */
   captureFx?: Partial<Record<Color, FxName>>;
+  /** Match intro: pieces not placed yet, and the ones landing right now. */
+  introHidden?: Set<Square>;
+  introLanding?: Set<Square>;
 }
 
 const FILES = 'abcdefgh';
 
-export function Board({ view, orientation, selected, marks, lastMove, hint, preview, checkSquare, onSquare, celebrate = false, captureFx }: Props) {
+export function Board({ view, orientation, selected, marks, lastMove, hint, preview, checkSquare, onSquare, celebrate = false, captureFx, introHidden, introLanding }: Props) {
   const barrier = new Set(view.barriers.flatMap((b) => b.squares));
   const ranks = orientation === 'w' ? [8, 7, 6, 5, 4, 3, 2, 1, 0, -1] : [-1, 0, 1, 2, 3, 4, 5, 6, 7, 8];
   const files = orientation === 'w' ? [-1, 0, 1, 2, 3, 4, 5, 6, 7, 8] : [8, 7, 6, 5, 4, 3, 2, 1, 0, -1];
@@ -103,7 +106,7 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
     for (const f of files) {
       const s = sq(f, r);
       const onBoard = isBoardSquare(s);
-      const piece = view.cells[s];
+      const piece = introHidden?.has(s) ? null : view.cells[s];
       const mark = marks.get(s);
       const classes = ['cell'];
       if (onBoard) classes.push((f + r) % 2 === 0 ? 'dark' : 'light');
@@ -130,6 +133,10 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
               <span key={`slide-${anim.current.n}`} className={slides.get(s)!.cls} style={slides.get(s)!.style}>
                 <PieceView piece={piece} />
               </span>
+            ) : introLanding?.has(s) ? (
+              <span className="intro-land">
+                <PieceView piece={piece} />
+              </span>
             ) : (
               <PieceView piece={piece} />
             ))}
@@ -140,6 +147,7 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
       cells.push(
         <button
           key={s}
+          data-sq={s}
           type="button"
           className={classes.join(' ')}
           onClick={() => onSquare(s)}

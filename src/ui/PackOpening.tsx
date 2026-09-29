@@ -4,10 +4,23 @@ import { CARD_BY_ID, RARITY_NAMES } from '../engine/cards';
 import { packArt } from './cardArt';
 import { CardView } from './common';
 import { FxOnce } from './FxOnce';
-import { play } from './settings';
+import { getSettings, play, type Sound } from './settings';
 import { errorText } from './state';
+import type { Rarity } from '../engine/types';
 
 type Phase = 'idle' | 'opening' | 'burst' | 'reveal' | 'summary';
+
+/**
+ * How a card is revealed: `in` (face down), `tease` (epic and up: the back
+ * shakes and its glow climbs through the rarities), `spin`, `shown`.
+ */
+type Stage = 'in' | 'tease' | 'spin' | 'shown';
+
+const TEASE_LADDER: Rarity[] = ['rare', 'epic', 'legendary', 'mythological'];
+const TEASE_STEPS: Partial<Record<Rarity, number>> = { epic: 2, legendary: 3, mythological: 4 };
+const TEASE_TEXT = ['Щось незвичайне…', 'Сильніше…', 'Ще сильніше…', 'Неймовірно!'];
+const TEASE_STEP_MS = 650;
+const SPIN_MS = 1000;
 
 /**
  * Pack opening: tap the pack, it shakes and bursts, then the cards are
@@ -27,7 +40,9 @@ export function PackOpening({
   const [phase, setPhase] = useState<Phase>('idle');
   const [result, setResult] = useState<OpenResult | null>(null);
   const [index, setIndex] = useState(0);
-  const [flipped, setFlipped] = useState(false);
+  const [stage, setStage] = useState<Stage>('in');
+  const [step, setStep] = useState(0);
+  const flipped = stage === 'shown';
   const [error, setError] = useState<string | null>(null);
 
   const start = async () => {
@@ -54,33 +69,64 @@ export function PackOpening({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const current = result?.cards[index];
+  const card = current ? CARD_BY_ID[current.cardId] : null;
+  const teaseSteps = (card && getSettings().animations && TEASE_STEPS[card.rarity]) || 0;
+
+  // Face down, then (for epic and up) a tease that escalates step by step,
+  // a spin, and the reveal.
   useEffect(() => {
     if (phase !== 'reveal') return;
-    setFlipped(false);
-    const t = setTimeout(() => setFlipped(true), 350);
-    return () => clearTimeout(t);
+    setStage('in');
+    setStep(0);
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const at = (ms: number, fn: () => void) => timers.push(setTimeout(fn, ms));
+    if (!teaseSteps) {
+      at(350, () => setStage('shown'));
+    } else {
+      at(350, () => setStage('tease'));
+      for (let i = 0; i < teaseSteps; i++) {
+        at(350 + i * TEASE_STEP_MS, () => {
+          setStep(i);
+          play(`tease${i}` as Sound);
+        });
+      }
+      const spinAt = 350 + teaseSteps * TEASE_STEP_MS;
+      at(spinAt, () => {
+        setStage('spin');
+        play('whoosh');
+      });
+      at(spinAt + SPIN_MS, () => setStage('shown'));
+    }
+    return () => timers.forEach(clearTimeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, index]);
 
   const next = () => {
     if (!result) return;
-    if (!flipped) return setFlipped(true);
+    if (!flipped) return setStage('shown');
     if (index + 1 < result.cards.length) setIndex(index + 1);
     else setPhase('summary');
   };
 
-  const current = result?.cards[index];
-  const card = current ? CARD_BY_ID[current.cardId] : null;
-
   useEffect(() => {
     if (!flipped || !card || phase !== 'reveal') return;
     const r = card.rarity;
-    play(r === 'common' ? 'click' : r === 'rare' ? 'rare' : r === 'epic' ? 'epic' : 'legendary');
+    play(r === 'common' ? 'click' : r === 'rare' ? 'rare' : r === 'epic' ? 'epic' : r === 'legendary' ? 'legendary' : 'mythic');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flipped, index]);
 
+  const teaseRarity = TEASE_LADDER[step];
+  const bgRarity = phase !== 'reveal' || !card ? null : flipped ? card.rarity : stage === 'tease' || stage === 'spin' ? teaseRarity : null;
+  const big = !!teaseSteps && flipped;
+
   return (
-    <div className="opening" role="dialog" aria-label={`Відкриття: ${pack.name}`}>
-      <div className={`opening-bg ${card && flipped && phase === 'reveal' ? `r-${card.rarity}` : ''}`} />
+    <div
+      className={`opening ${big && card!.rarity === 'mythological' ? 'opening-quake' : ''}`}
+      role="dialog"
+      aria-label={`Відкриття: ${pack.name}`}
+    >
+      <div className={`opening-bg ${bgRarity ? `r-${bgRarity}` : ''}`} />
       {(phase === 'idle' || phase === 'opening' || phase === 'burst') && (
         <button className={`opening-pack ${phase}`} onClick={start} aria-label="Відкрити пак">
           <span className="opening-rays" />
@@ -105,7 +151,14 @@ export function PackOpening({
           <p className="reveal-count">
             {index + 1} / {result.cards.length}
           </p>
-          <div className={`flip ${flipped ? 'flipped' : ''} r-${card.rarity}`}>
+          <div
+            key={index}
+            className={`flip ${flipped ? 'flipped' : ''} ${stage === 'tease' ? 'tease' : ''} ${stage === 'spin' || (flipped && teaseSteps) ? 'spun' : ''} ${stage === 'spin' ? 'spinning' : ''} r-${card.rarity}`}
+            style={{ '--tease': `var(--r-${teaseRarity})`, '--amp': `${2 + step * 2}px` } as React.CSSProperties}
+          >
+            {(stage === 'tease' || stage === 'spin' || big) && (
+              <span className={`reveal-rays ${big ? 'big' : ''}`} style={{ '--c': `var(--r-${big ? card.rarity : teaseRarity})` } as React.CSSProperties} />
+            )}
             <div className="flip-inner">
               <div className="flip-back">
                 <span>♞</span>
@@ -117,7 +170,18 @@ export function PackOpening({
                 )}
               </div>
             </div>
+            {big && (
+              <span className="reveal-burst" aria-hidden="true">
+                <FxOnce name={card.rarity === 'mythological' ? 'cap_epic' : 'burst'} width={card.rarity === 'epic' ? 420 : 560} />
+              </span>
+            )}
           </div>
+          {big && <span className="reveal-flash" style={{ '--c': `var(--r-${card.rarity})` } as React.CSSProperties} />}
+          {stage === 'tease' && (
+            <p className="tease-text" key={step} style={{ color: `var(--r-${teaseRarity})` }}>
+              {TEASE_TEXT[step]}
+            </p>
+          )}
           <div className={`reveal-tag ${flipped ? 'show' : ''}`}>
             <span className={`rarity-tag r-${card.rarity}`}>{RARITY_NAMES[card.rarity]}</span>
             {current!.isNew ? <span className="badge-new">НОВА!</span> : <span className="badge-dupe">повторка → 💎 +{current!.shards}</span>}

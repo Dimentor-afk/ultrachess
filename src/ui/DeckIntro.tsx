@@ -1,96 +1,146 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CARD_BY_ID } from '../engine/cards';
-import { deckPositions } from '../engine/deck';
-import type { Deck } from '../engine/types';
-import { Emblem } from './art';
-import { CardArt, RarityTag } from './common';
+import type { PlayerView } from '../engine/view';
+import type { Color, PieceType, Square } from '../engine/types';
+import { CardView } from './common';
 import { play } from './settings';
 
-const GROUPS: { label: string; keys: (keyof Deck)[] | 'pawns' }[] = [
-  { label: 'Пішаки', keys: 'pawns' },
-  { label: 'Тури', keys: ['rook1', 'rook2'] },
-  { label: 'Коні', keys: ['knight1', 'knight2'] },
-  { label: 'Слони', keys: ['bishop1', 'bishop2'] },
-  { label: 'Король', keys: ['king'] },
-  { label: 'Ферзь', keys: ['queen'] },
-];
-
-const STEP_MS = 750;
-
-/** Cards of a group with how many pieces use each. */
-function groupCards(deck: Deck, keys: (keyof Deck)[] | 'pawns'): { id: string; count: number }[] {
-  const ids = keys === 'pawns' ? deckPositions(deck).slice(0, 8) : keys.map((k) => deck[k] as string);
-  const out: { id: string; count: number }[] = [];
-  for (const id of ids) {
-    const e = out.find((x) => x.id === id);
-    if (e) e.count++;
-    else out.push({ id, count: 1 });
-  }
-  return out;
+export interface IntroStep {
+  cardId: string;
+  squares: Square[];
 }
 
-/**
- * Match intro: the opponent's deck flies onto the screen group by group
- * (pawns, rooks, knights, bishops, king, queen), so you know what you face.
- */
-export function DeckIntro({ deck, opponent, onDone }: { deck: Deck; opponent: string; onDone: () => void }) {
-  const [shown, setShown] = useState(0);
-  useEffect(() => {
-    if (shown >= GROUPS.length) return;
-    const t = setTimeout(() => {
-      setShown((n) => n + 1);
-      play('click');
-    }, shown === 0 ? 350 : STEP_MS);
-    return () => clearTimeout(t);
-  }, [shown]);
+const ORDER: PieceType[] = ['pawn', 'rook', 'knight', 'bishop', 'king', 'queen'];
+const GROUP_NAME: Record<PieceType, string> = {
+  pawn: 'Пішаки',
+  rook: 'Тури',
+  knight: 'Коні',
+  bishop: 'Слони',
+  king: 'Король',
+  queen: 'Ферзь',
+};
 
-  const done = shown >= GROUPS.length;
+/** The opponent's starting pieces, one step per card: pawns, rooks, knights, bishops, king, queen. */
+export function introSteps(view: PlayerView, opponent: Color): IntroStep[] {
+  const steps: (IntroStep & { type: PieceType })[] = [];
+  view.cells.forEach((p, s) => {
+    if (!p || p.color !== opponent) return;
+    const step = steps.find((x) => x.cardId === p.cardId);
+    if (step) step.squares.push(s);
+    else steps.push({ cardId: p.cardId, type: p.type, squares: [s] });
+  });
+  return steps.sort((a, b) => ORDER.indexOf(a.type) - ORDER.indexOf(b.type)).map(({ cardId, squares }) => ({ cardId, squares }));
+}
+
+const ENTER_MS = 380;
+const HOLD_MS = 520;
+const LAND_MS = 380;
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Match intro: each of the opponent's cards flies in big, then shrinks onto
+ * its squares, where the pieces appear (`onLand`). When the last one lands
+ * the game starts by itself; «Пропустити» ends it at once.
+ */
+export function DeckIntro({
+  steps,
+  opponent,
+  color,
+  onLand,
+  onDone,
+}: {
+  steps: IntroStep[];
+  opponent: string;
+  color: Color;
+  onLand: (landed: number) => void;
+  onDone: () => void;
+}) {
+  const [index, setIndex] = useState(0);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const done = useRef(onDone);
+  const land = useRef(onLand);
+  done.current = onDone;
+  land.current = onLand;
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      await wait(300);
+      for (let i = 0; i < steps.length && !cancelled; i++) {
+        setIndex(i);
+        await wait(40);
+        const el = cardRef.current;
+        if (!el || cancelled) return;
+        const base = 'translate(-50%, -50%)';
+        await el.animate(
+          [
+            { transform: `${base} translate(70vw, -10vh) rotate(25deg) scale(0.5)`, opacity: 0 },
+            { transform: `${base} rotate(-3deg) scale(1.05)`, opacity: 1, offset: 0.8 },
+            { transform: `${base}`, opacity: 1 },
+          ],
+          { duration: ENTER_MS, easing: 'cubic-bezier(0.2, 0.9, 0.3, 1)', fill: 'forwards' },
+        ).finished;
+        play('click');
+        await wait(HOLD_MS);
+        if (cancelled) return;
+        const target = centerOf(steps[i].squares);
+        const dx = target ? target.x - window.innerWidth / 2 : 0;
+        const dy = target ? target.y - window.innerHeight / 2 : window.innerHeight / 3;
+        await el.animate(
+          [
+            { transform: base, opacity: 1 },
+            { transform: `${base} translate(${dx}px, ${dy}px) scale(0.16)`, opacity: 0.35 },
+          ],
+          { duration: LAND_MS, easing: 'cubic-bezier(0.5, 0, 0.8, 0.6)', fill: 'forwards' },
+        ).finished;
+        if (cancelled) return;
+        land.current(i + 1);
+        play('move');
+      }
+      await wait(650);
+      if (!cancelled) done.current();
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [steps]);
+
+  const step = steps[index];
+  const card = step ? CARD_BY_ID[step.cardId] : null;
   return (
-    <div className="deck-intro" role="dialog" aria-label={`Колода суперника: ${opponent}`}>
+    <div className="deck-intro" aria-label={`Колода суперника: ${opponent}`}>
       <div className="deck-intro-head">
-        <span className="eyebrow">Ваш суперник</span>
-        <h2>{opponent}</h2>
-        <span className="muted">{deck.name}</span>
-      </div>
-      <div className="deck-intro-groups">
-        {GROUPS.slice(0, shown).map((g) => (
-          <div key={g.label} className="intro-group">
-            <span className="intro-label">{g.label}</span>
-            <div className="intro-cards">
-              {groupCards(deck, g.keys).map((c, i) => {
-                const card = CARD_BY_ID[c.id];
-                return (
-                  <div key={c.id} className={`intro-card r-${card.rarity}`} style={{ animationDelay: `${i * 90}ms` }}>
-                    <div className="intro-art">
-                      <CardArt cardId={c.id} />
-                      {!c.id.endsWith('-classic') && (
-                        <span className="mini-card-emblem">
-                          <Emblem cardId={c.id} />
-                        </span>
-                      )}
-                      {c.count > 1 && <span className="intro-count">×{c.count}</span>}
-                    </div>
-                    <b>{card.name}</b>
-                    <RarityTag card={card} />
-                    <small className="intro-rules">{card.rulesText}</small>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="deck-intro-actions">
-        {done ? (
-          <button className="btn btn-primary btn-lg" onClick={onDone} autoFocus>
-            У бій!
-          </button>
-        ) : (
-          <button className="btn btn-ghost" onClick={onDone}>
-            Пропустити
-          </button>
+        <span className="eyebrow">Колода суперника · {opponent}</span>
+        {card && (
+          <b key={index} className="intro-group-name">
+            {GROUP_NAME[card.pieceType]}
+            {step.squares.length > 1 && <span className="muted"> ×{step.squares.length}</span>}
+          </b>
         )}
       </div>
+      {card && (
+        <div ref={cardRef} className="intro-big-card" key={index}>
+          <CardView card={card} color={color} />
+        </div>
+      )}
+      <button className="btn btn-ghost intro-skip" onClick={onDone}>
+        Пропустити ⏭
+      </button>
     </div>
   );
+}
+
+function centerOf(squares: Square[]): { x: number; y: number } | null {
+  let x = 0;
+  let y = 0;
+  let n = 0;
+  for (const s of squares) {
+    const el = document.querySelector(`.board .cell[data-sq="${s}"]`);
+    if (!el) continue;
+    const r = el.getBoundingClientRect();
+    x += r.left + r.width / 2;
+    y += r.top + r.height / 2;
+    n++;
+  }
+  return n ? { x: x / n, y: y / n } : null;
 }

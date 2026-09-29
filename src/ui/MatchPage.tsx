@@ -13,7 +13,7 @@ import { playerView } from '../engine/view';
 import { Board, type Mark, boardRing, squareCenter } from './Board';
 import { type Stage, makeStage } from './stage';
 import { getSettings, play } from './settings';
-import { DeckIntro } from './DeckIntro';
+import { DeckIntro, introSteps } from './DeckIntro';
 import type { FxName } from './fxSprites';
 import { requestBotTurn, requestHint } from './botClient';
 import { Avatar, CardView, Glyph } from './common';
@@ -111,6 +111,8 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
   const [thinking, setThinking] = useState(false);
   // A fresh game opens with the opponent's deck; the bot waits for it.
   const [intro, setIntro] = useState(() => getSettings().animations && (remote ? remote.initialActions.length === 0 : true));
+  // Intro progress: how many of the opponent's cards have landed on the board.
+  const [landed, setLanded] = useState(0);
   const [hintBusy, setHintBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showSummary, setShowSummary] = useState(true);
@@ -129,6 +131,8 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
     }
   }, [stage, match]);
   const view = useMemo(() => (preview ? playerView(preview, human) : realView), [preview, realView, human]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const introPlan = useMemo(() => introSteps(realView, bot), []);
   useEffect(() => {
     const el = historyRef.current;
     if (el) el.scrollTop = el.scrollHeight;
@@ -383,6 +387,8 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
             onSquare={onSquare}
             celebrate={!!match.result && match.result.winner === human}
             captureFx={captureFx}
+            introHidden={intro ? new Set(introPlan.slice(landed).flatMap((x) => x.squares)) : undefined}
+            introLanding={intro && landed > 0 ? new Set(introPlan[landed - 1].squares) : undefined}
           />
           {popover && (
             <div
@@ -577,8 +583,10 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
 
       {intro && (
         <DeckIntro
-          deck={start.botDeck}
+          steps={introPlan}
+          color={bot}
           opponent={remote ? remote.opponentName : `Бот · ${botLevel(start.botLevel).name}`}
+          onLand={setLanded}
           onDone={() => setIntro(false)}
         />
       )}
