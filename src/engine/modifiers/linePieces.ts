@@ -68,7 +68,7 @@ export const linePieceGenerators: Record<string, Generator> = {
   'queen-ricochet': (ctx, p, from) => dedupe([...queen(ctx, p, from), ...ricochetMoves(ctx, p, from, ALL_DIRS)]),
   'queen-amazon': (ctx, p, from) => [
     ...slideMoves(ctx, p, from, ALL_DIRS, { max: 5 }),
-    ...leapMoves(ctx, p, from, KNIGHT_LEAPS, { noCapture: true }),
+    ...leapMoves(ctx, p, from, KNIGHT_LEAPS),
   ],
   'queen-levitation': (ctx, p, from) => [...queen(ctx, p, from), ...levitateMoves(ctx, p, from, ALL_DIRS)],
   'queen-immortal': queen,

@@ -8,8 +8,8 @@ import { pieceSprite } from './cardArt';
 
 export type Mark = 'move' | 'capture' | 'option' | 'stay';
 
-/** Grid tracks: a 0.72-wide ring, 8 squares, a 0.72-wide ring. */
-const RING = 0.72;
+/** Grid tracks: a 0.5-wide ring, 8 squares, a 0.5-wide ring. */
+const RING = 0.5;
 const TOTAL = 8 + 2 * RING;
 const trackCenter = (i: number) => (i === 0 ? RING / 2 : i === 9 ? RING + 8 + RING / 2 : RING + i - 0.5);
 
@@ -156,8 +156,14 @@ export function PieceView({ piece }: { piece: ViewPiece }) {
       {special && <span className="piece-aura" />}
       <img className="piece-sprite pixel" src={sprite.src} alt="" draggable={false} />
       {special && (
-        <span className="piece-emblem">
+        <span className={`piece-emblem ${piece.cooldown === 0 && piece.id ? 'is-ready' : ''}`}>
           <Emblem cardId={card.id} />
+        </span>
+      )}
+      {piece.cooldown !== null && piece.cooldown > 0 && (
+        <span className="badge badge-cd" title={`Перезарядка: ще ${piece.cooldown} ход.`}>
+          <span className="badge-cd-icon">⏳</span>
+          {piece.cooldown}
         </span>
       )}
       {piece.frozen && <span className="badge badge-frozen" title="Пропускає хід">❄</span>}

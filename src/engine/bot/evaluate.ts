@@ -31,7 +31,7 @@ const CARD_ADJUST: Record<string, number> = {
   'bishop-sentinel': 10,
   'rook-maneuver': 40,
   'pawn-spearman': 20,
-  'queen-amazon': -40,
+  'queen-amazon': 20,
 };
 
 export const MOBILITY_WEIGHT = 2;

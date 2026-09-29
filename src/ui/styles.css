@@ -1122,7 +1122,7 @@ select optgroup {
 
 .game {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 360px;
+  grid-template-columns: minmax(0, 1fr) 340px;
   gap: 1.25rem;
   align-items: start;
 }
@@ -1132,7 +1132,7 @@ select optgroup {
   flex-direction: column;
   gap: 0.5rem;
   /* Fit the whole board on screen: height minus top bar and player bars. */
-  width: min(100%, calc(100dvh - 170px), 760px);
+  width: min(100%, calc(100dvh - 120px), 1100px);
   min-width: min(100%, 300px);
   justify-self: center;
 }
@@ -1188,8 +1188,8 @@ select optgroup {
 .board {
   container-type: inline-size;
   display: grid;
-  grid-template-columns: 0.72fr repeat(8, 1fr) 0.72fr;
-  grid-template-rows: 0.72fr repeat(8, 1fr) 0.72fr;
+  grid-template-columns: 0.5fr repeat(8, 1fr) 0.5fr;
+  grid-template-rows: 0.5fr repeat(8, 1fr) 0.5fr;
   aspect-ratio: 1;
   width: 100%;
   border-radius: 14px;
@@ -1264,8 +1264,8 @@ select optgroup {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 10.4cqw;
-  height: 10.4cqw;
+  width: 11cqw;
+  height: 11cqw;
   transform: translate(-50%, -50%);
   display: grid;
   place-items: center;
@@ -4222,4 +4222,63 @@ th.num {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--r-mythological);
+}
+
+/* ── Bigger pieces, cooldown on the piece ── */
+
+.piece > .piece-sprite {
+  width: 86%;
+  height: 84%;
+  bottom: 7%;
+}
+
+.piece-base {
+  bottom: 4%;
+  left: 20%;
+  right: 20%;
+}
+
+.badge-cd {
+  left: 50%;
+  bottom: -2%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2em;
+  padding: 0.25em 0.5em;
+  border-radius: 999px;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 2.1cqw;
+  color: #fff;
+  background: rgba(8, 12, 26, 0.88);
+  border: 0.25cqw solid var(--r, #8fd8ff);
+  box-shadow: 0 0.3cqw 0.8cqw rgba(0, 0, 0, 0.5);
+  z-index: 3;
+  white-space: nowrap;
+}
+
+.badge-cd-icon {
+  font-size: 0.85em;
+}
+
+.piece-emblem.is-ready {
+  animation: emblem-ready 1.4s ease-in-out infinite;
+}
+
+@keyframes emblem-ready {
+  50% {
+    box-shadow: 0 0 0 0.35cqw rgba(0, 0, 0, 0.55), 0 0 1.6cqw 0.4cqw var(--r);
+  }
+}
+
+/* The match needs every pixel of height: the wallet floats instead of taking a row. */
+@media (min-width: 861px) {
+  .content:has(.game) .wallet {
+    display: none;
+  }
+
+  .content:has(.game) {
+    padding-top: 0.75rem;
+  }
 }

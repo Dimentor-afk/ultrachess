@@ -234,13 +234,14 @@ describe('rook cards', () => {
 });
 
 describe('queen and king cards', () => {
-  it('Амазонка: queen up to 5 squares plus non-capturing knight jumps', () => {
+  it('Амазонка: queen up to 5 squares plus knight jumps that capture', () => {
     const pos = build({ a1: 'w:queen-amazon', b3: 'b:pawn-classic', h1: 'w:king-classic', h8: 'b:king-classic' });
     const t = targets(pos, 'a1');
     expect(t).toContain('f6');
     expect(t).not.toContain('g7');
     expect(t).toContain('c2');
-    expect(t).not.toContain('b3');
+    expect(t).toContain('b3');
+    expect(findMove(pos, 'a1', 'b3').captures).toHaveLength(1);
   });
 
   it('Мандрівник moves 1–2 squares straight, never diagonally', () => {
