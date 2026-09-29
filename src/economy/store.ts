@@ -30,6 +30,10 @@ export interface UserRow {
   /** Packs won in ranked matches on `packsDay` (UTC date, YYYY-MM-DD). */
   packsToday: number;
   packsDay: string;
+  /** Card id whose art is the avatar. */
+  avatar: string;
+  bestTrophies: number;
+  lastSeen: number;
 }
 
 export interface SessionRow {
@@ -82,6 +86,41 @@ export interface MatchRow {
   createdAt: number;
 }
 
+export interface FriendRow {
+  id: string;
+  fromId: string;
+  toId: string;
+  status: 'pending' | 'accepted';
+  createdAt: number;
+}
+
+export interface ChallengeRow {
+  id: string;
+  fromId: string;
+  toId: string;
+  fromDeck: Deck;
+  status: 'pending' | 'accepted' | 'declined' | 'cancelled';
+  pvpId: string | null;
+  createdAt: number;
+}
+
+/** A game between two players; the state is rebuilt by replaying `actions`. */
+export interface PvpRow {
+  id: string;
+  whiteId: string;
+  blackId: string;
+  whiteDeck: Deck;
+  blackDeck: Deck;
+  /** JSON array of engine actions. */
+  actions: string;
+  status: 'active' | 'finished';
+  /** JSON {winner, reason, moves} once finished. */
+  result: string | null;
+  resignedBy: 'w' | 'b' | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface Store {
   getUser(id: string): Promise<UserRow | null>;
   getUserByEmail(email: string): Promise<UserRow | null>;
@@ -112,6 +151,23 @@ export interface Store {
   insertMatch(m: MatchRow): Promise<void>;
   getMatch(id: string): Promise<MatchRow | null>;
   updateMatch(id: string, patch: Partial<MatchRow>): Promise<void>;
+  listMatches(userId: string, limit: number): Promise<MatchRow[]>;
+
+  listFriends(userId: string): Promise<FriendRow[]>;
+  insertFriend(f: FriendRow): Promise<void>;
+  updateFriend(id: string, patch: Partial<FriendRow>): Promise<void>;
+  deleteFriend(id: string): Promise<void>;
+
+  listChallenges(userId: string): Promise<ChallengeRow[]>;
+  getChallenge(id: string): Promise<ChallengeRow | null>;
+  insertChallenge(c: ChallengeRow): Promise<void>;
+  updateChallenge(id: string, patch: Partial<ChallengeRow>): Promise<void>;
+
+  listPvp(userId: string, limit: number): Promise<PvpRow[]>;
+  getPvp(id: string): Promise<PvpRow | null>;
+  insertPvp(p: PvpRow): Promise<void>;
+  /** Write `patch` only if the game still has `expectedActions` actions (optimistic lock). */
+  updatePvp(id: string, patch: Partial<PvpRow>, expectedActions?: number): Promise<boolean>;
 }
 
 export interface Hasher {

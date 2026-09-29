@@ -13,16 +13,29 @@ import { playerView } from '../engine/view';
 import { Board, type Mark, squareCenter } from './Board';
 import { type Stage, makeStage } from './stage';
 import { requestBotTurn, requestHint } from './botClient';
-import { CardView, Glyph } from './common';
+import { Avatar, CardView, Glyph } from './common';
 
 export interface GameProps {
   start: MatchStart;
   playerName: string;
+  playerAvatar?: string;
   trophies: number;
-  /** Report the finished game; resolves to the server's verdict. */
-  onFinish: (actions: Action[], resigned: boolean) => Promise<MatchFinish>;
+  /** Report the finished game; resolves to the server's verdict (bot games). */
+  onFinish?: (actions: Action[], resigned: boolean) => Promise<MatchFinish>;
   onExit: () => void;
-  onRematch: () => void;
+  onRematch?: () => void;
+  /** A friend instead of the bot: moves go to the server, theirs come back by polling. */
+  remote?: RemoteGame;
+}
+
+export interface RemoteGame {
+  opponentName: string;
+  opponentAvatar: string;
+  initialActions: Action[];
+  resignedBy: Color | null;
+  poll(): Promise<{ actions: Action[]; resignedBy: Color | null }>;
+  send(action: Action, expected: number): Promise<void>;
+  resign(): Promise<void>;
 }
 
 export function botOptions(level: number): BotOptions {
@@ -31,15 +44,20 @@ export function botOptions(level: number): BotOptions {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-export function Game({ start, playerName, trophies, onFinish, onExit, onRematch }: GameProps) {
+export function Game({ start, playerName, playerAvatar, trophies, onFinish, onExit, onRematch, remote }: GameProps) {
   const human = start.color;
   const bot = opposite(human);
-  const botOpts = botOptions(start.botLevel);
-  const [match, setMatchState] = useState<MatchState>(() =>
-    human === 'w' ? createMatch(start.playerDeck, start.botDeck) : createMatch(start.botDeck, start.playerDeck),
-  );
+  const botOpts = botOptions(start.botLevel || 2);
+  const fresh = () => (human === 'w' ? createMatch(start.playerDeck, start.botDeck) : createMatch(start.botDeck, start.playerDeck));
+  const replay = (actions: Action[], resignedBy: Color | null) => {
+    let m = fresh();
+    for (const a of actions) m = performAction(m, a);
+    return resignedBy && !m.result ? resign(m, resignedBy) : m;
+  };
+  const [match, setMatchState] = useState<MatchState>(() => (remote ? replay(remote.initialActions, remote.resignedBy) : fresh()));
   // Every action is recorded so the server can replay and verify the game.
-  const actionsRef = useRef<Action[]>([]);
+  const actionsRef = useRef<Action[]>(remote ? [...remote.initialActions] : []);
+  const sending = useRef(0);
   const matchRef = useRef(match);
   const setMatch = (next: MatchState) => {
     matchRef.current = next;
@@ -47,14 +65,32 @@ export function Game({ start, playerName, trophies, onFinish, onExit, onRematch 
   };
   const apply = (m: MatchState, a: Action): MatchState => {
     const next = performAction(m, a);
+    const expected = actionsRef.current.length;
     actionsRef.current.push(a);
+    if (remote) {
+      sending.current++;
+      remote
+        .send(a, expected)
+        .catch((e) => {
+          setError(e instanceof Error ? e.message : String(e));
+          return resync();
+        })
+        .finally(() => sending.current--);
+    }
     return next;
+  };
+  // Friend games: rebuild from the server's record when ours went out of step.
+  const resync = async () => {
+    if (!remote) return;
+    const r = await remote.poll();
+    actionsRef.current = [...r.actions];
+    if (alive.current) setMatch(replay(r.actions, r.resignedBy));
   };
   const [verdict, setVerdict] = useState<MatchFinish | null>(null);
   const [verdictError, setVerdictError] = useState<string | null>(null);
   const reported = useRef(false);
   const report = (resigned: boolean) => {
-    if (reported.current) return;
+    if (reported.current || !onFinish) return;
     reported.current = true;
     onFinish(actionsRef.current, resigned)
       .then((v) => alive.current && setVerdict(v))
@@ -139,7 +175,7 @@ export function Game({ start, playerName, trophies, onFinish, onExit, onRematch 
   const botToken = useRef(0);
   useEffect(() => {
     const token = ++botToken.current;
-    if (match.result || match.turn !== bot) {
+    if (remote || match.result || match.turn !== bot) {
       setThinking(false);
       return;
     }
@@ -172,6 +208,39 @@ export function Game({ start, playerName, trophies, onFinish, onExit, onRematch 
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [match]);
+
+  // Friend games: pick up the opponent's moves.
+  useEffect(() => {
+    if (!remote) return;
+    let stop = false;
+    const tick = async () => {
+      if (stop || sending.current) return;
+      try {
+        const r = await remote.poll();
+        if (stop || sending.current) return;
+        const local = actionsRef.current;
+        const same = r.actions.length >= local.length && local.every((a, i) => JSON.stringify(a) === JSON.stringify(r.actions[i]));
+        if (!same) {
+          actionsRef.current = [...r.actions];
+          setMatch(replay(r.actions, r.resignedBy));
+          return;
+        }
+        let m = matchRef.current;
+        for (const a of r.actions.slice(local.length)) m = performAction(m, a);
+        actionsRef.current = [...r.actions];
+        if (r.resignedBy && !m.result) m = resign(m, r.resignedBy);
+        if (m !== matchRef.current) setMatch(m);
+      } catch {
+        // Offline for a moment: try again on the next tick.
+      }
+    };
+    const t = setInterval(tick, 1500);
+    return () => {
+      stop = true;
+      clearInterval(t);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remote]);
 
   const onSquare = (s: Square) => {
     const cell = view.cells[s];
@@ -256,7 +325,13 @@ export function Game({ start, playerName, trophies, onFinish, onExit, onRematch 
   } else if (myTurn) {
     statusText = match.status === 'check' ? 'Ваш хід — вам шах!' : 'Ваш хід';
   } else {
-    statusText = match.status === 'check' ? 'Шах боту. Бот думає…' : 'Бот думає…';
+    statusText = remote
+      ? match.status === 'check'
+        ? `Шах! Хід: ${remote.opponentName}…`
+        : `Хід суперника: ${remote.opponentName}…`
+      : match.status === 'check'
+        ? 'Шах боту. Бот думає…'
+        : 'Бот думає…';
   }
 
   return (
@@ -264,14 +339,18 @@ export function Game({ start, playerName, trophies, onFinish, onExit, onRematch 
       <div className="game-board-col">
         <div className={`player-bar ${match.turn === bot && !match.result ? 'to-move' : ''}`}>
           <span className="pb-who">
-            <span className="avatar avatar-bot">🤖</span>
+            {remote ? <Avatar card={remote.opponentAvatar} /> : <span className="avatar avatar-bot">🤖</span>}
             <span>
-              <b>Бот · рівень {start.botLevel}</b>
+              <b>{remote ? remote.opponentName : `Бот · рівень ${start.botLevel}`}</b>
               <small className="muted">{start.botDeck.name}</small>
             </span>
           </span>
           <Captured types={lostPieces(match, human)} color={human} />
-          {thinking && <span className="thinking" aria-live="polite">думає…</span>}
+          {(thinking || (remote && match.turn === bot && !match.result)) && (
+            <span className="thinking" aria-live="polite">
+              {remote ? 'ходить…' : 'думає…'}
+            </span>
+          )}
         </div>
         <div className="board-wrap">
           <Board
@@ -305,7 +384,7 @@ export function Game({ start, playerName, trophies, onFinish, onExit, onRematch 
         </div>
         <div className={`player-bar ${myTurn ? 'to-move' : ''}`}>
           <span className="pb-who">
-            <span className="avatar">{playerName.slice(0, 1).toUpperCase()}</span>
+            {playerAvatar ? <Avatar card={playerAvatar} /> : <span className="avatar">{playerName.slice(0, 1).toUpperCase()}</span>}
             <span>
               <b>{playerName}</b>
               <small className="muted">
@@ -320,7 +399,7 @@ export function Game({ start, playerName, trophies, onFinish, onExit, onRematch 
 
       <aside className="game-side">
         <div className={`panel status status-${match.result ? 'over' : myTurn ? 'mine' : 'bot'}`} aria-live="polite">
-          <span className="eyebrow mode-tag">{start.ranked ? 'Рейтинговий бій' : 'Тренування'}</span>
+          <span className="eyebrow mode-tag">{remote ? 'Гра з другом' : start.ranked ? 'Рейтинговий бій' : 'Тренування'}</span>
           <br />
           <strong>{statusText}</strong>
           {error && <p className="error-text">{error}</p>}
@@ -460,7 +539,8 @@ export function Game({ start, playerName, trophies, onFinish, onExit, onRematch 
                 setStage(null);
                 setPopover(null);
                 setMatch(resign(matchRef.current, human));
-                report(true);
+                if (remote) void remote.resign().catch(() => resync());
+                else report(true);
               }}
               onBlur={() => setConfirmResign(false)}
             >
@@ -484,7 +564,8 @@ export function Game({ start, playerName, trophies, onFinish, onExit, onRematch 
             <p>
               {match.result.reason} · ходів: {match.result.moves}
             </p>
-            {!verdict && !verdictError && <p className="muted">Перевіряємо партію…</p>}
+            {remote && <p className="muted">Дружня гра: кубки не змінюються, партія є в історії обох гравців.</p>}
+            {!remote && !verdict && !verdictError && <p className="muted">Перевіряємо партію…</p>}
             {verdictError && <p className="error-text">{verdictError}</p>}
             {verdict && start.ranked && (
               <div className="verdict">
@@ -512,9 +593,11 @@ export function Game({ start, playerName, trophies, onFinish, onExit, onRematch 
             )}
             {verdict && !start.ranked && <p className="muted">Тренування: кубки й паки не нараховуються.</p>}
             <div className="editor-actions">
-              <button className="btn btn-primary" onClick={onRematch}>
-                Ще бій
-              </button>
+              {onRematch && (
+                <button className="btn btn-primary" onClick={onRematch}>
+                  Ще бій
+                </button>
+              )}
               <button className="btn" onClick={onExit}>
                 До меню
               </button>

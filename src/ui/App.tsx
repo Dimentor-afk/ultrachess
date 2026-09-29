@@ -6,17 +6,21 @@ import { DeckPage } from './DeckPage';
 import { HomePage } from './HomePage';
 import { LeaderboardPage } from './LeaderboardPage';
 import { ShopPage } from './ShopPage';
+import { FriendsPage } from './FriendsPage';
+import { ProfilePage } from './ProfilePage';
+import { Avatar } from './common';
 import { themeById } from '../economy/themes';
 import { cardArt } from './cardArt';
 import { Icon } from './icons';
 import { type Loaded, SessionProvider, type Toast, errorText, loadAll, useSession } from './state';
 
-type Route = 'play' | 'deck' | 'shop' | 'top' | 'admin';
+type Route = 'play' | 'deck' | 'shop' | 'friends' | 'top' | 'admin' | 'profile';
 
 const ROUTES: { id: Route; label: string; icon: string; admin?: boolean }[] = [
   { id: 'play', label: 'Грати', icon: 'play' },
   { id: 'deck', label: 'Колода', icon: 'cards' },
   { id: 'shop', label: 'Магазин', icon: 'shop' },
+  { id: 'friends', label: 'Друзі', icon: 'users' },
   { id: 'top', label: 'Рейтинг', icon: 'trophy' },
   { id: 'admin', label: 'Адмін', icon: 'shield', admin: true },
 ];
@@ -24,6 +28,7 @@ const ROUTES: { id: Route; label: string; icon: string; admin?: boolean }[] = [
 function readRoute(): Route {
   const h = window.location.hash.replace(/^#\/?/, '');
   if (h === 'cards') return 'deck'; // the old collection page lives on the deck page now
+  if (h === 'profile') return 'profile';
   return ROUTES.find((r) => r.id === h)?.id ?? 'play';
 }
 
@@ -91,6 +96,7 @@ function Shell() {
   }, []);
   const routes = ROUTES.filter((r) => !r.admin || s.profile.role === 'admin');
   const readyPacks = s.packs.length;
+  const social = s.inbox.friendRequests + s.inbox.challenges + s.inbox.yourTurn;
   const theme = themeById(s.profile.boardTheme);
 
   return (
@@ -108,19 +114,20 @@ function Shell() {
               <Icon name={r.icon} />
               <span>{r.label}</span>
               {r.id === 'play' && readyPacks > 0 && <span className="nav-badge">{readyPacks}</span>}
+              {r.id === 'friends' && social > 0 && <span className="nav-badge">{social}</span>}
             </a>
           ))}
         </nav>
-        <div className="me">
-          <span className="avatar">{s.profile.name.slice(0, 1).toUpperCase()}</span>
+        <a className={`me ${route === 'profile' ? 'active' : ''}`} href="#/profile" title="Профіль">
+          <Avatar card={s.profile.avatar} />
           <span className="me-info">
             <b>{s.profile.name}</b>
             <small>🏆 {s.profile.trophies}</small>
           </span>
-          <button className="icon-btn" onClick={() => s.logout()} aria-label="Вийти" title="Вийти">
-            <Icon name="logout" />
-          </button>
-        </div>
+          <span className="me-chev" aria-hidden="true">
+            ›
+          </span>
+        </a>
       </aside>
       <main className="content">
         <div className="wallet" aria-label="Гаманець">
@@ -134,6 +141,8 @@ function Shell() {
         {route === 'play' && <HomePage />}
         {route === 'deck' && <DeckPage />}
         {route === 'shop' && <ShopPage />}
+        {route === 'friends' && <FriendsPage />}
+        {route === 'profile' && <ProfilePage />}
         {route === 'top' && <LeaderboardPage />}
         {route === 'admin' && s.profile.role === 'admin' && <AdminPage />}
       </main>

@@ -7,7 +7,15 @@ import type { PackType } from '../economy/packs';
 import {
   type AdminUser,
   ApiError,
+  type ChallengeView,
   type Collection,
+  type FriendsView,
+  type HistoryRow,
+  type Inbox,
+  type PlayerCard,
+  type PublicProfile,
+  type PvpState,
+  type PvpSummary,
   GameService,
   type LeaderRow,
   type MatchFinish,
@@ -21,7 +29,30 @@ import type { Action } from '../engine/match';
 import type { Deck } from '../engine/types';
 
 export { ApiError };
-export type { AdminUser, Collection, LeaderRow, MatchFinish, MatchStart, OpenResult, PackView, Profile };
+export type {
+  AdminUser,
+  ChallengeView,
+  Collection,
+  FriendsView,
+  HistoryRow,
+  Inbox,
+  LeaderRow,
+  MatchFinish,
+  MatchStart,
+  OpenResult,
+  PackView,
+  PlayerCard,
+  Profile,
+  PublicProfile,
+  PvpState,
+  PvpSummary,
+};
+
+export interface ChallengesView {
+  incoming: ChallengeView[];
+  outgoing: ChallengeView[];
+  games: PvpSummary[];
+}
 
 export interface Api {
   mode: 'server' | 'local';
@@ -48,6 +79,21 @@ export interface Api {
   adminSetTrophies(userId: string, trophies: number): Promise<void>;
   adminSetRole(userId: string, role: Role): Promise<void>;
   adminGrantCurrency(userId: string, gold: number, shards: number): Promise<void>;
+  updateProfile(patch: { name?: string; avatar?: string }): Promise<Profile>;
+  playerProfile(userId: string): Promise<PublicProfile>;
+  history(): Promise<HistoryRow[]>;
+  inbox(): Promise<Inbox>;
+  friends(): Promise<FriendsView>;
+  searchPlayers(query: string): Promise<PlayerCard[]>;
+  addFriend(userId: string): Promise<FriendsView>;
+  respondFriend(linkId: string, accept: boolean): Promise<FriendsView>;
+  removeFriend(linkId: string): Promise<FriendsView>;
+  challenges(): Promise<ChallengesView>;
+  challengeFriend(friendId: string, deckId?: string): Promise<void>;
+  respondChallenge(id: string, accept: boolean, deckId?: string): Promise<{ pvpId: string | null }>;
+  pvpState(id: string): Promise<PvpState>;
+  pvpAction(id: string, action: Action, expected: number): Promise<PvpState>;
+  pvpResign(id: string): Promise<PvpState>;
 }
 
 // ── Server ──
@@ -99,6 +145,22 @@ class HttpApi implements Api {
   adminSetRole = (userId: string, role: Role) => this.call<void>('POST', `admin/users/${userId}/role`, { role });
   adminGrantCurrency = (userId: string, gold: number, shards: number) =>
     this.call<void>('POST', `admin/users/${userId}/currency`, { gold, shards });
+  updateProfile = (patch: { name?: string; avatar?: string }) => this.call<Profile>('POST', 'profile', patch);
+  playerProfile = (userId: string) => this.call<PublicProfile>('GET', `players/${userId}`);
+  history = () => this.call<HistoryRow[]>('GET', 'history');
+  inbox = () => this.call<Inbox>('GET', 'inbox');
+  friends = () => this.call<FriendsView>('GET', 'friends');
+  searchPlayers = (query: string) => this.call<PlayerCard[]>('POST', 'friends/search', { query });
+  addFriend = (userId: string) => this.call<FriendsView>('POST', 'friends', { userId });
+  respondFriend = (linkId: string, accept: boolean) => this.call<FriendsView>('POST', `friends/${linkId}/respond`, { accept });
+  removeFriend = (linkId: string) => this.call<FriendsView>('DELETE', `friends/${linkId}`);
+  challenges = () => this.call<ChallengesView>('GET', 'challenges');
+  challengeFriend = (friendId: string, deckId?: string) => this.call<void>('POST', 'challenges', { friendId, deckId });
+  respondChallenge = (id: string, accept: boolean, deckId?: string) =>
+    this.call<{ pvpId: string | null }>('POST', `challenges/${id}/respond`, { accept, deckId });
+  pvpState = (id: string) => this.call<PvpState>('GET', `pvp/${id}`);
+  pvpAction = (id: string, action: Action, expected: number) => this.call<PvpState>('POST', `pvp/${id}/action`, { action, expected });
+  pvpResign = (id: string) => this.call<PvpState>('POST', `pvp/${id}/resign`, {});
 }
 
 // ── Browser only ──
@@ -147,11 +209,13 @@ const fromHex = (h: string) => new Uint8Array((h.match(/../g) ?? []).map((x) => 
 class LocalApi implements Api {
   mode = 'local' as const;
   private svc: GameService;
+  private store: MemoryStore;
   private ready: Promise<void>;
   private token: string | null = null;
 
   constructor() {
     const store = new MemoryStore(readJson<MemoryData>(DB_KEY) ?? undefined, (d) => write(DB_KEY, JSON.stringify(d)));
+    this.store = store;
     this.svc = new GameService(store, webHasher);
     this.ready = this.svc.init();
     try {
@@ -163,6 +227,8 @@ class LocalApi implements Api {
 
   private async t(): Promise<string> {
     await this.ready;
+    // Another tab may have written (a friend's move in the demo): read storage again.
+    this.store.reload(readJson<MemoryData>(DB_KEY));
     return this.token ?? '';
   }
 
@@ -179,13 +245,13 @@ class LocalApi implements Api {
     }
   }
   async register(email: string, password: string, name: string) {
-    await this.ready;
+    await this.t();
     const r = await this.svc.register(email, password, name);
     this.remember(r.token);
     return r.profile;
   }
   async login(email: string, password: string) {
-    await this.ready;
+    await this.t();
     const r = await this.svc.login(email, password);
     this.remember(r.token);
     return r.profile;
@@ -207,7 +273,7 @@ class LocalApi implements Api {
   startMatch = async (opts: { deckId?: string; ranked: boolean; level?: number }) => this.svc.startMatch(await this.t(), opts);
   finishMatch = async (id: string, actions: Action[], resigned: boolean) => this.svc.finishMatch(await this.t(), id, actions, resigned);
   leaderboard = async () => {
-    await this.ready;
+    await this.t();
     return this.svc.leaderboard();
   };
   adminUsers = async () => this.svc.adminUsers(await this.t());
@@ -217,6 +283,21 @@ class LocalApi implements Api {
   adminSetRole = async (userId: string, role: Role) => this.svc.adminSetRole(await this.t(), userId, role);
   adminGrantCurrency = async (userId: string, gold: number, shards: number) =>
     this.svc.adminGrantCurrency(await this.t(), userId, gold, shards);
+  updateProfile = async (patch: { name?: string; avatar?: string }) => this.svc.updateProfile(await this.t(), patch);
+  playerProfile = async (userId: string) => this.svc.playerProfile(await this.t(), userId);
+  history = async () => this.svc.history(await this.t());
+  inbox = async () => this.svc.inbox(await this.t());
+  friends = async () => this.svc.friends(await this.t());
+  searchPlayers = async (query: string) => this.svc.searchPlayers(await this.t(), query);
+  addFriend = async (userId: string) => this.svc.addFriend(await this.t(), userId);
+  respondFriend = async (linkId: string, accept: boolean) => this.svc.respondFriend(await this.t(), linkId, accept);
+  removeFriend = async (linkId: string) => this.svc.removeFriend(await this.t(), linkId);
+  challenges = async () => this.svc.challenges(await this.t());
+  challengeFriend = async (friendId: string, deckId?: string) => this.svc.challengeFriend(await this.t(), friendId, deckId);
+  respondChallenge = async (id: string, accept: boolean, deckId?: string) => this.svc.respondChallenge(await this.t(), id, accept, deckId);
+  pvpState = async (id: string) => this.svc.pvpState(await this.t(), id);
+  pvpAction = async (id: string, action: Action, expected: number) => this.svc.pvpAction(await this.t(), id, action, expected);
+  pvpResign = async (id: string) => this.svc.pvpResign(await this.t(), id);
 }
 
 /** Use the server when it answers, otherwise the in-browser demo. */

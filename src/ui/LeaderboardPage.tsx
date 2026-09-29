@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
 import type { LeaderRow } from '../api/client';
 import { ARENAS } from '../economy/packs';
+import { PlayerModal } from './PlayerModal';
+import { Avatar } from './common';
 import { errorText, useSession } from './state';
 
 export function LeaderboardPage() {
   const s = useSession();
   const [rows, setRows] = useState<LeaderRow[] | null>(null);
+  const [viewing, setViewing] = useState<string | null>(null);
   useEffect(() => {
     s.api.leaderboard().then(setRows, (e) => s.toast(errorText(e), 'error'));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -39,10 +42,13 @@ export function LeaderboardPage() {
               </thead>
               <tbody>
                 {rows.map((r, i) => (
-                  <tr key={i} className={r.name === s.profile.name ? 'me' : ''}>
+                  <tr key={r.id} className={`clickable ${r.id === s.profile.id ? 'me' : ''}`} onClick={() => setViewing(r.id)}>
                     <td className={`place place-${i + 1}`}>{i + 1}</td>
                     <td>
-                      <b>{r.name}</b>
+                      <span className="leader-who">
+                        <Avatar card={r.avatar} size="sm" />
+                        <b>{r.name}</b>
+                      </span>
                     </td>
                     <td className="muted">{r.arena}</td>
                     <td className="num">{r.wins}</td>
@@ -54,6 +60,7 @@ export function LeaderboardPage() {
           </div>
         )}
       </div>
+      {viewing && <PlayerModal userId={viewing} onClose={() => setViewing(null)} />}
     </section>
   );
 }

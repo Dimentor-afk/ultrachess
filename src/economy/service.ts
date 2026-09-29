@@ -3,7 +3,7 @@
 
 import { CARDS, CARD_BY_ID } from '../engine/cards';
 import { DECK_SLOTS, classicDeck, deckPositions, validateDeck } from '../engine/deck';
-import { type Action, createMatch, performAction, resign } from '../engine/match';
+import { type Action, type MatchState, createMatch, performAction, resign } from '../engine/match';
 import type { Color, Deck, PieceType, Rarity } from '../engine/types';
 import {
   ARENAS,
@@ -22,7 +22,10 @@ import {
   rollPack,
 } from './packs';
 import { BOARD_THEMES, DEFAULT_THEME, themeById } from './themes';
-import { type Hasher, type PackRow, type Role, type Store, type UserRow, randomId } from './store';
+import { type Hasher, type PackRow, type PvpRow, type Role, type Store, type UserRow, randomId } from './store';
+
+/** Short public code for finding a player (first 6 hex digits of the id). */
+const tagOf = (u: UserRow) => u.id.slice(0, 6).toUpperCase();
 
 export const ADMIN_EMAILS = ['koldmiand@gmail.com'];
 const SESSION_DAYS = 30;
@@ -50,6 +53,10 @@ export interface Profile {
   nextArena: { name: string; minTrophies: number } | null;
   nextReward: PackType;
   activeDeckId: string | null;
+  tag: string;
+  avatar: string;
+  bestTrophies: number;
+  createdAt: number;
   gold: number;
   shards: number;
   /** Board themes owned (the free one included) and the one in use. */
@@ -100,11 +107,92 @@ export interface MatchFinish {
 }
 
 export interface LeaderRow {
+  id: string;
   name: string;
+  tag: string;
+  avatar: string;
   trophies: number;
   wins: number;
   arena: string;
 }
+
+/** A player as others see them (friends list, search, leaderboard). */
+export interface PlayerCard {
+  id: string;
+  name: string;
+  tag: string;
+  avatar: string;
+  trophies: number;
+  arena: string;
+  online: boolean;
+  lastSeen: number;
+}
+
+export interface FriendsView {
+  friends: (PlayerCard & { linkId: string })[];
+  incoming: (PlayerCard & { linkId: string })[];
+  outgoing: (PlayerCard & { linkId: string })[];
+}
+
+export interface PublicProfile extends PlayerCard {
+  wins: number;
+  losses: number;
+  draws: number;
+  bestTrophies: number;
+  cards: number;
+  createdAt: number;
+  relation: 'self' | 'friend' | 'incoming' | 'outgoing' | 'none';
+}
+
+export interface HistoryRow {
+  id: string;
+  kind: 'ranked' | 'training' | 'friend';
+  opponent: string;
+  outcome: 'win' | 'loss' | 'draw';
+  reason: string;
+  moves: number;
+  trophiesDelta: number;
+  at: number;
+}
+
+export interface ChallengeView {
+  id: string;
+  from: PlayerCard;
+  to: PlayerCard;
+  incoming: boolean;
+  createdAt: number;
+}
+
+export interface PvpSummary {
+  id: string;
+  opponent: PlayerCard;
+  color: Color;
+  yourTurn: boolean;
+  status: 'active' | 'finished';
+  outcome: 'win' | 'loss' | 'draw' | null;
+  moves: number;
+  updatedAt: number;
+}
+
+export interface PvpState {
+  id: string;
+  color: Color;
+  you: PlayerCard;
+  opponent: PlayerCard;
+  whiteDeck: Deck;
+  blackDeck: Deck;
+  actions: Action[];
+  status: 'active' | 'finished';
+  resignedBy: Color | null;
+}
+
+export interface Inbox {
+  friendRequests: number;
+  challenges: number;
+  yourTurn: number;
+}
+
+const ONLINE_MS = 2 * 60_000;
 
 export interface AdminUser {
   id: string;
@@ -163,6 +251,9 @@ export class GameService {
       boardTheme: DEFAULT_THEME,
       packsToday: 0,
       packsDay: '',
+      avatar: 'knight-classic',
+      bestTrophies: 0,
+      lastSeen: 0,
     };
   }
 
@@ -214,6 +305,11 @@ export class GameService {
     if (!s || s.expiresAt < this.now()) throw new ApiError(401, 'Сесія завершилась. Увійдіть знову.');
     const u = await this.store.getUser(s.userId);
     if (!u) throw new ApiError(401, 'Акаунт не знайдено.');
+    // Presence for friends: refresh at most every 30 seconds.
+    if (this.now() - u.lastSeen > 30_000) {
+      u.lastSeen = this.now();
+      await this.store.updateUser(u.id, { lastSeen: u.lastSeen });
+    }
     return u;
   }
 
@@ -242,6 +338,10 @@ export class GameService {
       nextArena: next ? { name: next.name, minTrophies: next.minTrophies } : null,
       nextReward: rewardFor(u.cycle),
       activeDeckId: u.activeDeckId,
+      tag: tagOf(u),
+      avatar: u.avatar,
+      bestTrophies: Math.max(u.bestTrophies, u.trophies),
+      createdAt: u.createdAt,
       gold: u.gold,
       shards: u.shards,
       themes: this.themesOf(u),
@@ -523,6 +623,7 @@ export class GameService {
       trophiesDelta = Math.max(-u.trophies, trophiesDelta);
       const patch: Partial<UserRow> = {
         trophies: u.trophies + trophiesDelta,
+        bestTrophies: Math.max(u.bestTrophies, u.trophies + trophiesDelta),
         wins: u.wins + (outcome === 'win' ? 1 : 0),
         losses: u.losses + (outcome === 'loss' ? 1 : 0),
         draws: u.draws + (outcome === 'draw' ? 1 : 0),
@@ -545,7 +646,7 @@ export class GameService {
     }
     await this.store.updateMatch(m.id, {
       status: 'finished',
-      result: JSON.stringify({ outcome, reason: state.result!.reason, moves: state.result!.moves }),
+      result: JSON.stringify({ outcome, reason: state.result!.reason, moves: state.result!.moves, trophiesDelta }),
     });
     return { outcome, reason: state.result!.reason, trophiesDelta, goldDelta, reward, rewardSkipped, profile: await this.profileOf(u.id) };
   }
@@ -555,7 +656,336 @@ export class GameService {
       .filter((u) => u.passHash)
       .sort((a, b) => b.trophies - a.trophies || b.wins - a.wins)
       .slice(0, 50)
-      .map((u) => ({ name: u.name, trophies: u.trophies, wins: u.wins, arena: arenaFor(u.trophies).name }));
+      .map((u) => ({
+        id: u.id,
+        name: u.name,
+        tag: tagOf(u),
+        avatar: u.avatar,
+        trophies: u.trophies,
+        wins: u.wins,
+        arena: arenaFor(u.trophies).name,
+      }));
+  }
+
+  // ── Profile ──
+
+  async updateProfile(token: string, patch: { name?: string; avatar?: string }): Promise<Profile> {
+    const u = await this.auth(token);
+    const next: Partial<UserRow> = {};
+    if (patch.name !== undefined) {
+      const name = patch.name.trim();
+      if (!name || name.length > 24) throw new ApiError(400, 'Нікнейм — від 1 до 24 символів.');
+      next.name = name;
+    }
+    if (patch.avatar !== undefined) {
+      if (!(await this.ownedSet(u.id)).has(patch.avatar)) throw new ApiError(400, 'Аватаром може бути лише ваша картка.');
+      next.avatar = patch.avatar;
+    }
+    await this.store.updateUser(u.id, next);
+    return this.profileOf(u.id);
+  }
+
+  private card(u: UserRow): PlayerCard {
+    return {
+      id: u.id,
+      name: u.name,
+      tag: tagOf(u),
+      avatar: u.avatar,
+      trophies: u.trophies,
+      arena: arenaFor(u.trophies).name,
+      online: this.now() - u.lastSeen < ONLINE_MS,
+      lastSeen: u.lastSeen,
+    };
+  }
+
+  private async cardOf(id: string): Promise<PlayerCard> {
+    const u = await this.store.getUser(id);
+    if (!u) return { id, name: 'Гравець', tag: '', avatar: 'pawn-classic', trophies: 0, arena: '', online: false, lastSeen: 0 };
+    return this.card(u);
+  }
+
+  async playerProfile(token: string, userId: string): Promise<PublicProfile> {
+    const me = await this.auth(token);
+    const u = await this.store.getUser(userId);
+    if (!u || !u.passHash) throw new ApiError(404, 'Гравця не знайдено.');
+    const link = (await this.store.listFriends(me.id)).find((f) => f.fromId === userId || f.toId === userId);
+    const relation: PublicProfile['relation'] =
+      me.id === userId ? 'self' : !link ? 'none' : link.status === 'accepted' ? 'friend' : link.fromId === me.id ? 'outgoing' : 'incoming';
+    return {
+      ...this.card(u),
+      wins: u.wins,
+      losses: u.losses,
+      draws: u.draws,
+      bestTrophies: Math.max(u.bestTrophies, u.trophies),
+      cards: (await this.store.listCards(u.id)).length,
+      createdAt: u.createdAt,
+      relation,
+    };
+  }
+
+  async history(token: string): Promise<HistoryRow[]> {
+    const u = await this.auth(token);
+    const out: HistoryRow[] = [];
+    for (const m of await this.store.listMatches(u.id, 60)) {
+      if (m.status !== 'finished' || !m.result) continue;
+      const r = JSON.parse(m.result);
+      out.push({
+        id: m.id,
+        kind: m.ranked ? 'ranked' : 'training',
+        opponent: `Бот · рівень ${m.botLevel}`,
+        outcome: r.outcome,
+        reason: r.reason,
+        moves: r.moves,
+        trophiesDelta: r.trophiesDelta ?? 0,
+        at: m.createdAt,
+      });
+    }
+    for (const p of await this.store.listPvp(u.id, 60)) {
+      if (p.status !== 'finished' || !p.result) continue;
+      const r = JSON.parse(p.result) as { winner: Color | null; reason: string; moves: number };
+      const color: Color = p.whiteId === u.id ? 'w' : 'b';
+      const opp = await this.store.getUser(color === 'w' ? p.blackId : p.whiteId);
+      out.push({
+        id: p.id,
+        kind: 'friend',
+        opponent: opp?.name ?? 'Гравець',
+        outcome: r.winner === null ? 'draw' : r.winner === color ? 'win' : 'loss',
+        reason: r.reason,
+        moves: r.moves,
+        trophiesDelta: 0,
+        at: p.updatedAt,
+      });
+    }
+    return out.sort((a, b) => b.at - a.at).slice(0, 50);
+  }
+
+  // ── Friends ──
+
+  async searchPlayers(token: string, query: string): Promise<PlayerCard[]> {
+    const me = await this.auth(token);
+    const q = query.trim().replace(/^#/, '').toLowerCase();
+    if (q.length < 2) return [];
+    return (await this.store.listUsers(2000))
+      .filter((u) => u.passHash && u.id !== me.id && (u.name.toLowerCase().includes(q) || tagOf(u).toLowerCase() === q))
+      .slice(0, 20)
+      .map((u) => this.card(u));
+  }
+
+  async friends(token: string): Promise<FriendsView> {
+    const me = await this.auth(token);
+    const view: FriendsView = { friends: [], incoming: [], outgoing: [] };
+    for (const f of await this.store.listFriends(me.id)) {
+      const other = f.fromId === me.id ? f.toId : f.fromId;
+      const entry = { ...(await this.cardOf(other)), linkId: f.id };
+      if (f.status === 'accepted') view.friends.push(entry);
+      else if (f.toId === me.id) view.incoming.push(entry);
+      else view.outgoing.push(entry);
+    }
+    view.friends.sort((a, b) => Number(b.online) - Number(a.online) || b.trophies - a.trophies);
+    return view;
+  }
+
+  async addFriend(token: string, userId: string): Promise<FriendsView> {
+    const me = await this.auth(token);
+    if (userId === me.id) throw new ApiError(400, 'Це ви.');
+    const other = await this.store.getUser(userId);
+    if (!other || !other.passHash) throw new ApiError(404, 'Гравця не знайдено.');
+    const link = (await this.store.listFriends(me.id)).find((f) => f.fromId === userId || f.toId === userId);
+    if (link?.status === 'accepted') throw new ApiError(409, 'Ви вже друзі.');
+    if (link && link.fromId === me.id) throw new ApiError(409, 'Заявку вже надіслано.');
+    // They asked first: adding them back accepts the request.
+    if (link) await this.store.updateFriend(link.id, { status: 'accepted' });
+    else await this.store.insertFriend({ id: randomId(8), fromId: me.id, toId: userId, status: 'pending', createdAt: this.now() });
+    return this.friends(token);
+  }
+
+  async respondFriend(token: string, linkId: string, accept: boolean): Promise<FriendsView> {
+    const me = await this.auth(token);
+    const link = (await this.store.listFriends(me.id)).find((f) => f.id === linkId);
+    if (!link || link.toId !== me.id || link.status !== 'pending') throw new ApiError(404, 'Заявку не знайдено.');
+    if (accept) await this.store.updateFriend(link.id, { status: 'accepted' });
+    else await this.store.deleteFriend(link.id);
+    return this.friends(token);
+  }
+
+  /** Remove a friend, or withdraw a request you sent. */
+  async removeFriend(token: string, linkId: string): Promise<FriendsView> {
+    const me = await this.auth(token);
+    const link = (await this.store.listFriends(me.id)).find((f) => f.id === linkId);
+    if (!link) throw new ApiError(404, 'Не знайдено.');
+    await this.store.deleteFriend(link.id);
+    return this.friends(token);
+  }
+
+  // ── Friend matches ──
+
+  private async playableDeck(userId: string, deckId?: string | null): Promise<Deck> {
+    const u = (await this.store.getUser(userId))!;
+    const decks = await this.store.listDecks(userId);
+    const d = decks.find((x) => x.id === (deckId ?? u.activeDeckId)) ?? decks[0];
+    if (!d) throw new ApiError(400, 'Спочатку зберіть колоду.');
+    if (validateDeck(d.deck).length) throw new ApiError(400, 'Колода не відповідає правилам.');
+    const owned = await this.ownedSet(userId);
+    if (deckPositions(d.deck).some((id) => !owned.has(id))) throw new ApiError(400, 'У колоді є картки, яких немає в колекції.');
+    return d.deck;
+  }
+
+  private async areFriends(a: string, b: string): Promise<boolean> {
+    return (await this.store.listFriends(a)).some((f) => f.status === 'accepted' && (f.fromId === b || f.toId === b));
+  }
+
+  async challenges(token: string): Promise<{ incoming: ChallengeView[]; outgoing: ChallengeView[]; games: PvpSummary[] }> {
+    const me = await this.auth(token);
+    const incoming: ChallengeView[] = [];
+    const outgoing: ChallengeView[] = [];
+    for (const c of await this.store.listChallenges(me.id)) {
+      if (c.status !== 'pending') continue;
+      const v = { id: c.id, from: await this.cardOf(c.fromId), to: await this.cardOf(c.toId), incoming: c.toId === me.id, createdAt: c.createdAt };
+      (v.incoming ? incoming : outgoing).push(v);
+    }
+    const games: PvpSummary[] = [];
+    for (const p of await this.store.listPvp(me.id, 30)) {
+      const color: Color = p.whiteId === me.id ? 'w' : 'b';
+      const state = this.replayPvp(p);
+      const r = p.result ? (JSON.parse(p.result) as { winner: Color | null }) : null;
+      games.push({
+        id: p.id,
+        opponent: await this.cardOf(color === 'w' ? p.blackId : p.whiteId),
+        color,
+        yourTurn: p.status === 'active' && state.turn === color,
+        status: p.status,
+        outcome: !r ? null : r.winner === null ? 'draw' : r.winner === color ? 'win' : 'loss',
+        moves: state.history.length,
+        updatedAt: p.updatedAt,
+      });
+    }
+    return { incoming, outgoing, games };
+  }
+
+  async challengeFriend(token: string, friendId: string, deckId?: string): Promise<void> {
+    const me = await this.auth(token);
+    if (!(await this.areFriends(me.id, friendId))) throw new ApiError(403, 'Викликати можна лише друзів.');
+    const pending = (await this.store.listChallenges(me.id)).find(
+      (c) => c.status === 'pending' && ((c.fromId === me.id && c.toId === friendId) || (c.fromId === friendId && c.toId === me.id)),
+    );
+    if (pending) throw new ApiError(409, pending.fromId === me.id ? 'Виклик уже надіслано.' : 'Цей друг уже викликав вас — прийміть виклик.');
+    const deck = await this.playableDeck(me.id, deckId);
+    await this.store.insertChallenge({ id: randomId(8), fromId: me.id, toId: friendId, fromDeck: deck, status: 'pending', pvpId: null, createdAt: this.now() });
+  }
+
+  async respondChallenge(token: string, id: string, accept: boolean, deckId?: string): Promise<{ pvpId: string | null }> {
+    const me = await this.auth(token);
+    const c = await this.store.getChallenge(id);
+    if (!c || c.status !== 'pending' || (c.toId !== me.id && c.fromId !== me.id)) throw new ApiError(404, 'Виклик не знайдено.');
+    if (!accept || c.fromId === me.id) {
+      await this.store.updateChallenge(c.id, { status: c.fromId === me.id ? 'cancelled' : 'declined' });
+      return { pvpId: null };
+    }
+    const deck = await this.playableDeck(me.id, deckId);
+    const iAmWhite = this.rng() < 0.5;
+    const row: PvpRow = {
+      id: randomId(8),
+      whiteId: iAmWhite ? me.id : c.fromId,
+      blackId: iAmWhite ? c.fromId : me.id,
+      whiteDeck: iAmWhite ? deck : c.fromDeck,
+      blackDeck: iAmWhite ? c.fromDeck : deck,
+      actions: '[]',
+      status: 'active',
+      result: null,
+      resignedBy: null,
+      createdAt: this.now(),
+      updatedAt: this.now(),
+    };
+    await this.store.insertPvp(row);
+    await this.store.updateChallenge(c.id, { status: 'accepted', pvpId: row.id });
+    return { pvpId: row.id };
+  }
+
+  private replayPvp(p: PvpRow): MatchState {
+    let state = createMatch(p.whiteDeck, p.blackDeck);
+    for (const a of JSON.parse(p.actions) as Action[]) state = performAction(state, a);
+    if (p.resignedBy && !state.result) state = resign(state, p.resignedBy);
+    return state;
+  }
+
+  private async pvpFor(userId: string, id: string): Promise<{ row: PvpRow; color: Color }> {
+    const row = await this.store.getPvp(id);
+    if (!row || (row.whiteId !== userId && row.blackId !== userId)) throw new ApiError(404, 'Матч не знайдено.');
+    return { row, color: row.whiteId === userId ? 'w' : 'b' };
+  }
+
+  private async pvpView(row: PvpRow, color: Color): Promise<PvpState> {
+    return {
+      id: row.id,
+      color,
+      you: await this.cardOf(color === 'w' ? row.whiteId : row.blackId),
+      opponent: await this.cardOf(color === 'w' ? row.blackId : row.whiteId),
+      whiteDeck: row.whiteDeck,
+      blackDeck: row.blackDeck,
+      actions: JSON.parse(row.actions),
+      status: row.status,
+      resignedBy: row.resignedBy,
+    };
+  }
+
+  async pvpState(token: string, id: string): Promise<PvpState> {
+    const me = await this.auth(token);
+    const { row, color } = await this.pvpFor(me.id, id);
+    return this.pvpView(row, color);
+  }
+
+  /**
+   * Play one action in a friend match. The server replays the game and checks
+   * that it is this player's turn and the action is legal.
+   */
+  async pvpAction(token: string, id: string, action: Action, expected: number): Promise<PvpState> {
+    const me = await this.auth(token);
+    const { row, color } = await this.pvpFor(me.id, id);
+    if (row.status !== 'active') throw new ApiError(409, 'Партію завершено.');
+    const actions = JSON.parse(row.actions) as Action[];
+    if (actions.length !== expected) throw new ApiError(409, 'Позиція змінилась — оновіть партію.');
+    const state = this.replayPvp(row);
+    if (state.turn !== color) throw new ApiError(409, 'Зараз хід суперника.');
+    let next: MatchState;
+    try {
+      next = performAction(state, action);
+    } catch {
+      throw new ApiError(400, 'Такий хід неможливий.');
+    }
+    actions.push(action);
+    const patch: Partial<PvpRow> = { actions: JSON.stringify(actions), updatedAt: this.now() };
+    if (next.result) {
+      patch.status = 'finished';
+      patch.result = JSON.stringify({ winner: next.result.winner, reason: next.result.reason, moves: next.result.moves });
+    }
+    if (!(await this.store.updatePvp(row.id, patch, expected))) throw new ApiError(409, 'Позиція змінилась — оновіть партію.');
+    return this.pvpView({ ...row, ...patch }, color);
+  }
+
+  async pvpResign(token: string, id: string): Promise<PvpState> {
+    const me = await this.auth(token);
+    const { row, color } = await this.pvpFor(me.id, id);
+    if (row.status !== 'active') throw new ApiError(409, 'Партію завершено.');
+    const state = resign(this.replayPvp(row), color);
+    const patch: Partial<PvpRow> = {
+      status: 'finished',
+      resignedBy: color,
+      updatedAt: this.now(),
+      result: JSON.stringify({ winner: state.result!.winner, reason: state.result!.reason, moves: state.result!.moves }),
+    };
+    await this.store.updatePvp(row.id, patch);
+    return this.pvpView({ ...row, ...patch }, color);
+  }
+
+  async inbox(token: string): Promise<Inbox> {
+    const me = await this.auth(token);
+    const friendRequests = (await this.store.listFriends(me.id)).filter((f) => f.status === 'pending' && f.toId === me.id).length;
+    const challenges = (await this.store.listChallenges(me.id)).filter((c) => c.status === 'pending' && c.toId === me.id).length;
+    let yourTurn = 0;
+    for (const p of await this.store.listPvp(me.id, 30)) {
+      if (p.status === 'active' && this.replayPvp(p).turn === (p.whiteId === me.id ? 'w' : 'b')) yourTurn++;
+    }
+    return { friendRequests, challenges, yourTurn };
   }
 
   // ── Admin ──

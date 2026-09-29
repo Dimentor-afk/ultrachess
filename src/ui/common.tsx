@@ -1,4 +1,4 @@
-import { EFFECT_NAMES, PIECE_NAMES, RARITY_NAMES, getCard } from '../engine/cards';
+import { CARD_BY_ID, EFFECT_NAMES, PIECE_NAMES, RARITY_NAMES, getCard } from '../engine/cards';
 import type { Card, Color, PieceType } from '../engine/types';
 import type { ReactNode } from 'react';
 import { Emblem, PieceSvg } from './art';
@@ -87,4 +87,15 @@ export function CardArt({ cardId, className = '' }: { cardId: string; className?
 
 export function cardName(id: string): string {
   return getCard(id).name;
+}
+
+/** Round avatar showing a card's pixel piece. */
+export function Avatar({ card, size = 'md' }: { card: string; size?: 'sm' | 'md' | 'lg' | 'xl' }) {
+  const art = cardArt(card) ?? cardArt('knight-classic');
+  const rarity = CARD_BY_ID[card]?.rarity ?? 'common';
+  return (
+    <span className={`avatar avatar-art avatar-${size} r-${rarity}`}>
+      <img className="pixel" src={art!} alt="" />
+    </span>
+  );
 }

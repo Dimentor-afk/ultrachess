@@ -1,7 +1,7 @@
 // In-memory Store. The browser demo persists it to localStorage; tests use
 // it as is.
 
-import type { CardRow, DeckRow, MatchRow, PackRow, SessionRow, Store, UserRow } from './store';
+import type { CardRow, ChallengeRow, DeckRow, FriendRow, MatchRow, PackRow, PvpRow, SessionRow, Store, UserRow } from './store';
 
 export interface MemoryData {
   users: UserRow[];
@@ -10,9 +10,22 @@ export interface MemoryData {
   packs: PackRow[];
   decks: DeckRow[];
   matches: MatchRow[];
+  friends: FriendRow[];
+  challenges: ChallengeRow[];
+  pvp: PvpRow[];
 }
 
-export const emptyData = (): MemoryData => ({ users: [], sessions: [], cards: [], packs: [], decks: [], matches: [] });
+export const emptyData = (): MemoryData => ({
+  users: [],
+  sessions: [],
+  cards: [],
+  packs: [],
+  decks: [],
+  matches: [],
+  friends: [],
+  challenges: [],
+  pvp: [],
+});
 
 const clone = <T,>(x: T): T => JSON.parse(JSON.stringify(x));
 
@@ -26,6 +39,9 @@ export function withUserDefaults(u: UserRow): UserRow {
     boardTheme: u.boardTheme ?? 'classic',
     packsToday: u.packsToday ?? 0,
     packsDay: u.packsDay ?? '',
+    avatar: u.avatar ?? 'knight-classic',
+    bestTrophies: u.bestTrophies ?? u.trophies ?? 0,
+    lastSeen: u.lastSeen ?? 0,
   };
 }
 
@@ -34,6 +50,14 @@ export class MemoryStore implements Store {
     public data: MemoryData = emptyData(),
     private onChange: (data: MemoryData) => void = () => {},
   ) {
+    this.data = { ...emptyData(), ...this.data };
+    this.data.users = this.data.users.map(withUserDefaults);
+  }
+
+  /** Take over data another tab wrote (the browser demo shares one storage). */
+  reload(data: MemoryData | null): void {
+    if (!data) return;
+    this.data = { ...emptyData(), ...data };
     this.data.users = this.data.users.map(withUserDefaults);
   }
 
@@ -143,5 +167,67 @@ export class MemoryStore implements Store {
     const m = this.data.matches.find((x) => x.id === id);
     if (m) Object.assign(m, clone(patch));
     this.save();
+  }
+  async listMatches(userId: string, limit: number) {
+    return clone(this.data.matches.filter((m) => m.userId === userId).slice(-limit).reverse());
+  }
+
+  async listFriends(userId: string) {
+    return clone(this.data.friends.filter((f) => f.fromId === userId || f.toId === userId));
+  }
+  async insertFriend(f: FriendRow) {
+    this.data.friends.push(clone(f));
+    this.save();
+  }
+  async updateFriend(id: string, patch: Partial<FriendRow>) {
+    const f = this.data.friends.find((x) => x.id === id);
+    if (f) Object.assign(f, clone(patch));
+    this.save();
+  }
+  async deleteFriend(id: string) {
+    this.data.friends = this.data.friends.filter((f) => f.id !== id);
+    this.save();
+  }
+
+  async listChallenges(userId: string) {
+    return clone(this.data.challenges.filter((c) => c.fromId === userId || c.toId === userId));
+  }
+  async getChallenge(id: string) {
+    const c = this.data.challenges.find((x) => x.id === id);
+    return c ? clone(c) : null;
+  }
+  async insertChallenge(c: ChallengeRow) {
+    this.data.challenges.push(clone(c));
+    this.save();
+  }
+  async updateChallenge(id: string, patch: Partial<ChallengeRow>) {
+    const c = this.data.challenges.find((x) => x.id === id);
+    if (c) Object.assign(c, clone(patch));
+    this.save();
+  }
+
+  async listPvp(userId: string, limit: number) {
+    return clone(
+      this.data.pvp
+        .filter((p) => p.whiteId === userId || p.blackId === userId)
+        .sort((a, b) => b.updatedAt - a.updatedAt)
+        .slice(0, limit),
+    );
+  }
+  async getPvp(id: string) {
+    const p = this.data.pvp.find((x) => x.id === id);
+    return p ? clone(p) : null;
+  }
+  async insertPvp(p: PvpRow) {
+    this.data.pvp.push(clone(p));
+    this.save();
+  }
+  async updatePvp(id: string, patch: Partial<PvpRow>, expectedActions?: number) {
+    const p = this.data.pvp.find((x) => x.id === id);
+    if (!p) return false;
+    if (expectedActions !== undefined && JSON.parse(p.actions).length !== expectedActions) return false;
+    Object.assign(p, clone(patch));
+    this.save();
+    return true;
   }
 }

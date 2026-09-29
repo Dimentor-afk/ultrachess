@@ -1,7 +1,7 @@
 // SQLite implementation of the game Store (Node's built-in node:sqlite).
 
 import { DatabaseSync } from 'node:sqlite';
-import type { CardRow, DeckRow, MatchRow, PackRow, SessionRow, Store, UserRow } from '../src/economy/store';
+import type { CardRow, ChallengeRow, DeckRow, FriendRow, MatchRow, PackRow, PvpRow, SessionRow, Store, UserRow } from '../src/economy/store';
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS users (
@@ -23,7 +23,10 @@ CREATE TABLE IF NOT EXISTS users (
   themes TEXT NOT NULL DEFAULT '[]',
   board_theme TEXT NOT NULL DEFAULT 'classic',
   packs_today INTEGER NOT NULL DEFAULT 0,
-  packs_day TEXT NOT NULL DEFAULT ''
+  packs_day TEXT NOT NULL DEFAULT '',
+  avatar TEXT NOT NULL DEFAULT 'knight-classic',
+  best_trophies INTEGER NOT NULL DEFAULT 0,
+  last_seen INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS sessions (
   token TEXT PRIMARY KEY,
@@ -68,6 +71,39 @@ CREATE TABLE IF NOT EXISTS matches (
   result TEXT,
   created_at INTEGER NOT NULL
 );
+CREATE INDEX IF NOT EXISTS matches_user ON matches(user_id, created_at);
+CREATE TABLE IF NOT EXISTS friends (
+  id TEXT PRIMARY KEY,
+  from_id TEXT NOT NULL REFERENCES users(id),
+  to_id TEXT NOT NULL REFERENCES users(id),
+  status TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS friends_from ON friends(from_id);
+CREATE INDEX IF NOT EXISTS friends_to ON friends(to_id);
+CREATE TABLE IF NOT EXISTS challenges (
+  id TEXT PRIMARY KEY,
+  from_id TEXT NOT NULL REFERENCES users(id),
+  to_id TEXT NOT NULL REFERENCES users(id),
+  from_deck TEXT NOT NULL,
+  status TEXT NOT NULL,
+  pvp_id TEXT,
+  created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS pvp (
+  id TEXT PRIMARY KEY,
+  white_id TEXT NOT NULL REFERENCES users(id),
+  black_id TEXT NOT NULL REFERENCES users(id),
+  white_deck TEXT NOT NULL,
+  black_deck TEXT NOT NULL,
+  actions TEXT NOT NULL,
+  action_count INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL,
+  result TEXT,
+  resigned_by TEXT,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
 `;
 
 type Row = Record<string, unknown>;
@@ -92,6 +128,9 @@ const USER_COLS: Record<keyof UserRow, string> = {
   boardTheme: 'board_theme',
   packsToday: 'packs_today',
   packsDay: 'packs_day',
+  avatar: 'avatar',
+  bestTrophies: 'best_trophies',
+  lastSeen: 'last_seen',
 };
 
 /** Columns added after the first release, for databases created before them. */
@@ -102,6 +141,9 @@ const USER_MIGRATIONS: [string, string][] = [
   ['board_theme', "TEXT NOT NULL DEFAULT 'classic'"],
   ['packs_today', "INTEGER NOT NULL DEFAULT 0"],
   ['packs_day', "TEXT NOT NULL DEFAULT ''"],
+  ['avatar', "TEXT NOT NULL DEFAULT 'knight-classic'"],
+  ['best_trophies', 'INTEGER NOT NULL DEFAULT 0'],
+  ['last_seen', 'INTEGER NOT NULL DEFAULT 0'],
 ];
 
 const PACK_COLS: Record<keyof PackRow, string> = {
@@ -141,6 +183,9 @@ function user(r: Row | undefined): UserRow | null {
     boardTheme: (r.board_theme as string | null) ?? 'classic',
     packsToday: Number(r.packs_today ?? 0),
     packsDay: (r.packs_day as string | null) ?? '',
+    avatar: (r.avatar as string | null) ?? 'knight-classic',
+    bestTrophies: Number(r.best_trophies ?? 0),
+    lastSeen: Number(r.last_seen ?? 0),
   };
 }
 
@@ -175,6 +220,51 @@ function match(r: Row | undefined): MatchRow | null {
     createdAt: Number(r.created_at),
   };
 }
+
+function friend(r: Row | undefined): FriendRow | null {
+  if (!r) return null;
+  return { id: r.id as string, fromId: r.from_id as string, toId: r.to_id as string, status: r.status as FriendRow['status'], createdAt: Number(r.created_at) };
+}
+
+function challenge(r: Row | undefined): ChallengeRow | null {
+  if (!r) return null;
+  return {
+    id: r.id as string,
+    fromId: r.from_id as string,
+    toId: r.to_id as string,
+    fromDeck: JSON.parse(r.from_deck as string),
+    status: r.status as ChallengeRow['status'],
+    pvpId: (r.pvp_id as string | null) ?? null,
+    createdAt: Number(r.created_at),
+  };
+}
+
+function pvp(r: Row | undefined): PvpRow | null {
+  if (!r) return null;
+  return {
+    id: r.id as string,
+    whiteId: r.white_id as string,
+    blackId: r.black_id as string,
+    whiteDeck: JSON.parse(r.white_deck as string),
+    blackDeck: JSON.parse(r.black_deck as string),
+    actions: r.actions as string,
+    status: r.status as PvpRow['status'],
+    result: (r.result as string | null) ?? null,
+    resignedBy: (r.resigned_by as PvpRow['resignedBy']) ?? null,
+    createdAt: Number(r.created_at),
+    updatedAt: Number(r.updated_at),
+  };
+}
+
+const FRIEND_COLS: Record<string, string> = { status: 'status' };
+const CHALLENGE_COLS: Record<string, string> = { status: 'status', pvpId: 'pvp_id' };
+const PVP_COLS: Record<string, string> = {
+  actions: 'actions',
+  status: 'status',
+  result: 'result',
+  resignedBy: 'resigned_by',
+  updatedAt: 'updated_at',
+};
 
 function update(db: DatabaseSync, table: string, cols: Record<string, string>, id: string, patch: Row): void {
   const keys = Object.keys(patch).filter((k) => k in cols);
@@ -290,5 +380,84 @@ export class SqliteStore implements Store {
   async updateMatch(id: string, patch: Partial<MatchRow>) {
     const cols: Record<string, string> = { status: 'status', result: 'result' };
     update(this.db, 'matches', cols, id, patch as Row);
+  }
+  async listMatches(userId: string, limit: number) {
+    return (this.db.prepare('SELECT * FROM matches WHERE user_id = ? ORDER BY created_at DESC LIMIT ?').all(userId, limit) as Row[]).map(
+      (r) => match(r)!,
+    );
+  }
+
+  async listFriends(userId: string) {
+    return (this.db.prepare('SELECT * FROM friends WHERE from_id = ? OR to_id = ?').all(userId, userId) as Row[]).map((r) => friend(r)!);
+  }
+  async insertFriend(f: FriendRow) {
+    this.db.prepare('INSERT INTO friends (id, from_id, to_id, status, created_at) VALUES (?, ?, ?, ?, ?)').run(f.id, f.fromId, f.toId, f.status, f.createdAt);
+  }
+  async updateFriend(id: string, patch: Partial<FriendRow>) {
+    update(this.db, 'friends', FRIEND_COLS, id, patch as Row);
+  }
+  async deleteFriend(id: string) {
+    this.db.prepare('DELETE FROM friends WHERE id = ?').run(id);
+  }
+
+  async listChallenges(userId: string) {
+    return (this.db.prepare('SELECT * FROM challenges WHERE from_id = ? OR to_id = ?').all(userId, userId) as Row[]).map((r) => challenge(r)!);
+  }
+  async getChallenge(id: string) {
+    return challenge(this.db.prepare('SELECT * FROM challenges WHERE id = ?').get(id) as Row | undefined);
+  }
+  async insertChallenge(c: ChallengeRow) {
+    this.db
+      .prepare('INSERT INTO challenges (id, from_id, to_id, from_deck, status, pvp_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .run(c.id, c.fromId, c.toId, JSON.stringify(c.fromDeck), c.status, c.pvpId, c.createdAt);
+  }
+  async updateChallenge(id: string, patch: Partial<ChallengeRow>) {
+    update(this.db, 'challenges', CHALLENGE_COLS, id, patch as Row);
+  }
+
+  async listPvp(userId: string, limit: number) {
+    return (
+      this.db.prepare('SELECT * FROM pvp WHERE white_id = ? OR black_id = ? ORDER BY updated_at DESC LIMIT ?').all(userId, userId, limit) as Row[]
+    ).map((r) => pvp(r)!);
+  }
+  async getPvp(id: string) {
+    return pvp(this.db.prepare('SELECT * FROM pvp WHERE id = ?').get(id) as Row | undefined);
+  }
+  async insertPvp(p: PvpRow) {
+    this.db
+      .prepare(
+        'INSERT INTO pvp (id, white_id, black_id, white_deck, black_deck, actions, action_count, status, result, resigned_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      )
+      .run(
+        p.id,
+        p.whiteId,
+        p.blackId,
+        JSON.stringify(p.whiteDeck),
+        JSON.stringify(p.blackDeck),
+        p.actions,
+        JSON.parse(p.actions).length,
+        p.status,
+        p.result,
+        p.resignedBy,
+        p.createdAt,
+        p.updatedAt,
+      );
+  }
+  async updatePvp(id: string, patch: Partial<PvpRow>, expectedActions?: number) {
+    const keys = Object.keys(patch).filter((k) => k in PVP_COLS);
+    const sets = keys.map((k) => `${PVP_COLS[k]} = ?`);
+    const vals = keys.map((k) => toSql((patch as Row)[k]));
+    if (patch.actions !== undefined) {
+      sets.push('action_count = ?');
+      vals.push(JSON.parse(patch.actions).length);
+    }
+    if (!sets.length) return true;
+    let sql = `UPDATE pvp SET ${sets.join(', ')} WHERE id = ?`;
+    vals.push(id);
+    if (expectedActions !== undefined) {
+      sql += ' AND action_count = ?';
+      vals.push(expectedActions);
+    }
+    return Number(this.db.prepare(sql).run(...vals).changes) > 0;
   }
 }

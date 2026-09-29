@@ -58,6 +58,7 @@ export function HomePage() {
         key={game.key}
         start={game.start}
         playerName={profile.name}
+        playerAvatar={profile.avatar}
         trophies={profile.trophies}
         onFinish={async (actions, resigned) => {
           const v = await api.finishMatch(game.start.matchId, actions, resigned);

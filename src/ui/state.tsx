@@ -1,5 +1,5 @@
-import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
-import type { Api, Collection, PackView, Profile } from '../api/client';
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import type { Api, Collection, Inbox, PackView, Profile } from '../api/client';
 import type { Deck } from '../engine/types';
 
 export interface Toast {
@@ -20,6 +20,9 @@ interface Session {
   refresh: () => Promise<void>;
   toast: (text: string, kind?: Toast['kind']) => void;
   logout: () => Promise<void>;
+  /** Friend requests, challenges and friend games waiting for your move. */
+  inbox: Inbox;
+  refreshInbox: () => Promise<void>;
 }
 
 const Ctx = createContext<Session | null>(null);
@@ -62,6 +65,19 @@ export function SessionProvider({
 }) {
   const [data, setData] = useState<Loaded>(initial);
   const refresh = useCallback(async () => setData(await loadAll(api)), [api]);
+  const [inbox, setInbox] = useState<Inbox>({ friendRequests: 0, challenges: 0, yourTurn: 0 });
+  const refreshInbox = useCallback(async () => {
+    try {
+      setInbox(await api.inbox());
+    } catch {
+      // Keep the last counts.
+    }
+  }, [api]);
+  useEffect(() => {
+    void refreshInbox();
+    const t = setInterval(refreshInbox, 12_000);
+    return () => clearInterval(t);
+  }, [refreshInbox]);
   const value: Session = {
     api,
     ...data,
@@ -70,6 +86,8 @@ export function SessionProvider({
     setPacks: (packs) => setData((d) => ({ ...d, packs })),
     refresh,
     toast,
+    inbox,
+    refreshInbox,
     logout: async () => {
       await api.logout();
       onLogout();

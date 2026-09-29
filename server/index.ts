@@ -128,6 +128,27 @@ const routes: [string, RegExp, Handler][] = [
     ({ token, params, body }) => svc.finishMatch(token, params[0], Array.isArray(body.actions) ? body.actions : [], !!body.resigned),
   ],
   ['GET', /^leaderboard$/, () => svc.leaderboard()],
+  ['POST', /^profile$/, ({ token, body }) =>
+    svc.updateProfile(token, {
+      name: body.name !== undefined ? String(body.name) : undefined,
+      avatar: body.avatar !== undefined ? String(body.avatar) : undefined,
+    })],
+  ['GET', /^players\/(\w+)$/, ({ token, params }) => svc.playerProfile(token, params[0])],
+  ['GET', /^history$/, ({ token }) => svc.history(token)],
+  ['GET', /^inbox$/, ({ token }) => svc.inbox(token)],
+  ['GET', /^friends$/, ({ token }) => svc.friends(token)],
+  ['POST', /^friends\/search$/, ({ token, body }) => svc.searchPlayers(token, String(body.query ?? ''))],
+  ['POST', /^friends$/, ({ token, body }) => svc.addFriend(token, String(body.userId ?? ''))],
+  ['POST', /^friends\/(\w+)\/respond$/, ({ token, params, body }) => svc.respondFriend(token, params[0], !!body.accept)],
+  ['DELETE', /^friends\/(\w+)$/, ({ token, params }) => svc.removeFriend(token, params[0])],
+  ['GET', /^challenges$/, ({ token }) => svc.challenges(token)],
+  ['POST', /^challenges$/, ({ token, body }) =>
+    svc.challengeFriend(token, String(body.friendId ?? ''), body.deckId ? String(body.deckId) : undefined)],
+  ['POST', /^challenges\/(\w+)\/respond$/, ({ token, params, body }) =>
+    svc.respondChallenge(token, params[0], !!body.accept, body.deckId ? String(body.deckId) : undefined)],
+  ['GET', /^pvp\/(\w+)$/, ({ token, params }) => svc.pvpState(token, params[0])],
+  ['POST', /^pvp\/(\w+)\/action$/, ({ token, params, body }) => svc.pvpAction(token, params[0], body.action as never, Number(body.expected))],
+  ['POST', /^pvp\/(\w+)\/resign$/, ({ token, params }) => svc.pvpResign(token, params[0])],
   ['GET', /^admin\/users$/, ({ token }) => svc.adminUsers(token)],
   ['POST', /^admin\/users\/(\w+)\/pack$/, ({ token, params, body }) => svc.adminGrantPack(token, params[0], String(body.type) as never)],
   ['POST', /^admin\/users\/(\w+)\/all-cards$/, ({ token, params }) => svc.adminGrantAllCards(token, params[0])],
