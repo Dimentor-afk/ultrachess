@@ -4,7 +4,7 @@
 
 import { NO_SQUARE, isBoardSquare, lastRank, offset, opposite, rankOf } from './coords';
 import { CLASSIC_CARD } from './cards';
-import type { Color, Move, Piece, PieceType, Position, Square } from './types';
+import type { Color, Leg, Move, Piece, PieceType, Position, Square } from './types';
 
 export interface GenCtx {
   pos: Position;
@@ -185,6 +185,10 @@ export function slideMoves(
             captures: [block.s],
             target: block.s,
             path: [...path, next],
+            legs: [
+              { to: block.s, style: 'slide', stop: true },
+              { to: next, style: 'slide' },
+            ],
             label: 'Взяти й пройти ще 1 клітинку',
           }),
         );
@@ -220,10 +224,12 @@ export function leapMoves(
       continue;
     }
     const p = seen(ctx, t);
+    // Anything longer than one step is a jump.
+    const legs: Leg[] | undefined = Math.max(Math.abs(df), Math.abs(dr)) > 1 ? [{ to: t, style: 'hop' }] : undefined;
     if (!p) {
-      if (!ctx.attack && !opts.noQuiet) out.push(mk(piece, from, t, {}));
+      if (!ctx.attack && !opts.noQuiet) out.push(mk(piece, from, t, { legs }));
     } else if (p.color === ctx.enemy && !opts.noCapture) {
-      out.push(mk(piece, from, t, { captures: [t] }));
+      out.push(mk(piece, from, t, { captures: [t], legs }));
     }
   }
   return out;

@@ -169,6 +169,7 @@ export const pawnGenerators: Record<string, Generator> = {
             once: true,
             noPromote: true,
             path: [f1, f2],
+            legs: [{ to: f2, style: 'hop' }],
             label: 'Стрибок Фантома (раз за гру)',
           }),
         );
@@ -208,6 +209,10 @@ export const pawnGenerators: Record<string, Generator> = {
               captures: m.captures,
               target: m.target,
               path: m.path,
+              legs: [
+                { to: m.to!, style: 'slide', stop: true },
+                { to: from, style: 'slide' },
+              ],
               skip: 1,
               label: 'Взяти й повернутись',
             }),

@@ -90,6 +90,15 @@ export interface Displacement {
   to: Square;
 }
 
+/** One stretch of a move's animation. */
+export interface Leg {
+  to: Square;
+  /** slide = glide across, hop = jump in an arc, warp = vanish and reappear. */
+  style: 'slide' | 'hop' | 'warp';
+  /** The player picks this square first and then decides whether to go on. */
+  stop?: boolean;
+}
+
 export interface Move {
   pieceId: string;
   from: Square;
@@ -108,6 +117,11 @@ export interface Move {
   touch?: Square;
   /** Landing square of the mover for each capture (multi-capture chains). */
   steps?: Square[];
+  /**
+   * How the mover travels, stretch by stretch (jump to the edge, then run).
+   * Omitted for a single stretch; see `moveLegs`.
+   */
+  legs?: Leg[];
   /** Other pieces relocated by this move (castling rook, pushes, swaps). */
   displaced?: Displacement[];
   promotion?: PieceType;

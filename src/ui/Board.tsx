@@ -1,7 +1,8 @@
-import { type CSSProperties, useRef } from 'react';
+import { type CSSProperties, type ReactNode, useLayoutEffect, useRef } from 'react';
 import { getCard } from '../engine/cards';
 import { fileOf, isBoardSquare, rankOf, sq } from '../engine/coords';
-import type { Color, Square } from '../engine/types';
+import type { FxMove } from '../engine/fx';
+import type { Color, Leg, Square } from '../engine/types';
 import type { PlayerView, ViewPiece } from '../engine/view';
 import { Emblem } from './art';
 import { pieceSprite } from './cardArt';
@@ -22,6 +23,96 @@ const WIDE_RING = 0.95;
 export function boardRing(view: PlayerView, marks: Map<Square, unknown>): number {
   const onRing = view.cells.some((c, s) => c && !isBoardSquare(s)) || [...marks.keys()].some((s) => !isBoardSquare(s));
   return onRing ? WIDE_RING : THIN_RING;
+}
+
+// ── Move animation ──
+// A move plays leg by leg: a slide glides, a hop arcs over the board, a warp
+// fades out and back in. Every leg is timed by its length, with a short beat
+// between legs so each landing reads (the knight touches the wall, then runs).
+
+const LEG_PAUSE = 90;
+
+function dist(a: Square, b: Square): number {
+  return Math.max(Math.abs(fileOf(a) - fileOf(b)), Math.abs(rankOf(a) - rankOf(b)));
+}
+
+function legMs(style: Leg['style'], d: number): number {
+  if (style === 'warp') return 460;
+  if (style === 'hop') return Math.min(560, 300 + 45 * d);
+  return Math.min(480, 120 + 50 * d);
+}
+
+interface Timed {
+  leg: Leg;
+  from: Square;
+  start: number;
+  end: number;
+}
+
+/** Start and end times of each leg, starting at `from`. */
+export function timeLegs(from: Square, legs: Leg[]): Timed[] {
+  const out: Timed[] = [];
+  let t = 0;
+  let at = from;
+  legs.forEach((leg, i) => {
+    if (i > 0) t += LEG_PAUSE;
+    const ms = legMs(leg.style, dist(at, leg.to));
+    out.push({ leg, from: at, start: t, end: t + ms });
+    t += ms;
+    at = leg.to;
+  });
+  return out;
+}
+
+interface Glide {
+  timed: Timed[];
+  delay: number;
+}
+
+function GlidePiece({ glide, orientation, ring, children }: { glide: Glide; orientation: Color; ring: number; children: ReactNode }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    const { timed, delay } = glide;
+    if (!el || !timed.length || typeof el.animate !== 'function' || document.documentElement.classList.contains('no-anim')) return;
+    const end = squareCenter(timed[timed.length - 1].leg.to, orientation, ring);
+    const off = (s: Square) => {
+      const c = squareCenter(s, orientation, ring);
+      return { x: c.x - end.x, y: c.y - end.y };
+    };
+    const total = timed[timed.length - 1].end;
+    const frames: Keyframe[] = [];
+    const tr = (p: { x: number; y: number }, lift = 0, scale = 1) => `translate(${p.x}cqw, ${p.y - lift}cqw) scale(${scale})`;
+    for (const { leg, from, start, end: stop } of timed) {
+      const a = off(from);
+      const b = off(leg.to);
+      const o = (t: number) => (total ? t / total : 1);
+      if (leg.style === 'hop') {
+        const lift = 3 + dist(from, leg.to) * 1.2;
+        frames.push({ offset: o(start), transform: tr(a), opacity: 1, easing: 'cubic-bezier(0.3, 0, 0.6, 1)' });
+        frames.push({ offset: o((start + stop) / 2), transform: tr({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, lift, 1.18), opacity: 1, easing: 'cubic-bezier(0.4, 0, 0.7, 1)' });
+        frames.push({ offset: o(stop), transform: tr(b), opacity: 1 });
+      } else if (leg.style === 'warp') {
+        const span = stop - start;
+        frames.push({ offset: o(start), transform: tr(a), opacity: 1 });
+        frames.push({ offset: o(start + span * 0.45), transform: tr(a, 0, 0.2), opacity: 0 });
+        frames.push({ offset: o(start + span * 0.55), transform: tr(b, 0, 0.2), opacity: 0 });
+        frames.push({ offset: o(stop), transform: tr(b), opacity: 1 });
+      } else {
+        frames.push({ offset: o(start), transform: tr(a), opacity: 1, easing: 'cubic-bezier(0.3, 0.7, 0.4, 1)' });
+        frames.push({ offset: o(stop), transform: tr(b), opacity: 1 });
+      }
+    }
+    // Hold still at the start while waiting (a pushed piece waits for the pusher).
+    const anim = el.animate(frames, { duration: Math.max(total, 1), delay, fill: 'backwards' });
+    return () => anim.cancel();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return (
+    <span ref={ref} className="glide">
+      {children}
+    </span>
+  );
 }
 
 /** Centre of a square in percent of the board, for overlays and animations. */
@@ -70,28 +161,68 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
   // move and the move itself share a signature, so they animate once.
   const fx = view.fx;
   const sig = fx ? `${fx.id}:${fx.moves.map((m) => `${m.from}-${m.to}`).join(',')}` : '';
-  const anim = useRef<{ seen: Set<string>; sig: string; n: number }>({ seen: new Set([sig]), sig: '', n: 0 });
+  const anim = useRef<{ seen: Set<string>; sig: string; n: number; prev: FxMove[]; skip: Map<Square, number> }>({
+    seen: new Set([sig]),
+    sig: '',
+    n: 0,
+    prev: [],
+    skip: new Map(),
+  });
   if (sig && !anim.current.seen.has(sig)) {
+    // A move chosen stop by stop was already shown up to the stop (the
+    // preview); play only the rest of it.
+    const skip = new Map<Square, number>();
+    for (const m of fx!.moves) {
+      const p = anim.current.prev.find((x) => x.from === m.from);
+      if (!p || p.legs.length >= m.legs.length) continue;
+      if (p.legs.every((l, i) => l.to === m.legs[i].to)) skip.set(m.from, p.legs.length);
+    }
+    anim.current = { ...anim.current, sig, n: anim.current.n + 1, prev: fx!.moves, skip };
     anim.current.seen.add(sig);
-    anim.current.sig = sig;
-    anim.current.n++;
   }
   const live = fx && anim.current.sig === sig ? fx : null;
-  const slides = new Map<Square, { style: CSSProperties; cls: string }>();
-  for (const m of live?.moves ?? []) {
-    const a = squareCenter(m.from, orientation, ring);
-    const b = squareCenter(m.to, orientation, ring);
-    slides.set(m.to, {
-      cls: `slide slide-${m.style}`,
-      style: { '--dx': `${a.x - b.x}cqw`, '--dy': `${a.y - b.y}cqw` } as CSSProperties,
+  const glides = new Map<Square, Glide>();
+  let moverMs = 0;
+  let moverTimed: Timed[] = [];
+  let moverSkip = 0;
+  if (live) {
+    live.moves.forEach((m, i) => {
+      const skip = anim.current.skip.get(m.from) ?? 0;
+      const start = skip ? m.legs[skip - 1].to : m.from;
+      const timed = timeLegs(start, m.legs.slice(skip));
+      if (i === 0 || !m.after) {
+        if (i === 0) {
+          moverTimed = timed;
+          moverSkip = skip;
+        }
+        moverMs = Math.max(moverMs, timed.length ? timed[timed.length - 1].end : 0);
+      }
+      glides.set(m.to, { timed, delay: 0 });
+    });
+    live.moves.forEach((m) => {
+      if (m.after) glides.get(m.to)!.delay = moverMs;
     });
   }
   const sprites: { name: FxName; square: Square; delay: number }[] = [];
+  // Captured pieces stay on their squares until the blow lands.
+  const ghosts = new Map<Square, { piece: ViewPiece; ms: number }>();
   if (live) {
     live.sprites.forEach((x, i) => {
       const name = x.kind === 'capture' && x.by && captureFx?.[x.by] ? captureFx[x.by]! : (x.kind as FxName);
-      // Quake and eclipse ripple along their line.
-      const delay = x.kind === 'quake' || x.kind === 'eclipse' ? i * 45 : x.kind === 'capture' || x.kind === 'explode' ? 180 : 0;
+      // Quake and eclipse ripple along their line; a capture plays when the
+      // mover arrives (each one in turn for a chain).
+      let delay = x.kind === 'quake' || x.kind === 'eclipse' ? i * 45 : x.kind === 'explode' ? 180 : 0;
+      if (x.kind === 'capture') {
+        if (x.leg !== undefined && x.leg < moverSkip) return;
+        const t = x.leg !== undefined ? moverTimed[x.leg - moverSkip] : undefined;
+        delay = t ? Math.max(0, t.end - 60) : 180;
+        if (x.victim && delay > 0) {
+          ghosts.set(x.square, {
+            piece: { ...x.victim, id: '', illusion: false, frozen: false, onceUsed: false, cooldown: null, passenger: false, platformTurnsLeft: null },
+            ms: delay + 60,
+          });
+        }
+      }
       sprites.push({ name, square: x.square, delay });
       if (x.kind === 'quake') sprites.push({ name: 'dust', square: x.square, delay: i * 45 + 120 });
     });
@@ -129,10 +260,10 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
       const content = (
         <>
           {piece &&
-            (slides.has(s) ? (
-              <span key={`slide-${anim.current.n}`} className={slides.get(s)!.cls} style={slides.get(s)!.style}>
+            (glides.has(s) ? (
+              <GlidePiece key={`glide-${anim.current.n}`} glide={glides.get(s)!} orientation={orientation} ring={ring}>
                 <PieceView piece={piece} />
-              </span>
+              </GlidePiece>
             ) : introLanding?.has(s) ? (
               <span className="intro-land">
                 <PieceView piece={piece} />
@@ -140,6 +271,11 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
             ) : (
               <PieceView piece={piece} />
             ))}
+          {ghosts.has(s) && (
+            <span key={`ghost-${anim.current.n}`} className="ghost-victim" style={{ animationDelay: `${ghosts.get(s)!.ms}ms` }}>
+              <PieceView piece={ghosts.get(s)!.piece} />
+            </span>
+          )}
           {mark && <span className={`mark mark-${mark}`} />}
         </>
       );

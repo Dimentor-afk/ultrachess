@@ -11,7 +11,7 @@ import {
   walk,
 } from '../gen';
 import { findKing } from '../position';
-import type { Move, Piece, Square } from '../types';
+import type { Leg, Move, Piece, Square } from '../types';
 
 type Dir = [number, number];
 
@@ -50,6 +50,7 @@ export function jumpOverMoves(
       mk(p, from, beyond, {
         kind: 'special',
         path: [...stepSquares(steps), block.s, beyond],
+        legs: [...(steps.length ? [{ to: steps[steps.length - 1].s, style: 'slide' as const }] : []), { to: beyond, style: 'hop' }],
         label: 'Перестрибнути фігуру',
         ...extra,
       }),
@@ -84,10 +85,14 @@ export function ricochetMoves(ctx: GenCtx, p: Piece, from: Square, dirs: Dir[]):
       if (R === NO_SQUARE || !isBoardSquare(R)) continue;
       const q = seen(ctx, R);
       const path = [...stepSquares(steps), R];
+      const legs: Leg[] = [
+        { to: L, style: 'slide', stop: true },
+        { to: R, style: 'slide' },
+      ];
       if (!q) {
-        if (!ctx.attack) out.push(mk(p, from, R, { kind: 'special', path, label: 'Рикошет' }));
+        if (!ctx.attack) out.push(mk(p, from, R, { kind: 'special', path, legs, label: 'Рикошет' }));
       } else if (q.color === ctx.enemy) {
-        out.push(mk(p, from, R, { captures: [R], path, label: 'Рикошет із взяттям' }));
+        out.push(mk(p, from, R, { captures: [R], path, legs, label: 'Рикошет із взяттям' }));
       }
     }
   }
@@ -113,12 +118,16 @@ export function turnMoves(ctx: GenCtx, p: Piece, from: Square, dirs: Dir[]): Mov
           const q = seen(ctx, s);
           leg2.push(s);
           const path = [...leg1, ...leg2];
+          const legs: Leg[] = [
+            { to: corner, style: 'slide', stop: true },
+            { to: s, style: 'slide' },
+          ];
           if (!q) {
-            if (!ctx.attack) out.push(mk(p, from, s, { kind: 'special', path, label: 'Хід із поворотом' }));
+            if (!ctx.attack) out.push(mk(p, from, s, { kind: 'special', path, legs, label: 'Хід із поворотом' }));
             continue;
           }
           if (q.color === ctx.enemy) {
-            out.push(mk(p, from, s, { captures: [s], path, label: 'Взяття з поворотом' }));
+            out.push(mk(p, from, s, { captures: [s], path, legs, label: 'Взяття з поворотом' }));
           }
           break;
         }
@@ -184,7 +193,7 @@ export function portalMoves(ctx: GenCtx, p: Piece, from: Square, dirs: Dir[]): M
   const out: Move[] = [];
   if (ctx.pos.onceUsed[p.id] || !isBoardSquare(from)) return out;
   const passOwn = defaultPassOwn(p);
-  const add = (s: Square, path: Square[], capture: boolean) => {
+  const add = (s: Square, path: Square[], edge: Square, mirror: Square, capture: boolean) => {
     if (!capture && ctx.attack) return;
     out.push(
       mk(p, from, s, {
@@ -192,6 +201,11 @@ export function portalMoves(ctx: GenCtx, p: Piece, from: Square, dirs: Dir[]): M
         once: true,
         captures: capture ? [s] : [],
         path: path.slice(),
+        legs: [
+          { to: edge, style: 'slide', stop: true },
+          { to: mirror, style: 'warp' },
+          ...(s !== mirror ? [{ to: s, style: 'slide' as const }] : []),
+        ],
         label: capture ? 'Взяття через портал (раз за гру)' : 'Через портал (раз за гру)',
       }),
     );
@@ -203,13 +217,14 @@ export function portalMoves(ctx: GenCtx, p: Piece, from: Square, dirs: Dir[]): M
     const last = steps[steps.length - 1].s;
     const path = stepSquares(steps);
     // 2. Reappear on the mirrored square and continue the same direction.
-    let s = sq(7 - fileOf(last), 7 - rankOf(last));
+    const mirror = sq(7 - fileOf(last), 7 - rankOf(last));
+    let s = mirror;
     while (s !== NO_SQUARE && isBoardSquare(s) && s !== from) {
       path.push(s);
       const q = seen(ctx, s);
-      if (!q) add(s, path, false);
+      if (!q) add(s, path, last, mirror, false);
       else if (q.color === ctx.enemy) {
-        add(s, path, true);
+        add(s, path, last, mirror, true);
         break;
       } else if (!passOwn?.(q)) break;
       s = offset(s, df, dr);
@@ -299,9 +314,9 @@ export function flankMoves(ctx: GenCtx, p: Piece, from: Square): Move[] {
     const mid = offset(from, df / 2, dr / 2);
     const q = seen(ctx, t);
     if (!q) {
-      if (!ctx.attack) out.push(mk(p, from, t, { kind: 'special', path: [mid, t], label: 'Стрибок уздовж краю' }));
+      if (!ctx.attack) out.push(mk(p, from, t, { kind: 'special', path: [mid, t], legs: [{ to: t, style: 'hop' }], label: 'Стрибок уздовж краю' }));
     } else if (q.color === ctx.enemy) {
-      out.push(mk(p, from, t, { captures: [t], path: [mid, t], label: 'Стрибок уздовж краю зі взяттям' }));
+      out.push(mk(p, from, t, { captures: [t], path: [mid, t], legs: [{ to: t, style: 'hop' }], label: 'Стрибок уздовж краю зі взяттям' }));
     }
   }
   return out;

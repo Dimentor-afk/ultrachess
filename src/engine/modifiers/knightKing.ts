@@ -44,9 +44,9 @@ function hasAdjacentOwnKnight(ctx: GenCtx, p: Piece, from: Square): boolean {
 
 function wallRunMoves(ctx: GenCtx, p: Piece, from: Square): Move[] {
   if (ctx.attack) return [];
-  const direct = new Set(leapMoves(ctx, p, from, KNIGHT_LEAPS).map((m) => m.target));
+  // Every square along the wall is offered from every landing: the player
+  // picks the landing first, then how far to run.
   const out: Move[] = [];
-  const seenTargets = new Set<Square>();
   for (const [df, dr] of KNIGHT_LEAPS) {
     const L = offset(from, df, dr);
     if (!isEmptyBoard(ctx, L)) continue;
@@ -62,9 +62,18 @@ function wallRunMoves(ctx: GenCtx, p: Piece, from: Square): Move[] {
         s = offset(s, ef, er);
         if (!isEmptyBoard(ctx, s)) break;
         path.push(s);
-        if (direct.has(s) || seenTargets.has(s) || s === from) continue;
-        seenTargets.add(s);
-        out.push(mk(p, from, s, { kind: 'special', path: path.slice(), label: 'Стрибок і біг уздовж краю' }));
+        if (s === from) continue;
+        out.push(
+          mk(p, from, s, {
+            kind: 'special',
+            path: path.slice(),
+            legs: [
+              { to: L, style: 'hop', stop: true },
+              { to: s, style: 'slide' },
+            ],
+            label: 'Стрибок і біг уздовж краю',
+          }),
+        );
       }
     }
   }
@@ -91,7 +100,10 @@ function gallopMoves(ctx: GenCtx, p: Piece, from: Square): Move[] {
           kind: 'special',
           captures: q ? [t] : [],
           path: [j1, t],
-          skip: 1,
+          legs: [
+            { to: j1, style: 'hop', stop: true },
+            { to: t, style: 'hop' },
+          ],
           label: q ? 'Подвійний стрибок зі взяттям' : 'Подвійний стрибок',
         }),
       );
@@ -140,6 +152,10 @@ function berserkMoves(ctx: GenCtx, p: Piece, from: Square): Move[] {
           steps: [c1, c2],
           target: c1,
           path: [c1, c2],
+          legs: [
+            { to: c1, style: 'hop', stop: true },
+            { to: c2, style: 'hop' },
+          ],
           skip: 1,
           label: `Берсерк: ще взяти на ${squareName(c2)}`,
         }),

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyAbility } from '../abilities';
+import { abilityReady, applyAbility } from '../abilities';
 import { classicDeck, validateDeck } from '../deck';
 import { legalMoves } from '../legal';
 import { type MatchState, performAction } from '../match';
@@ -85,6 +85,10 @@ describe('Безсмертна', () => {
     m = performAction(m, { type: 'move', move: findMove(m, 'd8', 'd4') });
     expect(at(m, 'd1')).toBe('w:queen-immortal');
     expect(at(m, 'd4')).toBe('b:rook-classic');
+    // Only one comeback per game: the button is gone for good.
+    expect(m.onceUsed['w-d4']).toBe(true);
+    m = { ...m, cooldowns: {} };
+    expect(abilityReady(m, 'w-d4')).toBe(false);
   });
 
   it('is a normal capture when the button was not pressed', () => {

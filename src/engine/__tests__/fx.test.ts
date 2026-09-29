@@ -15,9 +15,9 @@ describe('match fx', () => {
   it('reports the mover and captures', () => {
     let m = createMatch(classicDeck(), classicDeck());
     m = mv(m, 'e2e4');
-    expect(m.fx!.moves).toEqual([{ from: parseSquare('e2'), to: parseSquare('e4'), style: 'slide' }]);
+    expect(m.fx!.moves).toEqual([{ from: parseSquare('e2'), to: parseSquare('e4'), legs: [{ to: parseSquare('e4'), style: 'slide' }] }]);
     m = mv(mv(m, 'd7d5'), 'e4d5');
-    expect(m.fx!.sprites).toContainEqual({ kind: 'capture', square: parseSquare('d5'), by: 'w' });
+    expect(m.fx!.sprites).toContainEqual({ kind: 'capture', square: parseSquare('d5'), by: 'w', leg: 0, victim: { type: 'pawn', color: 'b', cardId: 'pawn-classic' } });
   });
 
   it('castling slides the rook too', () => {
@@ -35,7 +35,7 @@ describe('match fx', () => {
     m = performAction(m, { type: 'ability', pieceId: rook.id, key: opt.key });
     expect(m.fx!.shake).toBe(true);
     expect(m.fx!.moves.length).toBeGreaterThan(0);
-    expect(m.fx!.moves.every((x) => x.style === 'hop' || x.style === 'warp')).toBe(true);
+    expect(m.fx!.moves.every((x) => x.legs[0].style === 'hop' || x.legs[0].style === 'warp')).toBe(true);
 
     const queen = m.board.find((p) => p?.cardId === 'queen-immortal')!;
     let n = createMatch(deck, classicDeck());

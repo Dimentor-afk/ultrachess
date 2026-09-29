@@ -5541,3 +5541,30 @@ html.no-anim .fx {
   60% { transform: translate(-5px, -3px); }
   80% { transform: translate(4px, 3px); }
 }
+
+/* ---------- Leg-by-leg move animation ---------- */
+.glide {
+  position: relative;
+  z-index: 6;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  will-change: transform;
+}
+.platform-tile .glide {
+  position: static;
+}
+.ghost-victim {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  animation: ghost-out 0.28s ease-in both;
+}
+@keyframes ghost-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: scale(0.5) rotate(18deg); filter: brightness(2.5); }
+}

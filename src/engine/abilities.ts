@@ -58,7 +58,9 @@ export function abilityReady(pos: Position, pieceId: string): boolean {
     !def.viaMove &&
     p.color === pos.turn &&
     !pos.pending.some((pc) => pc.color === pos.turn) &&
-    (pos.cooldowns[pieceId] ?? 0) === 0
+    (pos.cooldowns[pieceId] ?? 0) === 0 &&
+    // Безсмертна comes back only once per game.
+    !(def.id === 'immortal' && pos.onceUsed[pieceId])
   );
 }
 

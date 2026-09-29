@@ -34,9 +34,20 @@ describe('knight cards', () => {
     expect(t).toEqual(expect.arrayContaining(['a2', 'b1']));
   });
 
-  it('Скакун may double-jump on its first move and then skips a turn', () => {
+  it('Скакун may double-jump on its first move, lands first and needs no rest', () => {
     const pos = build({ ...K2, b1: 'w:knight-galloper' });
-    expect(findMove(pos, 'b1', 'e4').skip).toBe(1);
+    const m = findMove(pos, 'b1', 'e4');
+    expect(m.skip).toBeUndefined();
+    expect(m.legs).toHaveLength(2);
+    expect(m.legs![0].stop).toBe(true);
+    expect(m.legs!.every((l) => l.style === 'hop')).toBe(true);
+  });
+
+  it('Стінобіг jumps to the wall first, then runs along it', () => {
+    const pos = build({ ...K2, c3: 'w:knight-wallrunner' });
+    const run = movesFrom(pos, 'c3').find((m) => m.label.startsWith('Стрибок і біг'))!;
+    expect(run.legs!.map((l) => l.style)).toEqual(['hop', 'slide']);
+    expect(run.legs![0].stop).toBe(true);
   });
 
   it('Трамплін lets own sliders pass through it', () => {

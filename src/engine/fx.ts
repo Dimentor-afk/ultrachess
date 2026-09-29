@@ -6,7 +6,7 @@
 import type { AbilityEvent } from './abilities';
 import type { GameEvent } from './apply';
 import { CELLS, fileOf, rankOf } from './coords';
-import type { Color, Move, Piece, Position, Square } from './types';
+import type { Color, Leg, Move, Piece, PieceType, Position, Square } from './types';
 
 export type FxKind =
   | 'capture'
@@ -30,13 +30,27 @@ export interface FxSprite {
   owner?: Color;
   /** Side that made the capture (the capturer's chosen effect plays). */
   by?: Color;
+  /** Plays when the mover finishes this leg of its move (chained captures). */
+  leg?: number;
+  /** The captured piece, drawn until the blow lands. */
+  victim?: { type: PieceType; color: Color; cardId: string };
 }
 
 export interface FxMove {
   from: Square;
   to: Square;
-  /** slide = glide across, hop = jump in an arc, warp = vanish and reappear. */
-  style: 'slide' | 'hop' | 'warp';
+  /** How the piece travels, stretch by stretch; the last leg ends on `to`. */
+  legs: Leg[];
+  /** Starts once the main mover has arrived (a pushed piece). */
+  after?: boolean;
+}
+
+/** A move's legs, with the default single stretch filled in. */
+export function moveLegs(m: Move, type: PieceType | undefined): Leg[] {
+  if (m.legs?.length) return m.legs;
+  const to = m.to ?? m.target;
+  if (m.kind === 'teleport' || /портал/i.test(m.label)) return [{ to, style: 'warp' }];
+  return [{ to, style: type === 'knight' && m.kind !== 'swap' ? 'hop' : 'slide' }];
 }
 
 export interface MatchFx {
@@ -73,14 +87,24 @@ export function computeFx(
   const now = squaresById(after);
   const quake = info.ability?.events.find((e) => e.type === 'earthquake');
   const moves: FxMove[] = [];
+  const m0 = info.move;
+  const moverLegs = m0 ? moveLegs(m0, before.board[m0.from]?.type) : [];
+  const pushed = new Set((m0?.displaced ?? []).map((d) => d.to));
   for (const [pid, from] of was) {
     const to = now.get(pid);
-    if (to === undefined || to === from) continue;
-    let style: FxMove['style'] = 'slide';
+    // Дуеліст strikes and comes back: same square, but it did travel.
+    const roundTrip = to === from && m0?.pieceId === pid && moverLegs.length > 1;
+    if (to === undefined || (to === from && !roundTrip)) continue;
+    let style: Leg['style'] = 'slide';
     if (quake) style = adjacent(from, to) ? 'hop' : 'warp';
-    else if (info.move && pid === info.move.pieceId && (info.move.kind === 'teleport' || /портал/i.test(info.move.label))) style = 'warp';
-    else if (info.events?.some((e) => e.type === 'immortal' && e.piece.id === pid)) style = 'warp';
-    moves.push({ from, to, style });
+    else if (m0 && pid === m0.pieceId) {
+      // The mover follows its legs; the last one lands where it really ended
+      // (Щитоносець, platforms and the like can change that).
+      const legs = moverLegs.map((l, i) => (i === moverLegs.length - 1 ? { ...l, to } : l));
+      moves.unshift({ from, to, legs });
+      continue;
+    } else if (info.events?.some((e) => e.type === 'immortal' && e.piece.id === pid)) style = 'warp';
+    moves.push({ from, to, legs: [{ to, style }], after: m0?.kind === 'push' && pushed.has(to) ? true : undefined });
   }
 
   const sprites: FxSprite[] = [];
@@ -98,9 +122,18 @@ export function computeFx(
   }
   for (const e of info.events ?? []) {
     switch (e.type) {
-      case 'captured':
-        sprites.push({ kind: 'capture', square: e.square, by: e.piece.color === 'w' ? 'b' : 'w' });
+      case 'captured': {
+        // In a chain the effect plays when the mover reaches that square.
+        const i = moverLegs.findIndex((l) => l.to === e.square);
+        sprites.push({
+          kind: 'capture',
+          square: e.square,
+          by: e.piece.color === 'w' ? 'b' : 'w',
+          leg: i >= 0 ? i : Math.max(0, moverLegs.length - 1),
+          victim: { type: e.piece.type, color: e.piece.color, cardId: e.piece.cardId },
+        });
         break;
+      }
       case 'kamikaze':
       case 'ambush':
         sprites.push({ kind: 'explode', square: e.type === 'ambush' ? e.square : (m?.to ?? m?.target ?? 0) });

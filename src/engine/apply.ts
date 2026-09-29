@@ -128,10 +128,11 @@ function resolveVictim(
     }
   }
 
-  if (victim.cardId === 'queen-immortal' && next.hiddenState[owner].immortalPly === ply) {
+  if (victim.cardId === 'queen-immortal' && next.hiddenState[owner].immortalPly === ply && !next.onceUsed[victim.id]) {
     const dest = immortalRespawn(next, victim);
     if (dest !== NO_SQUARE) {
       next.board[dest] = victim;
+      next.onceUsed[victim.id] = true;
       events.push({ type: 'immortal', piece: victim, to: dest });
       return;
     }

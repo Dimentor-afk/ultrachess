@@ -112,7 +112,10 @@ export function sameMove(a: Move, b: Move): boolean {
     a.kind === b.kind &&
     a.promotion === b.promotion &&
     a.label === b.label &&
-    a.captures.join(',') === b.captures.join(',')
+    a.captures.join(',') === b.captures.join(',') &&
+    // The same run can start from different wall landings (Стінобіг); games
+    // recorded before moves had legs still match.
+    (!a.legs || !b.legs || a.legs.map((l) => l.to).join(',') === b.legs.map((l) => l.to).join(','))
   );
 }
 

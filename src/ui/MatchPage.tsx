@@ -11,7 +11,7 @@ import type { MatchFinish, MatchStart } from '../api/client';
 import { packArt, pieceSprite } from './cardArt';
 import { playerView } from '../engine/view';
 import { Board, type Mark, boardRing, squareCenter } from './Board';
-import { type Stage, makeStage } from './stage';
+import { type Stage, advanceStage, nextStops, stageAt, startStage, stayMoves, stopsOf } from './stage';
 import { getSettings, play } from './settings';
 import { DeckIntro, introSteps } from './DeckIntro';
 import type { FxName } from './fxSprites';
@@ -99,8 +99,8 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
       .catch((e) => alive.current && setVerdictError(e instanceof Error ? e.message : String(e)));
   };
   const [selected, setSelected] = useState<Square | null>(null);
-  // A move with several variants is chosen on the board: the piece is shown
-  // on its usual landing square and the other landing squares are marked.
+  // A move is chosen on the board stop by stop: the piece stands on the
+  // current stop, and the squares where it may go on are marked.
   const [stage, setStage] = useState<Stage | null>(null);
   // Variants that end on the same square (promotion, …) pick from a small
   // popover over that square.
@@ -125,7 +125,8 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
   const preview = useMemo(() => {
     if (!stage) return null;
     try {
-      return performAction(match, { type: 'move', move: stage.byDest.get(stage.main)![0] });
+      const stay = stayMoves(stage)[0];
+      return stay ? performAction(match, { type: 'move', move: stay }) : null;
     } catch {
       return null;
     }
@@ -147,16 +148,19 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
   const marks = useMemo(() => {
     const out = new Map<Square, Mark>();
     if (stage) {
-      for (const d of stage.byDest.keys()) out.set(d, d === stage.main ? 'stay' : 'option');
+      if (stayMoves(stage).length) out.set(stageAt(stage), 'stay');
+      for (const [d, ms] of nextStops(stage)) out.set(d, ms.some((m) => m.captures.includes(d)) ? 'capture' : 'option');
       return out;
     }
     if (view.pending && myTurn) {
       for (const s of view.pending.options) out.set(s, 'option');
       return out;
     }
+    // Only the first stop of each move: the rest shows up once the piece is there.
     for (const m of fromSelected) {
-      const cur = out.get(m.target);
-      out.set(m.target, m.captures.length || cur === 'capture' ? 'capture' : 'move');
+      const first = stopsOf(m)[0];
+      const cur = out.get(first);
+      out.set(first, m.captures.includes(first) || cur === 'capture' ? 'capture' : 'move');
     }
     return out;
   }, [view.pending, myTurn, fromSelected, stage]);
@@ -250,6 +254,16 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [remote]);
 
+  // Reached a stop: finish when nothing goes further, otherwise stand there.
+  const enter = (st: Stage) => {
+    const stay = stayMoves(st);
+    if (nextStops(st).size === 0) {
+      if (stay.length === 1) return act({ type: 'move', move: stay[0] });
+      return setPopover({ square: stageAt(st), moves: stay });
+    }
+    setStage(st);
+  };
+
   const onSquare = (s: Square) => {
     const cell = view.cells[s];
     if (!myTurn || busy) {
@@ -258,27 +272,27 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
     }
     if (popover) return setPopover(null);
     if (stage) {
-      const group = stage.byDest.get(s);
-      if (!group) {
+      if (s === stageAt(stage)) {
+        const stay = stayMoves(stage);
+        if (stay.length === 1) return act({ type: 'move', move: stay[0] });
+        if (stay.length > 1) return setPopover({ square: s, moves: stay });
+        return;
+      }
+      const next = advanceStage(stage, s);
+      if (!next) {
         setStage(null);
         setSelected(null);
         return;
       }
-      if (group.length === 1) return act({ type: 'move', move: group[0] });
-      return setPopover({ square: s, moves: group });
+      return enter(next);
     }
     if (view.pending) {
       if (view.pending.options.includes(s)) act({ type: 'choose', square: s });
       return;
     }
     if (selected !== null) {
-      const ms = fromSelected.filter((m) => m.target === s);
-      if (ms.length === 1) return act({ type: 'move', move: ms[0] });
-      if (ms.length > 1) {
-        const st = makeStage(s, ms);
-        if (st.byDest.size === 1) return setPopover({ square: st.main, moves: ms });
-        return setStage(st);
-      }
+      const st = startStage(fromSelected, s);
+      if (st) return enter(st);
     }
     setSelected(cell && s !== selected ? s : null);
   };
@@ -341,7 +355,9 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
     statusText =
       match.result.winner === null ? `Нічия — ${match.result.reason}` : match.result.winner === human ? `Перемога! ${match.result.reason}` : `Поразка. ${match.result.reason}`;
   } else if (stage) {
-    statusText = 'Оберіть: натисніть фігуру, щоб лишити її тут, або підсвічену клітинку для особливого ходу';
+    statusText = stayMoves(stage).length
+      ? 'Фігура тут. Натисніть її, щоб зупинитись, або підсвічену клітинку, щоб іти далі'
+      : 'Оберіть підсвічену клітинку, куди йти далі';
   } else if (myTurn && view.pending) {
     statusText = 'Вершника вдарили: оберіть клітинку для відстрибу';
   } else if (myTurn) {
@@ -378,7 +394,7 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
           <Board
             view={view}
             orientation={human}
-            selected={stage ? stage.main : selected}
+            selected={stage ? stageAt(stage) : selected}
             marks={marks}
             lastMove={lastMove}
             hint={hint}
@@ -535,7 +551,7 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
                 {selectedPiece.illusion && <li>Це ваша ілюзія: суперник бачить звичайну фігуру.</li>}
                 {selectedPiece.frozen && <li>❄ пропускає хід</li>}
                 {selectedPiece.onceUsed && <li>Здібність «раз за гру» вже використано</li>}
-                {selectedPiece.cooldown !== null && selectedPiece.cooldown > 0 && <li>Cooldown: ще {selectedPiece.cooldown} ход.</li>}
+                {selectedPiece.cooldown !== null && selectedPiece.cooldown > 0 && <li>Перезарядка: ще {selectedPiece.cooldown} ваших ход.</li>}
                 {selectedPiece.passenger && <li>Везе пішака-пасажира</li>}
                 {selectedPiece.platformTurnsLeft !== null && <li>На платформі: зникне через {selectedPiece.platformTurnsLeft} ход. суперника</li>}
               </ul>
