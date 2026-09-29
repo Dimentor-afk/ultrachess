@@ -208,7 +208,7 @@ export const ARENAS: Arena[] = [
   { name: 'Кам’яна арена', minTrophies: 300, botLevel: 2, botMaxRarity: 'rare' },
   { name: 'Срібна арена', minTrophies: 700, botLevel: 2, botMaxRarity: 'epic' },
   { name: 'Золота арена', minTrophies: 1200, botLevel: 3, botMaxRarity: 'legendary' },
-  { name: 'Міфічна арена', minTrophies: 2000, botLevel: 3, botMaxRarity: 'mythological' },
+  { name: 'Міфічна арена', minTrophies: 2000, botLevel: 4, botMaxRarity: 'mythological' },
 ];
 
 export function arenaFor(trophies: number): Arena {

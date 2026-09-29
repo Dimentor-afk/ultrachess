@@ -5,6 +5,7 @@ import type { Color, Square } from '../engine/types';
 import type { PlayerView, ViewPiece } from '../engine/view';
 import { Emblem } from './art';
 import { pieceSprite } from './cardArt';
+import { FX, type FxName } from './fxSprites';
 
 export type Mark = 'move' | 'capture' | 'option' | 'stay';
 
@@ -22,8 +23,6 @@ export function squareCenter(s: Square, orientation: Color): { x: number; y: num
   return { x: (trackCenter(col) / TOTAL) * 100, y: (trackCenter(row) / TOTAL) * 100 };
 }
 
-
-
 interface Props {
   view: PlayerView;
   orientation: Color;
@@ -34,36 +33,53 @@ interface Props {
   preview: Set<Square>;
   checkSquare: Square | null;
   onSquare: (s: Square) => void;
+  /** Fireworks over the board (a won game). */
+  celebrate?: boolean;
 }
 
 const FILES = 'abcdefgh';
 
-export function Board({ view, orientation, selected, marks, lastMove, hint, preview, checkSquare, onSquare }: Props) {
+export function Board({ view, orientation, selected, marks, lastMove, hint, preview, checkSquare, onSquare, celebrate = false }: Props) {
   const barrier = new Set(view.barriers.flatMap((b) => b.squares));
   const ranks = orientation === 'w' ? [8, 7, 6, 5, 4, 3, 2, 1, 0, -1] : [-1, 0, 1, 2, 3, 4, 5, 6, 7, 8];
   const files = orientation === 'w' ? [-1, 0, 1, 2, 3, 4, 5, 6, 7, 8] : [8, 7, 6, 5, 4, 3, 2, 1, 0, -1];
   const labelRank = orientation === 'w' ? -1 : 8;
   const labelFile = orientation === 'w' ? -1 : 8;
 
-  // Slide the piece that just moved from its old square, once per move. A
-  // preview of a move and the move itself share a signature, so they slide once.
-  const sig = view.lastMove ? `${view.ply}:${view.lastMove.color}:${view.lastMove.from}:${view.lastMove.to}` : '';
+  // Animate the last action once: every piece that changed squares slides
+  // (or hops / warps), and its effects play over the board. A preview of a
+  // move and the move itself share a signature, so they animate once.
+  const fx = view.fx;
+  const sig = fx ? `${fx.id}:${fx.moves.map((m) => `${m.from}-${m.to}`).join(',')}` : '';
   const anim = useRef<{ seen: Set<string>; sig: string; n: number }>({ seen: new Set([sig]), sig: '', n: 0 });
   if (sig && !anim.current.seen.has(sig)) {
     anim.current.seen.add(sig);
     anim.current.sig = sig;
     anim.current.n++;
   }
-  const lm = anim.current.sig === sig ? view.lastMove : null;
-  let slide: { square: Square; style: CSSProperties; key: string } | null = null;
-  if (lm && lm.to !== null && lm.to !== lm.from) {
-    const a = squareCenter(lm.from, orientation);
-    const b = squareCenter(lm.to, orientation);
-    slide = {
-      square: lm.to,
-      key: `slide-${anim.current.n}`,
+  const live = fx && anim.current.sig === sig ? fx : null;
+  const slides = new Map<Square, { style: CSSProperties; cls: string }>();
+  for (const m of live?.moves ?? []) {
+    const a = squareCenter(m.from, orientation);
+    const b = squareCenter(m.to, orientation);
+    slides.set(m.to, {
+      cls: `slide slide-${m.style}`,
       style: { '--dx': `${a.x - b.x}cqw`, '--dy': `${a.y - b.y}cqw` } as CSSProperties,
-    };
+    });
+  }
+  const sprites: { name: FxName; square: Square; delay: number }[] = [];
+  if (live) {
+    live.sprites.forEach((x, i) => {
+      const name = x.kind as FxName;
+      // Quake and eclipse ripple along their line.
+      const delay = x.kind === 'quake' || x.kind === 'eclipse' ? i * 45 : x.kind === 'capture' || x.kind === 'explode' ? 180 : 0;
+      sprites.push({ name, square: x.square, delay });
+      if (x.kind === 'quake') sprites.push({ name: 'dust', square: x.square, delay: i * 45 + 120 });
+    });
+    if (checkSquare !== null) sprites.push({ name: 'check', square: checkSquare, delay: 250 });
+  }
+  if (celebrate) {
+    [27, 34, 64, 73, 45, 56].forEach((s, i) => sprites.push({ name: 'win', square: s, delay: i * 220 }));
   }
 
   const cells = [];
@@ -94,8 +110,8 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
       const content = (
         <>
           {piece &&
-            (slide && slide.square === s ? (
-              <span key={slide.key} className="slide" style={slide.style}>
+            (slides.has(s) ? (
+              <span key={`slide-${anim.current.n}`} className={slides.get(s)!.cls} style={slides.get(s)!.style}>
                 <PieceView piece={piece} />
               </span>
             ) : (
@@ -129,7 +145,36 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
       );
     }
   }
-  return <div className="board">{cells}</div>;
+  return (
+    <div className={`board ${live?.shake ? 'shake' : ''}`} key={live?.shake ? `shake-${anim.current.n}` : 'board'}>
+      {cells}
+      <div className="fx-layer" aria-hidden="true">
+        {sprites.map((x, i) => {
+          const spec = FX[x.name];
+          const c = squareCenter(x.square, orientation);
+          const cell = 100 / TOTAL;
+          return (
+            <span
+              key={`${anim.current.n}-${celebrate ? 'c' : ''}-${i}`}
+              className="fx"
+              style={
+                {
+                  left: `${c.x}%`,
+                  top: `${c.y + (spec.dy ?? 0) * cell}%`,
+                  width: `${spec.size * cell}cqw`,
+                  aspectRatio: `${spec.w} / ${spec.h}`,
+                  backgroundImage: `url(assets/fx/${x.name}.png)`,
+                  '--n': spec.n,
+                  animationDuration: `${spec.ms}ms`,
+                  animationDelay: `${x.delay}ms`,
+                } as CSSProperties
+              }
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 function squareLabel(s: Square, piece: ViewPiece | null, marked: boolean): string {

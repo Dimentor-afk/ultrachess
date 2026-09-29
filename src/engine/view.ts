@@ -4,6 +4,7 @@
 
 import { ABILITY_DEFS } from './abilities';
 import { CELLS } from './coords';
+import type { MatchFx } from './fx';
 import type { HistoryEntry, LastMove, MatchResult, MatchState } from './match';
 import { isFrozen } from './position';
 import { inCheck } from './status';
@@ -40,6 +41,8 @@ export interface PlayerView {
   hint: Move | null;
   immortalArmed: boolean;
   pending: PendingChoice | null;
+  /** Last action's animations; hidden effects only for their owner. */
+  fx: MatchFx | null;
 }
 
 const COOLDOWN_CARDS = new Set(['bishop-levitation', 'queen-levitation']);
@@ -126,6 +129,7 @@ export function playerView(state: MatchState, color: Color): PlayerView {
     hint: hidden.hint,
     immortalArmed: hidden.immortalPly !== null && hidden.immortalPly >= state.ply,
     pending,
+    fx: state.fx && { ...state.fx, sprites: state.fx.sprites.filter((x) => !x.owner || x.owner === color) },
   };
 }
 

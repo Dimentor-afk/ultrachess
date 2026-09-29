@@ -136,6 +136,7 @@ const routes: [string, RegExp, Handler][] = [
   ['GET', /^players\/(\w+)$/, ({ token, params }) => svc.playerProfile(token, params[0])],
   ['GET', /^history$/, ({ token }) => svc.history(token)],
   ['GET', /^inbox$/, ({ token }) => svc.inbox(token)],
+  ['POST', /^admin\/bot$/, ({ token, body }) => svc.setBotOverride(token, body.level === null || body.level === undefined ? null : Number(body.level))],
   ['POST', /^quests\/(\w+)\/claim$/, ({ token, params }) => svc.claimQuest(token, params[0])],
   ['GET', /^friends$/, ({ token }) => svc.friends(token)],
   ['POST', /^friends\/search$/, ({ token, body }) => svc.searchPlayers(token, String(body.query ?? ''))],

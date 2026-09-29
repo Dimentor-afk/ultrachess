@@ -84,6 +84,7 @@ export interface Api {
   history(): Promise<HistoryRow[]>;
   inbox(): Promise<Inbox>;
   claimQuest(id: string): Promise<Profile>;
+  setBotOverride(level: number | null): Promise<Profile>;
   friends(): Promise<FriendsView>;
   searchPlayers(query: string): Promise<PlayerCard[]>;
   addFriend(userId: string): Promise<FriendsView>;
@@ -151,6 +152,7 @@ class HttpApi implements Api {
   history = () => this.call<HistoryRow[]>('GET', 'history');
   inbox = () => this.call<Inbox>('GET', 'inbox');
   claimQuest = (id: string) => this.call<Profile>('POST', `quests/${id}/claim`, {});
+  setBotOverride = (level: number | null) => this.call<Profile>('POST', 'admin/bot', { level });
   friends = () => this.call<FriendsView>('GET', 'friends');
   searchPlayers = (query: string) => this.call<PlayerCard[]>('POST', 'friends/search', { query });
   addFriend = (userId: string) => this.call<FriendsView>('POST', 'friends', { userId });
@@ -290,6 +292,7 @@ class LocalApi implements Api {
   history = async () => this.svc.history(await this.t());
   inbox = async () => this.svc.inbox(await this.t());
   claimQuest = async (id: string) => this.svc.claimQuest(await this.t(), id);
+  setBotOverride = async (level: number | null) => this.svc.setBotOverride(await this.t(), level);
   friends = async () => this.svc.friends(await this.t());
   searchPlayers = async (query: string) => this.svc.searchPlayers(await this.t(), query);
   addFriend = async (userId: string) => this.svc.addFriend(await this.t(), userId);

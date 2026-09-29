@@ -22,6 +22,7 @@ import {
   rollPack,
 } from './packs';
 import { BOARD_THEMES, DEFAULT_THEME, themeById } from './themes';
+import { botLevel } from '../engine/bot/levels';
 import { type QuestEvent, type QuestView, addProgress, parseQuests, questViews } from './quests';
 import { type Hasher, type PackRow, type PvpRow, type Role, type Store, type UserRow, randomId } from './store';
 
@@ -67,6 +68,10 @@ export interface Profile {
   packsToday: number;
   packsLimit: number;
   quests: QuestView[];
+  /** Level of the ranked bot the player will meet. */
+  rankedBot: number;
+  /** Admin testing override (null = by arena). */
+  botOverride: number | null;
 }
 
 export interface PackView {
@@ -257,6 +262,7 @@ export class GameService {
       bestTrophies: 0,
       lastSeen: 0,
       quests: '{}',
+      botOverride: -1,
     };
   }
 
@@ -352,7 +358,20 @@ export class GameService {
       packsToday: u.packsDay === this.today() ? u.packsToday : 0,
       packsLimit: DAILY_PACK_LIMIT,
       quests: questViews(parseQuests(u.quests, this.today())),
+      rankedBot: this.rankedBot(u),
+      botOverride: u.role === 'admin' && u.botOverride >= 0 ? u.botOverride : null,
     };
+  }
+
+  private rankedBot(u: UserRow): number {
+    return u.role === 'admin' && u.botOverride >= 0 ? u.botOverride : arenaFor(u.trophies).botLevel;
+  }
+
+  /** Admin testing: pick the ranked bot's level (null = by arena). */
+  async setBotOverride(token: string, level: number | null): Promise<Profile> {
+    const u = await this.admin(token);
+    await this.store.updateUser(u.id, { botOverride: level === null ? -1 : Math.max(0, Math.min(4, Math.round(level))) });
+    return this.profileOf(u.id);
   }
 
   private today(): string {
@@ -576,7 +595,7 @@ export class GameService {
     const owned = await this.ownedSet(u.id);
     if (deckPositions(d.deck).some((id) => !owned.has(id))) throw new ApiError(400, 'У колоді є картки, яких немає в колекції.');
     const arena = arenaFor(u.trophies);
-    const botLevel = opts.ranked ? arena.botLevel : Math.max(1, Math.min(3, opts.level ?? 2));
+    const botLevel = opts.ranked ? this.rankedBot(u) : Math.max(0, Math.min(4, opts.level ?? 2));
     const m = {
       id: randomId(8),
       userId: u.id,
@@ -741,7 +760,7 @@ export class GameService {
       out.push({
         id: m.id,
         kind: m.ranked ? 'ranked' : 'training',
-        opponent: `Бот · рівень ${m.botLevel}`,
+        opponent: `Бот · ${botLevel(m.botLevel).name}`,
         outcome: r.outcome,
         reason: r.reason,
         moves: r.moves,

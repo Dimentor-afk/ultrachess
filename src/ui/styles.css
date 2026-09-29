@@ -5095,3 +5095,163 @@ html.no-coords .rank-label {
     display: none;
   }
 }
+
+/* ── Board effects: sprites, hops, warps, shake ── */
+
+.board {
+  position: relative;
+}
+
+.fx-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 8;
+  overflow: visible;
+}
+
+.fx {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  background-repeat: no-repeat;
+  background-size: calc(var(--n) * 100%) 100%;
+  image-rendering: pixelated;
+  opacity: 0;
+  animation-name: fx-frames, fx-show;
+  animation-timing-function: steps(var(--n), jump-none), linear;
+  animation-fill-mode: forwards;
+}
+
+@keyframes fx-frames {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 100% 0;
+  }
+}
+
+@keyframes fx-show {
+  0% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.slide-hop {
+  animation: slide-hop 0.5s cubic-bezier(0.3, 0.6, 0.4, 1);
+}
+
+@keyframes slide-hop {
+  0% {
+    transform: translate(var(--dx), var(--dy));
+  }
+  45% {
+    transform: translate(calc(var(--dx) * 0.5), calc(var(--dy) * 0.5 - 5cqw)) scale(1.08);
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
+
+.slide-warp {
+  animation: slide-warp 0.55s ease-out;
+}
+
+@keyframes slide-warp {
+  0% {
+    opacity: 0;
+    transform: scale(0.2) rotate(-40deg);
+    filter: brightness(3);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.15);
+    filter: brightness(1.6);
+  }
+  100% {
+    transform: none;
+    filter: none;
+  }
+}
+
+.board.shake {
+  animation: board-shake 0.6s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+@keyframes board-shake {
+  10%,
+  90% {
+    transform: translate(-1px, 1px) rotate(-0.2deg);
+  }
+  20%,
+  80% {
+    transform: translate(3px, -2px) rotate(0.3deg);
+  }
+  30%,
+  50%,
+  70% {
+    transform: translate(-6px, 2px) rotate(-0.5deg);
+  }
+  40%,
+  60% {
+    transform: translate(6px, -3px) rotate(0.5deg);
+  }
+}
+
+html.no-anim .fx {
+  display: none;
+}
+
+.cell.barrier::after {
+  animation: barrier-glow 1.4s ease-in-out infinite;
+  box-shadow: inset 0 0 1.4cqw rgba(182, 115, 255, 0.9);
+}
+
+@keyframes barrier-glow {
+  50% {
+    filter: brightness(1.6);
+    box-shadow: inset 0 0 2.4cqw rgba(214, 170, 255, 1);
+  }
+}
+
+.ranked-bot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.admin-bot {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.admin-bot select {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.85rem;
+}
+
+.fx-once {
+  left: 50%;
+  top: 50%;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.fx-loop {
+  animation-iteration-count: infinite;
+  animation-name: fx-frames;
+  opacity: 1;
+}
+
+.flip-front {
+  position: relative;
+}

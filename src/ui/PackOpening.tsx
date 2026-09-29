@@ -3,6 +3,7 @@ import type { OpenResult, PackView } from '../api/client';
 import { CARD_BY_ID, RARITY_NAMES } from '../engine/cards';
 import { packArt } from './cardArt';
 import { CardView } from './common';
+import { FxOnce } from './FxOnce';
 import { play } from './settings';
 import { errorText } from './state';
 
@@ -86,6 +87,7 @@ export function PackOpening({
           <img src={packArt(pack.type)} alt="" />
           {phase === 'idle' && <span className="opening-hint">Натисніть, щоб відкрити</span>}
           {phase === 'burst' && <span className="opening-flash" />}
+          {phase === 'burst' && <FxOnce name="burst" width={520} />}
         </button>
       )}
       {phase === 'idle' && (
@@ -110,6 +112,9 @@ export function PackOpening({
               </div>
               <div className="flip-front">
                 <CardView card={card} />
+                {flipped && (card.rarity === 'legendary' || card.rarity === 'mythological') && (
+                  <FxOnce key={index} name="sparkle" width={300} loop />
+                )}
               </div>
             </div>
           </div>

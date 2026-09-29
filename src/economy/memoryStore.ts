@@ -43,6 +43,7 @@ export function withUserDefaults(u: UserRow): UserRow {
     bestTrophies: u.bestTrophies ?? u.trophies ?? 0,
     lastSeen: u.lastSeen ?? 0,
     quests: u.quests ?? '{}',
+    botOverride: u.botOverride ?? -1,
   };
 }
 

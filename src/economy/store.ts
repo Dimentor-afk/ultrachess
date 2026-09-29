@@ -36,6 +36,8 @@ export interface UserRow {
   lastSeen: number;
   /** Daily quest progress (JSON QuestState). */
   quests: string;
+  /** Admin testing: ranked bot level override, -1 = by arena. */
+  botOverride: number;
 }
 
 export interface SessionRow {

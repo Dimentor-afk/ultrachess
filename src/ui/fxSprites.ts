@@ -1,0 +1,57 @@
+// Pixel effect sprite strips in public/assets/fx (frames side by side).
+// Effects: Super Pixel Effects Gigapack (Will Tice / unTied Games) and
+// Pixel Magic Effects (lordfitoi / Foozle, CC0).
+
+export type FxName =
+  | 'capture'
+  | 'explode'
+  | 'dispel'
+  | 'shield'
+  | 'immortal'
+  | 'quake'
+  | 'dust'
+  | 'eclipse'
+  | 'mirage'
+  | 'hint'
+  | 'promote'
+  | 'barricade'
+  | 'portal'
+  | 'levitate'
+  | 'check'
+  | 'win'
+  | 'burst'
+  | 'sparkle';
+
+export interface FxSpec {
+  w: number;
+  h: number;
+  /** Frames in the strip. */
+  n: number;
+  /** Play time in ms. */
+  ms: number;
+  /** Width in board squares. */
+  size: number;
+  /** Vertical offset in squares (negative = up). */
+  dy?: number;
+}
+
+export const FX: Record<FxName, FxSpec> = {
+  capture: { w: 48, h: 48, n: 7, ms: 420, size: 1.5 },
+  explode: { w: 64, h: 64, n: 7, ms: 620, size: 2 },
+  dispel: { w: 32, h: 32, n: 14, ms: 700, size: 1.4 },
+  shield: { w: 64, h: 64, n: 18, ms: 1100, size: 1.5 },
+  immortal: { w: 64, h: 64, n: 16, ms: 1000, size: 1.8 },
+  quake: { w: 64, h: 64, n: 9, ms: 700, size: 1.3, dy: -0.15 },
+  dust: { w: 32, h: 32, n: 10, ms: 650, size: 1.4, dy: 0.2 },
+  eclipse: { w: 32, h: 32, n: 8, ms: 600, size: 1.5 },
+  mirage: { w: 64, h: 64, n: 12, ms: 800, size: 1.4, dy: -0.2 },
+  hint: { w: 48, h: 48, n: 12, ms: 900, size: 1, dy: -0.7 },
+  promote: { w: 32, h: 24, n: 20, ms: 1000, size: 0.9, dy: -0.6 },
+  barricade: { w: 64, h: 64, n: 10, ms: 800, size: 1.6 },
+  portal: { w: 64, h: 64, n: 10, ms: 800, size: 1.6 },
+  levitate: { w: 64, h: 64, n: 9, ms: 800, size: 1.3, dy: -0.2 },
+  check: { w: 40, h: 40, n: 14, ms: 900, size: 0.8, dy: -0.75 },
+  win: { w: 48, h: 48, n: 27, ms: 1400, size: 2.2 },
+  burst: { w: 128, h: 72, n: 9, ms: 600, size: 4 },
+  sparkle: { w: 48, h: 48, n: 24, ms: 1600, size: 2.4 },
+};

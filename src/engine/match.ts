@@ -3,6 +3,7 @@
 
 import { ABILITY_DEFS, type AbilityEvent, applyAbility } from './abilities';
 import { type GameEvent, applyChoice, applyMoveWithEvents } from './apply';
+import { type MatchFx, computeFx } from './fx';
 import { PIECE_NAMES, getCard } from './cards';
 import { CELLS, opposite, squareName } from './coords';
 import { legalMoves } from './legal';
@@ -44,6 +45,8 @@ export interface MatchState extends Position {
   status: Status;
   result: MatchResult | null;
   lastMove: LastMove | null;
+  /** How the last action looked (animations and effects). */
+  fx: MatchFx | null;
 }
 
 export function positionKey(pos: Position): string {
@@ -69,6 +72,7 @@ export function createMatch(white: Deck, black: Deck): MatchState {
     status: 'playing',
     result: null,
     lastMove: null,
+    fx: null,
   };
   return withStatus(state);
 }
@@ -174,7 +178,14 @@ function abilityText(e: AbilityEvent): string {
   }
 }
 
-function record(state: MatchState, next: Position, entry: HistoryEntry, lastMove: LastMove | null, moved: boolean): MatchState {
+function record(
+  state: MatchState,
+  next: Position,
+  entry: HistoryEntry,
+  lastMove: LastMove | null,
+  moved: boolean,
+  fx: Parameters<typeof computeFx>[3],
+): MatchState {
   const repetition = moved ? { ...state.repetition } : state.repetition;
   if (moved) {
     const key = positionKey(next);
@@ -186,6 +197,7 @@ function record(state: MatchState, next: Position, entry: HistoryEntry, lastMove
     history: [...state.history, entry],
     repetition,
     lastMove: lastMove ?? state.lastMove,
+    fx: computeFx(state.history.length + 1, state, next, fx),
   });
 }
 
@@ -209,6 +221,7 @@ export function performAction(state: MatchState, action: Action): MatchState {
         { ply: state.ply, color, text: withEvents(publicBase, events), ownText: withEvents(ownBase, events) },
         { color, from: legal.from, to: legal.to, target: legal.target },
         true,
+        { move: legal, events },
       );
     }
     case 'ability': {
@@ -216,12 +229,14 @@ export function performAction(state: MatchState, action: Action): MatchState {
       const def = piece ? ABILITY_DEFS[piece.cardId] : undefined;
       const { pos, events } = applyAbility(state, action.pieceId, action.key);
       const text = events.map(abilityText).join('; ');
-      return record(state, pos, { ply: state.ply, color, text: def?.hidden ? null : text, ownText: text }, null, false);
+      return record(state, pos, { ply: state.ply, color, text: def?.hidden ? null : text, ownText: text }, null, false, {
+        ability: { pieceId: action.pieceId, events },
+      });
     }
     case 'choose': {
       const { pos, events } = applyChoice(state, action.square);
       const text = events.map(eventText).filter((t): t is string => !!t).join('; ');
-      return record(state, pos, { ply: state.ply, color, text }, null, false);
+      return record(state, pos, { ply: state.ply, color, text }, null, false, { events });
     }
   }
 }

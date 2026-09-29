@@ -16,6 +16,7 @@ function asMatch(pos: Position): MatchState {
     status: 'playing',
     result: null,
     lastMove: null,
+    fx: null,
   };
 }
 

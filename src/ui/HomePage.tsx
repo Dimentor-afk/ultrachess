@@ -8,14 +8,10 @@ import { PackOpening } from './PackOpening';
 import { MiniBoard } from './DeckPage';
 import { packArt } from './cardArt';
 import { Icon } from './icons';
+import { BOT_LEVELS, botLevel } from '../engine/bot/levels';
 import { play } from './settings';
 import { errorText, useSession } from './state';
 
-const LEVELS = [
-  { level: 1, name: 'Легкий' },
-  { level: 2, name: 'Середній' },
-  { level: 3, name: 'Складний' },
-];
 
 export function HomePage() {
   const s = useSession();
@@ -121,6 +117,35 @@ export function HomePage() {
             <Icon name="sword" /> Бій
           </button>
           {!activeDeck && <p className="muted small center">Відкрийте стартовий пак — з нього збереться перша колода.</p>}
+          <div className="ranked-bot">
+            <span className="muted small">
+              Суперник у рейтингу: <b>Бот · {botLevel(profile.rankedBot).name}</b> (~{botLevel(profile.rankedBot).elo} Elo)
+            </span>
+            {profile.role === 'admin' && (
+              <label className="admin-bot">
+                <span className="pill">адмін</span>
+                <select
+                  value={profile.botOverride ?? -1}
+                  aria-label="Сила рейтингового бота"
+                  onChange={async (e) => {
+                    const v = Number(e.target.value);
+                    try {
+                      s.setProfile(await api.setBotOverride(v < 0 ? null : v));
+                    } catch (err) {
+                      s.toast(errorText(err), 'error');
+                    }
+                  }}
+                >
+                  <option value={-1}>За ареною</option>
+                  {BOT_LEVELS.map((l) => (
+                    <option key={l.level} value={l.level}>
+                      {l.name} (~{l.elo})
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+          </div>
           <div className="next-reward">
             <img src={packArt(profile.nextReward)} alt="" />
             <span>
@@ -136,8 +161,13 @@ export function HomePage() {
           <div className="training">
             <span className="muted small">Тренування без кубків:</span>
             <div className="chip-row">
-              {LEVELS.map((l) => (
-                <button key={l.level} className={`chip ${level === l.level ? 'on' : ''}`} onClick={() => setLevel(l.level)}>
+              {BOT_LEVELS.map((l) => (
+                <button
+                  key={l.level}
+                  className={`chip ${level === l.level ? 'on' : ''}`}
+                  onClick={() => setLevel(l.level)}
+                  title={`Приблизно ${l.elo} Elo`}
+                >
                   {l.name}
                 </button>
               ))}

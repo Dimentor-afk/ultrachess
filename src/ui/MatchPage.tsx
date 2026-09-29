@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ABILITY_DEFS, abilityOptions, abilityReady } from '../engine/abilities';
-import type { BotOptions } from '../engine/bot/search';
+import { HINT_BOT, botLevel } from '../engine/bot/levels';
 import { PIECE_NAMES, getCard } from '../engine/cards';
 import { opposite, squareName } from '../engine/coords';
 import { legalMoves } from '../engine/legal';
@@ -39,16 +39,13 @@ export interface RemoteGame {
   resign(): Promise<void>;
 }
 
-export function botOptions(level: number): BotOptions {
-  return { depth: level, timeMs: level >= 3 ? 2500 : 1500 };
-}
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export function Game({ start, playerName, playerAvatar, trophies, onFinish, onExit, onRematch, remote }: GameProps) {
   const human = start.color;
   const bot = opposite(human);
-  const botOpts = botOptions(start.botLevel || 2);
+  const botOpts = botLevel(start.botLevel).opts;
   const fresh = () => (human === 'w' ? createMatch(start.playerDeck, start.botDeck) : createMatch(start.botDeck, start.playerDeck));
   const replay = (actions: Action[], resignedBy: Color | null) => {
     let m = fresh();
@@ -306,7 +303,7 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
     setMatch(armed);
     setHintBusy(true);
     try {
-      const move = await requestHint(armed, human, { ...botOpts, depth: Math.max(2, botOpts.depth) });
+      const move = await requestHint(armed, human, HINT_BOT);
       if (alive.current && matchRef.current.ply === armed.ply) setMatch(withHint(matchRef.current, human, move));
     } finally {
       if (alive.current) setHintBusy(false);
@@ -356,7 +353,7 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
           <span className="pb-who">
             {remote ? <Avatar card={remote.opponentAvatar} /> : <span className="avatar avatar-bot">🤖</span>}
             <span>
-              <b>{remote ? remote.opponentName : `Бот · рівень ${start.botLevel}`}</b>
+              <b>{remote ? remote.opponentName : `Бот · ${botLevel(start.botLevel).name}`}</b>
               <small className="muted">{start.botDeck.name}</small>
             </span>
           </span>
@@ -378,6 +375,7 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
             preview={new Set(linePreview)}
             checkSquare={checkSquare}
             onSquare={onSquare}
+            celebrate={!!match.result && match.result.winner === human}
           />
           {popover && (
             <div

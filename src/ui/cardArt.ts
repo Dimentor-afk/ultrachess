@@ -91,11 +91,21 @@ export function cardArt(cardId: string): string | null {
   return a ? src(a[0]) : null;
 }
 
-/** Sprite for a piece on the board; `tint` means a light sprite standing in for black. */
+/**
+ * Sprite for a piece on the board. Cards without a dark sprite in the art set
+ * use a generated "obsidian" recolour (p{N}d.png), which keeps the texture.
+ */
 export function pieceSprite(cardId: string, type: string, color: 'w' | 'b'): { src: string; tint: boolean } {
   const a = ART[cardId] ?? ART[`${type}-classic`];
   if (color === 'w') return { src: src(a[0]), tint: false };
-  return a[1] !== undefined ? { src: src(a[1]), tint: false } : { src: src(a[0]), tint: true };
+  return { src: a[1] !== undefined ? src(a[1]) : `assets/pieces/p${a[0]}d.png`, tint: false };
+}
+
+/** Light sprites that need a generated dark version. */
+export function singleSprites(): number[] {
+  return Object.values(ART)
+    .filter((a) => a[1] === undefined)
+    .map((a) => a[0]);
 }
 
 /** Every sprite file the art table uses (for asset checks). */
