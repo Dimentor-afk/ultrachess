@@ -4,6 +4,7 @@ import { ARENAS } from '../economy/packs';
 import { CARDS, CARD_BY_ID, PIECE_ORDER, RARITY_NAMES, RARITY_ORDER } from '../engine/cards';
 import { Avatar } from './common';
 import { Icon } from './icons';
+import { type Settings, getSettings, onSettings, play, setSettings } from './settings';
 import { errorText, useSession } from './state';
 
 const KIND: Record<HistoryRow['kind'], string> = { ranked: 'Рейтинг', training: 'Тренування', friend: 'Друг' };
@@ -100,6 +101,9 @@ export function ProfilePage() {
               <Icon name="shield" /> Адмін-панель
             </a>
           )}
+          <a className="btn btn-sm" href="#/help">
+            <Icon name="info" /> Як грати
+          </a>
           <button className="btn btn-ghost btn-sm" onClick={() => s.logout()}>
             <Icon name="logout" /> Вийти
           </button>
@@ -148,6 +152,8 @@ export function ProfilePage() {
         </div>
       </div>
 
+      <SettingsPanel />
+
       <div className="section-head">
         <h2>Історія матчів</h2>
       </div>
@@ -180,6 +186,39 @@ export function ProfilePage() {
         </div>
       )}
     </section>
+  );
+}
+
+function SettingsPanel() {
+  const [st, setSt] = useState(getSettings());
+  useEffect(() => onSettings(() => setSt(getSettings())), []);
+  const rows: { key: keyof Settings; label: string; hint: string }[] = [
+    { key: 'sound', label: 'Звуки', hint: 'Ходи, взяття, шах, відкриття паків' },
+    { key: 'animations', label: 'Анімації', hint: 'Рух фігур, тряска паків, світіння' },
+    { key: 'coordinates', label: 'Координати дошки', hint: 'Літери й цифри навколо дошки' },
+  ];
+  return (
+    <div className="panel settings">
+      <h2>Налаштування</h2>
+      {rows.map((r) => (
+        <label key={r.key} className="setting-row">
+          <span>
+            <b>{r.label}</b>
+            <small className="muted">{r.hint}</small>
+          </span>
+          <input
+            type="checkbox"
+            className="switch"
+            checked={st[r.key]}
+            onChange={(e) => {
+              setSettings({ [r.key]: e.target.checked });
+              if (r.key === 'sound' && e.target.checked) play('click');
+            }}
+          />
+        </label>
+      ))}
+      <p className="muted tiny">Налаштування зберігаються на цьому пристрої.</p>
+    </div>
   );
 }
 

@@ -83,6 +83,7 @@ export interface Api {
   playerProfile(userId: string): Promise<PublicProfile>;
   history(): Promise<HistoryRow[]>;
   inbox(): Promise<Inbox>;
+  claimQuest(id: string): Promise<Profile>;
   friends(): Promise<FriendsView>;
   searchPlayers(query: string): Promise<PlayerCard[]>;
   addFriend(userId: string): Promise<FriendsView>;
@@ -149,6 +150,7 @@ class HttpApi implements Api {
   playerProfile = (userId: string) => this.call<PublicProfile>('GET', `players/${userId}`);
   history = () => this.call<HistoryRow[]>('GET', 'history');
   inbox = () => this.call<Inbox>('GET', 'inbox');
+  claimQuest = (id: string) => this.call<Profile>('POST', `quests/${id}/claim`, {});
   friends = () => this.call<FriendsView>('GET', 'friends');
   searchPlayers = (query: string) => this.call<PlayerCard[]>('POST', 'friends/search', { query });
   addFriend = (userId: string) => this.call<FriendsView>('POST', 'friends', { userId });
@@ -287,6 +289,7 @@ class LocalApi implements Api {
   playerProfile = async (userId: string) => this.svc.playerProfile(await this.t(), userId);
   history = async () => this.svc.history(await this.t());
   inbox = async () => this.svc.inbox(await this.t());
+  claimQuest = async (id: string) => this.svc.claimQuest(await this.t(), id);
   friends = async () => this.svc.friends(await this.t());
   searchPlayers = async (query: string) => this.svc.searchPlayers(await this.t(), query);
   addFriend = async (userId: string) => this.svc.addFriend(await this.t(), userId);

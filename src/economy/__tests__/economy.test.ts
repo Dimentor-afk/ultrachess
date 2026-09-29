@@ -243,3 +243,27 @@ function scholarsMate(): Action[] {
   }
   return actions;
 }
+
+describe('daily quests', () => {
+  it('count games, packs and wins and pay out once', async () => {
+    let now = Date.UTC(2026, 2, 3, 10);
+    const store = new MemoryStore();
+    const svc = new GameService(store, plainHasher, () => now, seeded(4));
+    await svc.init();
+    const { token, profile } = await svc.register('q@q.com', 'secret1', 'Q');
+    const play3 = profile.quests.find((q) => q.id === 'play3')!;
+    expect(play3).toMatchObject({ progress: 0, target: 3, claimed: false });
+    await expect(svc.claimQuest(token, 'play3')).rejects.toThrow(/не виконано/);
+    for (let i = 0; i < 3; i++) {
+      await store.insertMatch({ id: `q${i}`, userId: profile.id, ranked: true, color: 'w', botLevel: 1, playerDeck: classicDeck(), botDeck: classicDeck(), status: 'active', result: null, createdAt: now });
+      await svc.finishMatch(token, `q${i}`, scholarsMate(), false);
+    }
+    const me = await svc.me(token);
+    expect(me.quests.find((q) => q.id === 'play3')!.progress).toBe(3);
+    const after = await svc.claimQuest(token, 'play3');
+    expect(after.gold).toBe(me.gold + 60);
+    await expect(svc.claimQuest(token, 'play3')).rejects.toThrow(/вже/);
+    now += 864e5;
+    expect((await svc.me(token)).quests.find((q) => q.id === 'play3')).toMatchObject({ progress: 0, claimed: false });
+  });
+});

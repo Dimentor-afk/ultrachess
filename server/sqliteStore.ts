@@ -26,7 +26,8 @@ CREATE TABLE IF NOT EXISTS users (
   packs_day TEXT NOT NULL DEFAULT '',
   avatar TEXT NOT NULL DEFAULT 'knight-classic',
   best_trophies INTEGER NOT NULL DEFAULT 0,
-  last_seen INTEGER NOT NULL DEFAULT 0
+  last_seen INTEGER NOT NULL DEFAULT 0,
+  quests TEXT NOT NULL DEFAULT '{}'
 );
 CREATE TABLE IF NOT EXISTS sessions (
   token TEXT PRIMARY KEY,
@@ -131,6 +132,7 @@ const USER_COLS: Record<keyof UserRow, string> = {
   avatar: 'avatar',
   bestTrophies: 'best_trophies',
   lastSeen: 'last_seen',
+  quests: 'quests',
 };
 
 /** Columns added after the first release, for databases created before them. */
@@ -144,6 +146,7 @@ const USER_MIGRATIONS: [string, string][] = [
   ['avatar', "TEXT NOT NULL DEFAULT 'knight-classic'"],
   ['best_trophies', 'INTEGER NOT NULL DEFAULT 0'],
   ['last_seen', 'INTEGER NOT NULL DEFAULT 0'],
+  ['quests', "TEXT NOT NULL DEFAULT '{}'"],
 ];
 
 const PACK_COLS: Record<keyof PackRow, string> = {
@@ -186,6 +189,7 @@ function user(r: Row | undefined): UserRow | null {
     avatar: (r.avatar as string | null) ?? 'knight-classic',
     bestTrophies: Number(r.best_trophies ?? 0),
     lastSeen: Number(r.last_seen ?? 0),
+    quests: (r.quests as string | null) ?? '{}',
   };
 }
 

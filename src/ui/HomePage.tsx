@@ -8,6 +8,7 @@ import { PackOpening } from './PackOpening';
 import { MiniBoard } from './DeckPage';
 import { packArt } from './cardArt';
 import { Icon } from './icons';
+import { play } from './settings';
 import { errorText, useSession } from './state';
 
 const LEVELS = [
@@ -146,6 +147,63 @@ export function HomePage() {
             </div>
           </div>
         </div>
+      </div>
+
+      {s.inbox.yourTurn + s.inbox.challenges > 0 && (
+        <a className="friend-turn" href="#/friends">
+          <span className="friend-turn-icon">⚔</span>
+          <span>
+            <b>
+              {s.inbox.yourTurn > 0 ? `Ваш хід у ${s.inbox.yourTurn} ${s.inbox.yourTurn === 1 ? 'грі' : 'іграх'} з друзями` : 'Вас викликали на гру'}
+            </b>
+            <small className="muted">
+              {s.inbox.challenges > 0 ? `Викликів: ${s.inbox.challenges} · ` : ''}відкрити «Друзі»
+            </small>
+          </span>
+          <span className="friend-turn-go">›</span>
+        </a>
+      )}
+
+      <div className="section-head">
+        <h2>Щоденні завдання</h2>
+        <span className="muted small">оновлюються щодня</span>
+      </div>
+      <div className="quests">
+        {profile.quests.map((q) => {
+          const done = q.progress >= q.target;
+          return (
+            <div key={q.id} className={`quest ${done ? 'done' : ''} ${q.claimed ? 'claimed' : ''}`}>
+              <div className="quest-text">
+                <b>{q.text}</b>
+                <div className="bar small-bar">
+                  <span style={{ width: `${(q.progress / q.target) * 100}%` }} />
+                </div>
+                <small className="muted">
+                  {q.progress}/{q.target}
+                </small>
+              </div>
+              {q.claimed ? (
+                <span className="pill pill-ok">отримано</span>
+              ) : (
+                <button
+                  className="btn btn-sm btn-primary btn-price"
+                  disabled={!done}
+                  onClick={async () => {
+                    try {
+                      s.setProfile(await api.claimQuest(q.id));
+                      play('rare');
+                      s.toast(`Нагорода: ${q.reward.gold ? `🪙 ${q.reward.gold}` : ''}${q.reward.shards ? `💎 ${q.reward.shards}` : ''}`);
+                    } catch (e) {
+                      s.toast(errorText(e), 'error');
+                    }
+                  }}
+                >
+                  {q.reward.gold ? `🪙 ${q.reward.gold}` : `💎 ${q.reward.shards}`}
+                </button>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       <div className="section-head">

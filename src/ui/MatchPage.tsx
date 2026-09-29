@@ -12,6 +12,7 @@ import { packArt, pieceSprite } from './cardArt';
 import { playerView } from '../engine/view';
 import { Board, type Mark, squareCenter } from './Board';
 import { type Stage, makeStage } from './stage';
+import { play } from './settings';
 import { requestBotTurn, requestHint } from './botClient';
 import { Avatar, CardView, Glyph } from './common';
 
@@ -274,6 +275,20 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
     }
     setSelected(cell && s !== selected ? s : null);
   };
+
+  // Sounds: one per turn, picked from what happened on the board.
+  const soundRef = useRef({ plies: match.history.length, pieces: countPieces(match) });
+  useEffect(() => {
+    const prev = soundRef.current;
+    const pieces = countPieces(match);
+    if (match.history.length !== prev.plies) {
+      if (match.result) play(match.result.winner === human ? 'win' : 'loss');
+      else if (match.status === 'check') play('check');
+      else play(pieces < prev.pieces ? 'capture' : 'move');
+    }
+    soundRef.current = { plies: match.history.length, pieces };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [match]);
 
   useEffect(() => {
     if (match.result) report(false);
@@ -613,6 +628,10 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
 }
 
 const PROMO_NAMES: Partial<Record<PieceType, string>> = { queen: 'Ферзь', rook: 'Тура', bishop: 'Слон', knight: 'Кінь' };
+
+function countPieces(m: MatchState): number {
+  return m.board.reduce((n, p) => n + (p ? 1 : 0), 0);
+}
 
 const START_COUNT: Record<PieceType, number> = { pawn: 8, knight: 2, bishop: 2, rook: 2, queen: 1, king: 1 };
 

@@ -22,6 +22,7 @@ import {
   rollPack,
 } from './packs';
 import { BOARD_THEMES, DEFAULT_THEME, themeById } from './themes';
+import { type QuestEvent, type QuestView, addProgress, parseQuests, questViews } from './quests';
 import { type Hasher, type PackRow, type PvpRow, type Role, type Store, type UserRow, randomId } from './store';
 
 /** Short public code for finding a player (first 6 hex digits of the id). */
@@ -65,6 +66,7 @@ export interface Profile {
   /** Packs won today and the daily cap. */
   packsToday: number;
   packsLimit: number;
+  quests: QuestView[];
 }
 
 export interface PackView {
@@ -254,6 +256,7 @@ export class GameService {
       avatar: 'knight-classic',
       bestTrophies: 0,
       lastSeen: 0,
+      quests: '{}',
     };
   }
 
@@ -348,6 +351,7 @@ export class GameService {
       boardTheme: themeById(u.boardTheme).id,
       packsToday: u.packsDay === this.today() ? u.packsToday : 0,
       packsLimit: DAILY_PACK_LIMIT,
+      quests: questViews(parseQuests(u.quests, this.today())),
     };
   }
 
@@ -452,6 +456,7 @@ export class GameService {
     const fresh = (await this.store.getUser(u.id))!;
     await this.store.updateUser(u.id, { gold: fresh.gold + gold });
     if (p.type === 'starter') await this.ensureStarterDeck(u.id);
+    else await this.questEvent(u.id, ['openPack']);
     return { pack: this.view(p), cards, gold, shards };
   }
 
@@ -644,6 +649,10 @@ export class GameService {
       }
       await this.store.updateUser(u.id, patch);
     }
+    const events: QuestEvent[] = ['play'];
+    if (outcome === 'win') events.push('win');
+    if (outcome === 'win' && m.ranked) events.push('winRanked');
+    await this.questEvent(u.id, events);
     await this.store.updateMatch(m.id, {
       status: 'finished',
       result: JSON.stringify({ outcome, reason: state.result!.reason, moves: state.result!.moves, trophiesDelta }),
@@ -959,6 +968,7 @@ export class GameService {
       patch.result = JSON.stringify({ winner: next.result.winner, reason: next.result.reason, moves: next.result.moves });
     }
     if (!(await this.store.updatePvp(row.id, patch, expected))) throw new ApiError(409, 'Позиція змінилась — оновіть партію.');
+    if (next.result) await this.pvpQuests(row, next.result.winner);
     return this.pvpView({ ...row, ...patch }, color);
   }
 
@@ -974,7 +984,38 @@ export class GameService {
       result: JSON.stringify({ winner: state.result!.winner, reason: state.result!.reason, moves: state.result!.moves }),
     };
     await this.store.updatePvp(row.id, patch);
+    await this.pvpQuests(row, state.result!.winner);
     return this.pvpView({ ...row, ...patch }, color);
+  }
+
+  private async pvpQuests(row: PvpRow, winner: Color | null): Promise<void> {
+    for (const [id, c] of [[row.whiteId, 'w'], [row.blackId, 'b']] as [string, Color][]) {
+      await this.questEvent(id, winner === c ? ['play', 'friendGame', 'win'] : ['play', 'friendGame']);
+    }
+  }
+
+  // ── Daily quests ──
+
+  private async questEvent(userId: string, events: QuestEvent[]): Promise<void> {
+    const u = await this.store.getUser(userId);
+    if (!u) return;
+    const next = addProgress(parseQuests(u.quests, this.today()), events);
+    await this.store.updateUser(userId, { quests: JSON.stringify(next) });
+  }
+
+  async claimQuest(token: string, questId: string): Promise<Profile> {
+    const u = await this.auth(token);
+    const state = parseQuests(u.quests, this.today());
+    const q = questViews(state).find((x) => x.id === questId);
+    if (!q) throw new ApiError(404, 'Такого завдання сьогодні немає.');
+    if (q.claimed) throw new ApiError(409, 'Нагороду вже отримано.');
+    if (q.progress < q.target) throw new ApiError(400, 'Завдання ще не виконано.');
+    await this.store.updateUser(u.id, {
+      quests: JSON.stringify({ ...state, claimed: [...state.claimed, q.id] }),
+      gold: u.gold + (q.reward.gold ?? 0),
+      shards: u.shards + (q.reward.shards ?? 0),
+    });
+    return this.profileOf(u.id);
   }
 
   async inbox(token: string): Promise<Inbox> {

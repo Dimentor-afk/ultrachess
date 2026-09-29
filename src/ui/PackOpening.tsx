@@ -3,6 +3,7 @@ import type { OpenResult, PackView } from '../api/client';
 import { CARD_BY_ID, RARITY_NAMES } from '../engine/cards';
 import { packArt } from './cardArt';
 import { CardView } from './common';
+import { play } from './settings';
 import { errorText } from './state';
 
 type Phase = 'idle' | 'opening' | 'burst' | 'reveal' | 'summary';
@@ -36,6 +37,7 @@ export function PackOpening({
       const [res] = await Promise.all([open(), minShake]);
       setResult(res);
       setPhase('burst');
+      play('pack');
       setTimeout(() => setPhase('reveal'), 650);
     } catch (e) {
       setError(errorText(e));
@@ -67,6 +69,13 @@ export function PackOpening({
 
   const current = result?.cards[index];
   const card = current ? CARD_BY_ID[current.cardId] : null;
+
+  useEffect(() => {
+    if (!flipped || !card || phase !== 'reveal') return;
+    const r = card.rarity;
+    play(r === 'common' ? 'click' : r === 'rare' ? 'rare' : r === 'epic' ? 'epic' : 'legendary');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flipped, index]);
 
   return (
     <div className="opening" role="dialog" aria-label={`Відкриття: ${pack.name}`}>

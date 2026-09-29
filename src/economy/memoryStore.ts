@@ -42,6 +42,7 @@ export function withUserDefaults(u: UserRow): UserRow {
     avatar: u.avatar ?? 'knight-classic',
     bestTrophies: u.bestTrophies ?? u.trophies ?? 0,
     lastSeen: u.lastSeen ?? 0,
+    quests: u.quests ?? '{}',
   };
 }
 

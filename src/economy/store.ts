@@ -34,6 +34,8 @@ export interface UserRow {
   avatar: string;
   bestTrophies: number;
   lastSeen: number;
+  /** Daily quest progress (JSON QuestState). */
+  quests: string;
 }
 
 export interface SessionRow {

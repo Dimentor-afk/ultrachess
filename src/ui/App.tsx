@@ -8,13 +8,14 @@ import { LeaderboardPage } from './LeaderboardPage';
 import { ShopPage } from './ShopPage';
 import { FriendsPage } from './FriendsPage';
 import { ProfilePage } from './ProfilePage';
+import { HelpPage } from './HelpPage';
 import { Avatar } from './common';
 import { themeById } from '../economy/themes';
 import { cardArt } from './cardArt';
 import { Icon } from './icons';
 import { type Loaded, SessionProvider, type Toast, errorText, loadAll, useSession } from './state';
 
-type Route = 'play' | 'deck' | 'shop' | 'friends' | 'top' | 'admin' | 'profile';
+type Route = 'play' | 'deck' | 'shop' | 'friends' | 'top' | 'admin' | 'profile' | 'help';
 
 const ROUTES: { id: Route; label: string; icon: string; admin?: boolean }[] = [
   { id: 'play', label: 'Грати', icon: 'play' },
@@ -28,7 +29,7 @@ const ROUTES: { id: Route; label: string; icon: string; admin?: boolean }[] = [
 function readRoute(): Route {
   const h = window.location.hash.replace(/^#\/?/, '');
   if (h === 'cards') return 'deck'; // the old collection page lives on the deck page now
-  if (h === 'profile') return 'profile';
+  if (h === 'profile' || h === 'help') return h;
   return ROUTES.find((r) => r.id === h)?.id ?? 'play';
 }
 
@@ -118,6 +119,9 @@ function Shell() {
             </a>
           ))}
         </nav>
+        <a className={`nav-help ${route === 'help' ? 'active' : ''}`} href="#/help">
+          <Icon name="info" /> Як грати
+        </a>
         <a className={`me ${route === 'profile' ? 'active' : ''}`} href="#/profile" title="Профіль">
           <Avatar card={s.profile.avatar} />
           <span className="me-info">
@@ -143,6 +147,7 @@ function Shell() {
         {route === 'shop' && <ShopPage />}
         {route === 'friends' && <FriendsPage />}
         {route === 'profile' && <ProfilePage />}
+        {route === 'help' && <HelpPage />}
         {route === 'top' && <LeaderboardPage />}
         {route === 'admin' && s.profile.role === 'admin' && <AdminPage />}
       </main>
