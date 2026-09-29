@@ -118,10 +118,14 @@ export function placeCard(deck: Deck, index: number, cardId: string, allPawns = 
     if (others) return { error: 'У колоді вже є міфологічна картка — дозволено лише одну.' };
   }
   if (type === 'pawn') {
-    const pawns = deckPositions(deck).slice(0, 8);
+    let pawns = deckPositions(deck).slice(0, 8);
     if (allPawns) pawns.fill(cardId);
-    else pawns[index - 8] = cardId;
-    if (new Set(pawns).size > 2) return { error: 'Пішаки можуть мати не більше 2 різних версій.' };
+    else {
+      const old = pawns[index - 8];
+      pawns[index - 8] = cardId;
+      // A third version replaces the version it was dropped on, on every square.
+      if (new Set(pawns).size > 2) pawns = pawns.map((p) => (p === old ? cardId : p));
+    }
     return { deck: withPawns(deck, pawns) };
   }
   return { deck: { ...deck, [BACK_SLOTS[index]]: cardId } };

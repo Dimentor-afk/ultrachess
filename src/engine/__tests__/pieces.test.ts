@@ -7,9 +7,9 @@ import { hasAnyLegalTurn, inCheck } from '../status';
 import { S, at, build, findMove, kingShuffle, movesFrom, play, targets } from './helpers';
 
 describe('bishop cards', () => {
-  it('Вартовий: 1 square straight, at most 4 diagonally', () => {
-    const pos = build({ a1: 'w:bishop-sentinel', h1: 'w:king-classic', h7: 'b:king-classic' });
-    expect(targets(pos, 'a1')).toEqual(['a2', 'b1', 'b2', 'c3', 'd4', 'e5']);
+  it('Вартовий: moves like a queen, but only 1–2 squares', () => {
+    const pos = build({ a1: 'w:bishop-sentinel', a2: 'b:pawn-classic', h1: 'w:king-classic', h7: 'b:king-classic' });
+    expect(targets(pos, 'a1')).toEqual(['a2', 'b1', 'b2', 'c1', 'c3']);
   });
 
   it('Снайпер cannot capture adjacent pieces and may step past a far capture', () => {

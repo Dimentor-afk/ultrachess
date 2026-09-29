@@ -52,7 +52,6 @@ export function CardView({
         <span className="gcard-emblem">
           <Emblem cardId={card.id} />
         </span>
-        {!compact && <span className="gcard-type">{PIECE_NAMES[card.pieceType]}</span>}
         {locked && (
           <span className="gcard-lock">
             <Icon name="lock" />
@@ -61,6 +60,7 @@ export function CardView({
         {badge}
       </div>
       <div className="gcard-body">
+        <span className="card-type">{PIECE_NAMES[card.pieceType]}</span>
         <h3 className="gcard-name">{card.name}</h3>
         <RarityTag card={card} />
         <p className="gcard-rules">{card.rulesText}</p>

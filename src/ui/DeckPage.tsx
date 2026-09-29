@@ -3,7 +3,8 @@ import { CARDS, CARD_BY_ID, PIECE_NAMES, PIECE_ORDER, RARITY_ORDER } from '../en
 import { cardAt, deckPositions, placeCard, slotType, validateDeck } from '../engine/deck';
 import type { Card, Deck, PieceType } from '../engine/types';
 import { Emblem } from './art';
-import { CardArt, CardView, RarityTag } from './common';
+import { CardModal } from './CardModal';
+import { CardArt, RarityTag } from './common';
 import { Icon } from './icons';
 import { errorText, useSession } from './state';
 
@@ -50,7 +51,7 @@ function DeckHub({ deck }: { deck: Deck }) {
   const [save, setSave] = useState<SaveState>('saved');
   const [selected, setSelected] = useState(4);
   const [armed, setArmed] = useState<string | null>(null);
-  const [inspect, setInspect] = useState<string | null>(null);
+  const [detail, setDetail] = useState<string | null>(null);
   const [filter, setFilter] = useState<PieceType | 'all'>('all');
   const [message, setMessage] = useState<{ text: string; bad: boolean } | null>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
@@ -145,12 +146,15 @@ function DeckHub({ deck }: { deck: Deck }) {
     setMessage({ text: allPawns ? `«${name}» на всіх 8 пішаках.` : `«${name}» стоїть на ${squareName(index)}.`, bad: false });
   };
 
-  const tapCard = (cardId: string) => {
-    setInspect(cardId);
-    if (!owned[cardId]) return;
-    setArmed((a) => (a === cardId ? null : cardId));
+  // Tapping a card opens its details; "Використати" then arms it for a square.
+  const tapCard = (cardId: string) => setDetail(cardId);
+  const armCard = (cardId: string) => {
+    setDetail(null);
+    setArmed(cardId);
+    setFilter(CARD_BY_ID[cardId].pieceType);
     setMessage(null);
   };
+
 
   // Pointer-based drag so it works with a mouse and on touch screens alike.
   useEffect(() => {
@@ -205,7 +209,6 @@ function DeckHub({ deck }: { deck: Deck }) {
             return;
           }
           setSelected(index);
-          setInspect(null);
           setFilter(slotType(index));
         }}
         aria-label={`${squareName(index)}: ${card.name}`}
@@ -230,7 +233,7 @@ function DeckHub({ deck }: { deck: Deck }) {
   const mine = shown.filter((c) => owned[c.id]);
   const locked = shown.filter((c) => !owned[c.id]);
   const ownedCount = Object.keys(owned).length;
-  const shownCard = CARD_BY_ID[inspect ?? armed ?? cardAt(draft, selected)];
+  const detailCard = detail ? CARD_BY_ID[detail] : null;
   const pawnVersions = draft.pawnVersions.map((id) => CARD_BY_ID[id]);
 
   const miniCard = (c: Card, isLocked: boolean) => (
@@ -259,6 +262,7 @@ function DeckHub({ deck }: { deck: Deck }) {
         </span>
       </div>
       <div className="mini-card-body">
+        <span className="card-type">{PIECE_NAMES[c.pieceType]}</span>
         <strong>{c.name}</strong>
         <RarityTag card={c} />
       </div>
@@ -373,9 +377,6 @@ function DeckHub({ deck }: { deck: Deck }) {
             </p>
           )}
         </div>
-        <div className="inspect">
-          <CardView card={shownCard} locked={!owned[shownCard.id]} />
-        </div>
       </div>
 
       <div className="section-head hub-head">
@@ -416,6 +417,40 @@ function DeckHub({ deck }: { deck: Deck }) {
           </div>
           <div className="mini-cards hub-cards hub-locked">{locked.map((c) => miniCard(c, true))}</div>
         </>
+      )}
+
+      {detailCard && (
+        <CardModal
+          card={detailCard}
+          locked={!owned[detailCard.id]}
+          note={
+            !owned[detailCard.id]
+              ? 'Цієї картки у вас ще немає — вона випадає з паків.'
+              : inDeck.has(detailCard.id)
+                ? 'Уже стоїть у цій колоді.'
+                : undefined
+          }
+          onClose={() => setDetail(null)}
+        >
+          {owned[detailCard.id] && (
+            <>
+              <button className="btn btn-primary" onClick={() => armCard(detailCard.id)}>
+                Використати
+              </button>
+              {detailCard.pieceType === 'pawn' && (
+                <button
+                  className="btn"
+                  onClick={() => {
+                    setDetail(null);
+                    place(8, detailCard.id, true);
+                  }}
+                >
+                  На всі 8 пішаків
+                </button>
+              )}
+            </>
+          )}
+        </CardModal>
       )}
 
       {drag && (

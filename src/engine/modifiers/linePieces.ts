@@ -22,10 +22,7 @@ const queen: Generator = (ctx, p, from) => slideMoves(ctx, p, from, ALL_DIRS);
 export const linePieceGenerators: Record<string, Generator> = {
   // ── Слони ──
   'bishop-classic': bishop,
-  'bishop-sentinel': (ctx, p, from) => [
-    ...slideMoves(ctx, p, from, DIAG, { max: 4 }),
-    ...leapMoves(ctx, p, from, ORTHO),
-  ],
+  'bishop-sentinel': (ctx, p, from) => slideMoves(ctx, p, from, ALL_DIRS, { max: 2 }),
   'bishop-sniper': (ctx, p, from) => slideMoves(ctx, p, from, DIAG, { minCapture: 2, afterStep: true }),
   'bishop-paratrooper': (ctx, p, from) => [
     ...bishop(ctx, p, from),
