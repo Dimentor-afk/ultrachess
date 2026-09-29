@@ -229,6 +229,16 @@ describe('rook cards', () => {
     expect(movesFrom(pos, 'e3')).toHaveLength(0);
   });
 
+  it('a king cannot take a defended Фортечна тура even though it would step into the line', () => {
+    // The white rook on e1 defends e6; taking it would let the fortress rook
+    // step back to e5 and shield the king, but a defended piece is off limits.
+    const pos = build({ e6: 'w:rook-fortress', e1: 'w:rook-classic', c1: 'w:king-classic', d7: 'b:king-classic' }, 'b');
+    expect(targets(pos, 'd7')).not.toContain('e6');
+    // Undefended, the king may take it (and the rook steps back).
+    const free = build({ e6: 'w:rook-fortress', c1: 'w:king-classic', d7: 'b:king-classic' }, 'b');
+    expect(targets(free, 'd7')).toContain('e6');
+  });
+
   it('Землетрус shifts a line cyclically and does not spend the turn', () => {
     const pos = build({ ...K, a1: 'w:rook-earthquake', h3: 'b:knight-classic', c3: 'w:pawn-classic' });
     const options = abilityOptions(pos, 'w-a1');

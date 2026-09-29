@@ -1,4 +1,4 @@
-import { type CSSProperties, type ReactNode, useLayoutEffect, useRef } from 'react';
+import { type CSSProperties, type ReactNode, memo, useLayoutEffect, useRef } from 'react';
 import { getCard } from '../engine/cards';
 import { fileOf, isBoardSquare, rankOf, sq } from '../engine/coords';
 import type { FxMove } from '../engine/fx';
@@ -8,6 +8,7 @@ import { Emblem } from './art';
 import { pieceSprite } from './cardArt';
 import { FX, type FxName } from './fxSprites';
 import { useSettings } from './settings';
+import { useOutlined } from './spriteOutline';
 
 export type Mark = 'move' | 'capture' | 'option' | 'stay';
 
@@ -356,11 +357,20 @@ function squareLabel(s: Square, piece: ViewPiece | null, marked: boolean): strin
   return `${name}: ${getCard(piece.cardId).name}${piece.color === 'w' ? ' (білі)' : ' (чорні)'}${suffix}`;
 }
 
-export function PieceView({ piece }: { piece: ViewPiece }) {
+/** A piece redraws only when something about it changed (views are rebuilt every move). */
+export const PieceView = memo(PieceViewInner, (a, b) => {
+  const x = a.piece;
+  const y = b.piece;
+  return (Object.keys(x) as (keyof ViewPiece)[]).every((k) => x[k] === y[k]);
+});
+
+function PieceViewInner({ piece }: { piece: ViewPiece }) {
   const card = getCard(piece.cardId);
   const special = !card.id.endsWith('-classic');
   const { blackStyle } = useSettings();
   const sprite = pieceSprite(card.id, piece.type, piece.color, blackStyle);
+  const outline = blackStyle === 'team' ? (piece.color === 'w' ? '#3d8bff' : '#ff4d6d') : piece.color === 'w' ? '#0d1326' : '#e9cf87';
+  const art = useOutlined(sprite.src, outline);
   return (
     <span
       className={`piece piece-${piece.color} ${blackStyle === 'team' ? 'team' : ''} r-${card.rarity} ${special ? 'special' : ''} ${piece.illusion ? 'illusion' : ''} ${
@@ -370,7 +380,7 @@ export function PieceView({ piece }: { piece: ViewPiece }) {
     >
       <span className="piece-base" />
       {special && <span className="piece-aura" />}
-      <img className="piece-sprite pixel" src={sprite.src} alt="" draggable={false} />
+      <img className={`piece-sprite pixel ${art.baked ? 'baked' : ''}`} src={art.src} alt="" draggable={false} />
       {special && (
         <span className={`piece-emblem ${piece.cooldown === 0 && piece.id ? 'is-ready' : ''}`}>
           <Emblem cardId={card.id} />

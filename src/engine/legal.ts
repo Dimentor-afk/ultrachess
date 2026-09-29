@@ -33,7 +33,26 @@ export function beliefFor(pos: Position, color: Color): Position {
 function kingSafeAfter(pos: Position, m: Move, color: Color): boolean {
   const after = applyMove(pos, m, { lite: true });
   const k = findKing(after, color);
-  return k >= 0 && !isSquareAttacked(after, k, opposite(color), after.ply);
+  if (k < 0 || isSquareAttacked(after, k, opposite(color), after.ply)) return false;
+  return pos.board[m.from]?.type !== 'king' || !m.captures.length || !kingTakesDefended(pos, m, color);
+}
+
+/**
+ * A king never takes a defended piece. Defensive effects (Фортечна тура
+ * stepping back, Щитоносець, Безсмертна…) may move the victim into the
+ * defender's line after the capture; that must not make the capture legal,
+ * so the king is checked against a plain capture: victims gone, king landed.
+ */
+function kingTakesDefended(pos: Position, m: Move, color: Color): boolean {
+  const plain = clonePosition(pos);
+  const king = plain.board[m.from]!;
+  for (const c of m.captures) plain.board[c] = null;
+  plain.board[m.from] = null;
+  const at = m.to ?? m.from;
+  plain.board[at] = king;
+  plain.turn = opposite(color);
+  plain.ply = pos.ply + 1;
+  return isSquareAttacked(plain, at, opposite(color), plain.ply);
 }
 
 /**

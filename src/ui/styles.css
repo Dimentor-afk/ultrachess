@@ -5749,3 +5749,59 @@ a.arena-card:hover { transform: translateY(-2px); }
 .trial-round.prize img { width: 26px; height: 48px; object-fit: contain; image-rendering: pixelated; }
 .trial-actions { display: flex; flex-wrap: wrap; gap: 0.8rem; align-items: center; }
 .profile-arena { color: inherit; text-decoration: none; }
+
+/* Cards in a row share the tallest height: the text panel fills the rest, so
+   no bare rarity background shows under shorter cards. */
+.mini-card {
+  display: flex;
+  flex-direction: column;
+}
+.mini-card-body {
+  flex: 1;
+}
+
+/* Outline baked into the image (spriteOutline.ts): no per-frame filters, and
+   the image is a little bigger to fit the outline and shadow pixels. */
+.piece > .piece-sprite.baked,
+.piece.team > .piece-sprite.baked {
+  filter: none;
+  width: 96%;
+  height: 94%;
+  bottom: 3%;
+}
+
+/* ── Cheap looping effects: only opacity and transform animate, so the
+   compositor runs them without repainting the board every frame. ── */
+.piece-emblem.is-ready {
+  animation: none;
+}
+.piece-emblem.is-ready::after {
+  content: '';
+  position: absolute;
+  inset: -0.35cqw;
+  border-radius: 50%;
+  box-shadow: 0 0 1.6cqw 0.4cqw var(--r);
+  opacity: 0;
+  animation: glow-pulse 1.4s ease-in-out infinite;
+  will-change: opacity;
+  pointer-events: none;
+}
+@keyframes glow-pulse {
+  50% { opacity: 1; }
+}
+.ability-tile.r-mythological.ready:not(:disabled) {
+  --spin: 0deg;
+  animation: none;
+  position: relative;
+}
+.ability-tile.r-mythological.ready:not(:disabled)::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 16px;
+  box-shadow: 0 0 14px 2px rgba(255, 90, 122, 0.7);
+  opacity: 0.25;
+  animation: glow-pulse 1.6s ease-in-out infinite;
+  will-change: opacity;
+  pointer-events: none;
+}
