@@ -350,12 +350,14 @@ export function Game({ start, playerName, trophies, onFinish, onExit, onRematch 
               };
               const disabled = def?.id === 'mirage' ? !myTurn || busy || (!mirage && mirageMoves.length === 0) : !canPress;
               const sprite = pieceSprite(c!.cardId, c!.type, human);
+              // Levitation has no button (it is a move); Міраж is pressed, then played as a jump.
+              const passive = !def || (def.viaMove && def.id !== 'mirage');
               return (
                 <button
                   key={c!.id}
                   type="button"
-                  className={`ability-tile r-${card.rarity} ${ready ? 'ready' : ''} ${on ? 'on' : ''} ${!def || def.viaMove ? 'passive' : ''}`}
-                  disabled={!def || def.viaMove ? true : disabled}
+                  className={`ability-tile r-${card.rarity} ${ready ? 'ready' : ''} ${on ? 'on' : ''} ${passive ? 'passive' : ''}`}
+                  disabled={passive || disabled}
                   onClick={press}
                   title={card.rulesText}
                 >
@@ -369,7 +371,7 @@ export function Game({ start, playerName, trophies, onFinish, onExit, onRematch 
                     <small>
                       {!ready
                         ? `перезарядка: ${cd} ход.`
-                        : !def || def.viaMove
+                        : passive
                           ? 'готово — ходом фігури'
                           : def.id === 'immortal'
                             ? view.immortalArmed
