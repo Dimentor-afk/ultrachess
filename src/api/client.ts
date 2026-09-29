@@ -17,6 +17,9 @@ import {
   type PvpState,
   type PvpSummary,
   GameService,
+  type LadderResult,
+  type LadderView,
+  type LeagueUp,
   type LeaderRow,
   type MatchFinish,
   type MatchStart,
@@ -36,6 +39,9 @@ export type {
   FriendsView,
   HistoryRow,
   Inbox,
+  LadderResult,
+  LadderView,
+  LeagueUp,
   LeaderRow,
   MatchFinish,
   MatchStart,
@@ -72,13 +78,13 @@ export interface Api {
   saveDeck(deck: Deck): Promise<Deck[]>;
   deleteDeck(id: string): Promise<Deck[]>;
   setActiveDeck(id: string): Promise<Profile>;
-  startMatch(opts: { deckId?: string; ranked: boolean; level?: number }): Promise<MatchStart>;
+  startMatch(opts: { deckId?: string; ranked: boolean; level?: number; trial?: string }): Promise<MatchStart>;
   finishMatch(id: string, actions: Action[], resigned: boolean): Promise<MatchFinish>;
   leaderboard(): Promise<LeaderRow[]>;
   adminUsers(): Promise<AdminUser[]>;
   adminGrantPack(userId: string, type: PackType): Promise<void>;
   adminGrantAllCards(userId: string): Promise<void>;
-  adminSetTrophies(userId: string, trophies: number): Promise<void>;
+  adminSetTrophies(userId: string, trophies: number, ladder?: 'bot' | 'pvp'): Promise<void>;
   adminSetRole(userId: string, role: Role): Promise<void>;
   adminGrantCurrency(userId: string, gold: number, shards: number): Promise<void>;
   updateProfile(patch: { name?: string; avatar?: string }): Promise<Profile>;
@@ -98,6 +104,10 @@ export interface Api {
   pvpState(id: string): Promise<PvpState>;
   pvpAction(id: string, action: Action, expected: number): Promise<PvpState>;
   pvpResign(id: string): Promise<PvpState>;
+  pvpClaim(id: string): Promise<PvpState>;
+  seek(deckId?: string): Promise<{ pvpId: string | null; searching: number }>;
+  cancelSeek(): Promise<void>;
+  enterTrial(id: string): Promise<Profile>;
 }
 
 // ── Server ──
@@ -140,14 +150,14 @@ class HttpApi implements Api {
   saveDeck = (deck: Deck) => this.call<Deck[]>('PUT', 'decks', deck);
   deleteDeck = (id: string) => this.call<Deck[]>('DELETE', `decks/${id}`);
   setActiveDeck = (id: string) => this.call<Profile>('POST', 'decks/active', { id });
-  startMatch = (opts: { deckId?: string; ranked: boolean; level?: number }) => this.call<MatchStart>('POST', 'matches', opts);
+  startMatch = (opts: { deckId?: string; ranked: boolean; level?: number; trial?: string }) => this.call<MatchStart>('POST', 'matches', opts);
   finishMatch = (id: string, actions: Action[], resigned: boolean) =>
     this.call<MatchFinish>('POST', `matches/${id}/finish`, { actions, resigned });
   leaderboard = () => this.call<LeaderRow[]>('GET', 'leaderboard');
   adminUsers = () => this.call<AdminUser[]>('GET', 'admin/users');
   adminGrantPack = (userId: string, type: PackType) => this.call<void>('POST', `admin/users/${userId}/pack`, { type });
   adminGrantAllCards = (userId: string) => this.call<void>('POST', `admin/users/${userId}/all-cards`, {});
-  adminSetTrophies = (userId: string, trophies: number) => this.call<void>('POST', `admin/users/${userId}/trophies`, { trophies });
+  adminSetTrophies = (userId: string, trophies: number, ladder: 'bot' | 'pvp' = 'pvp') => this.call<void>('POST', `admin/users/${userId}/trophies`, { trophies, ladder });
   adminSetRole = (userId: string, role: Role) => this.call<void>('POST', `admin/users/${userId}/role`, { role });
   adminGrantCurrency = (userId: string, gold: number, shards: number) =>
     this.call<void>('POST', `admin/users/${userId}/currency`, { gold, shards });
@@ -169,6 +179,10 @@ class HttpApi implements Api {
   pvpState = (id: string) => this.call<PvpState>('GET', `pvp/${id}`);
   pvpAction = (id: string, action: Action, expected: number) => this.call<PvpState>('POST', `pvp/${id}/action`, { action, expected });
   pvpResign = (id: string) => this.call<PvpState>('POST', `pvp/${id}/resign`, {});
+  pvpClaim = (id: string) => this.call<PvpState>('POST', `pvp/${id}/claim`, {});
+  seek = (deckId?: string) => this.call<{ pvpId: string | null; searching: number }>('POST', 'seek', { deckId });
+  cancelSeek = () => this.call<void>('DELETE', 'seek');
+  enterTrial = (id: string) => this.call<Profile>('POST', `trials/${id}/enter`, {});
 }
 
 // ── Browser only ──
@@ -280,7 +294,7 @@ class LocalApi implements Api {
   saveDeck = async (deck: Deck) => this.svc.saveDeck(await this.t(), deck);
   deleteDeck = async (id: string) => this.svc.deleteDeck(await this.t(), id);
   setActiveDeck = async (id: string) => this.svc.setActiveDeck(await this.t(), id);
-  startMatch = async (opts: { deckId?: string; ranked: boolean; level?: number }) => this.svc.startMatch(await this.t(), opts);
+  startMatch = async (opts: { deckId?: string; ranked: boolean; level?: number; trial?: string }) => this.svc.startMatch(await this.t(), opts);
   finishMatch = async (id: string, actions: Action[], resigned: boolean) => this.svc.finishMatch(await this.t(), id, actions, resigned);
   leaderboard = async () => {
     await this.t();
@@ -289,7 +303,7 @@ class LocalApi implements Api {
   adminUsers = async () => this.svc.adminUsers(await this.t());
   adminGrantPack = async (userId: string, type: PackType) => this.svc.adminGrantPack(await this.t(), userId, type);
   adminGrantAllCards = async (userId: string) => this.svc.adminGrantAllCards(await this.t(), userId);
-  adminSetTrophies = async (userId: string, trophies: number) => this.svc.adminSetTrophies(await this.t(), userId, trophies);
+  adminSetTrophies = async (userId: string, trophies: number, ladder: 'bot' | 'pvp' = 'pvp') => this.svc.adminSetTrophies(await this.t(), userId, trophies, ladder);
   adminSetRole = async (userId: string, role: Role) => this.svc.adminSetRole(await this.t(), userId, role);
   adminGrantCurrency = async (userId: string, gold: number, shards: number) =>
     this.svc.adminGrantCurrency(await this.t(), userId, gold, shards);
@@ -310,6 +324,10 @@ class LocalApi implements Api {
   pvpState = async (id: string) => this.svc.pvpState(await this.t(), id);
   pvpAction = async (id: string, action: Action, expected: number) => this.svc.pvpAction(await this.t(), id, action, expected);
   pvpResign = async (id: string) => this.svc.pvpResign(await this.t(), id);
+  pvpClaim = async (id: string) => this.svc.pvpClaim(await this.t(), id);
+  seek = async (deckId?: string) => this.svc.seek(await this.t(), deckId);
+  cancelSeek = async () => this.svc.cancelSeek(await this.t());
+  enterTrial = async (id: string) => this.svc.enterTrial(await this.t(), id);
 }
 
 /** Use the server when it answers, otherwise the in-browser demo. */

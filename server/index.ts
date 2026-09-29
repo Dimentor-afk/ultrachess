@@ -122,6 +122,7 @@ const routes: [string, RegExp, Handler][] = [
         deckId: body.deckId ? String(body.deckId) : undefined,
         ranked: !!body.ranked,
         level: body.level !== undefined ? Number(body.level) : undefined,
+        trial: body.trial ? String(body.trial) : undefined,
       }),
   ],
   [
@@ -153,10 +154,14 @@ const routes: [string, RegExp, Handler][] = [
   ['GET', /^pvp\/(\w+)$/, ({ token, params }) => svc.pvpState(token, params[0])],
   ['POST', /^pvp\/(\w+)\/action$/, ({ token, params, body }) => svc.pvpAction(token, params[0], body.action as never, Number(body.expected))],
   ['POST', /^pvp\/(\w+)\/resign$/, ({ token, params }) => svc.pvpResign(token, params[0])],
+  ['POST', /^pvp\/(\w+)\/claim$/, ({ token, params }) => svc.pvpClaim(token, params[0])],
+  ['POST', /^seek$/, ({ token, body }) => svc.seek(token, body.deckId ? String(body.deckId) : undefined)],
+  ['DELETE', /^seek$/, ({ token }) => svc.cancelSeek(token)],
+  ['POST', /^trials\/(\w+)\/enter$/, ({ token, params }) => svc.enterTrial(token, params[0])],
   ['GET', /^admin\/users$/, ({ token }) => svc.adminUsers(token)],
   ['POST', /^admin\/users\/(\w+)\/pack$/, ({ token, params, body }) => svc.adminGrantPack(token, params[0], String(body.type) as never)],
   ['POST', /^admin\/users\/(\w+)\/all-cards$/, ({ token, params }) => svc.adminGrantAllCards(token, params[0])],
-  ['POST', /^admin\/users\/(\w+)\/trophies$/, ({ token, params, body }) => svc.adminSetTrophies(token, params[0], Number(body.trophies))],
+  ['POST', /^admin\/users\/(\w+)\/trophies$/, ({ token, params, body }) => svc.adminSetTrophies(token, params[0], Number(body.trophies), body.ladder === 'bot' ? 'bot' : 'pvp')],
   [
     'POST',
     /^admin\/users\/(\w+)\/role$/,

@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { HistoryRow } from '../api/client';
-import { ARENAS } from '../economy/packs';
 import { CARDS, CARD_BY_ID, PIECE_ORDER, RARITY_NAMES, RARITY_ORDER } from '../engine/cards';
 import { Avatar } from './common';
 import { Icon } from './icons';
 import { getSettings, onSettings, play, setSettings } from './settings';
 import { errorText, useSession } from './state';
 
-const KIND: Record<HistoryRow['kind'], string> = { ranked: 'Рейтинг', training: 'Тренування', friend: 'Друг' };
+const KIND: Record<HistoryRow['kind'], string> = { ranked: 'Ліга гравців', bot: 'Ліга ботів', training: 'Тренування', friend: 'Друг', trial: 'Випробування' };
 const OUTCOME: Record<HistoryRow['outcome'], string> = { win: 'Перемога', loss: 'Поразка', draw: 'Нічия' };
 
 export function ProfilePage() {
@@ -48,7 +47,6 @@ export function ProfilePage() {
     have: owned.filter((id) => CARD_BY_ID[id]?.rarity === r).length,
     all: CARDS.filter((c) => c.rarity === r).length,
   }));
-  const arena = ARENAS[p.arenaIndex];
 
   return (
     <section className="page profile">
@@ -88,12 +86,18 @@ export function ProfilePage() {
             </span>
             <span className="muted small">{p.role === 'admin' ? 'Адміністратор · ' : ''}з {new Date(p.createdAt).toLocaleDateString('uk-UA')}</span>
           </div>
-          <div className="profile-arena">
-            <span className="trophies">🏆 {p.trophies}</span>
+          <a className="profile-arena" href="#/leagues/pvp">
+            <span className="trophies">⚔ 🏆 {p.ladders.pvp.trophies}</span>
             <span className="muted">
-              {arena.name} · рекорд {p.bestTrophies}
+              {p.ladders.pvp.leagueName} · рекорд {p.ladders.pvp.best}
             </span>
-          </div>
+          </a>
+          <a className="profile-arena" href="#/leagues/bot">
+            <span className="trophies">🤖 🏆 {p.ladders.bot.trophies}</span>
+            <span className="muted">
+              {p.ladders.bot.leagueName} · рекорд {p.ladders.bot.best}
+            </span>
+          </a>
         </div>
         <div className="profile-side">
           {p.role === 'admin' && (

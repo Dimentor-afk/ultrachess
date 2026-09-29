@@ -6,17 +6,16 @@ import { legalMoves } from '../../engine/legal';
 import { type Action, createMatch, performAction } from '../../engine/match';
 import { MemoryStore } from '../memoryStore';
 import {
-  DAILY_PACK_LIMIT,
   PACKS,
   PACK_SHARD_PRICE,
   RARITIES,
   SHARDS_PER_DUPE,
-  WIN_GOLD,
   maxOfRarity,
   rollPack,
   rollRarity,
   rollStarter,
 } from '../packs';
+import { LADDER_PACK_LIMIT, LADDER_WIN_GOLD } from '../leagues';
 import { GameService } from '../service';
 import type { Hasher } from '../store';
 
@@ -121,7 +120,7 @@ describe('service', () => {
     const decks = await svc.decks(token);
     expect(decks).toHaveLength(1);
     const start = await svc.startMatch(token, { ranked: true });
-    expect(start.botLevel).toBe(1);
+    expect(start.botLevel).toBe(0);
     // Cards outside the collection cannot be put in a deck.
     await expect(svc.saveDeck(token, classicDeck('x', 'Класика'))).rejects.toThrow(/колекції|немає/);
   });
@@ -172,6 +171,7 @@ describe('service', () => {
       id: 'm1',
       userId: profile.id,
       ranked: true,
+      mode: 'bot',
       color: 'w',
       botLevel: 1,
       playerDeck: classicDeck(),
@@ -191,9 +191,11 @@ describe('service', () => {
     }
     expect(m.status).toBe('checkmate');
     const res = await svc.finishMatch(token, 'm1', actions, false);
-    expect(res).toMatchObject({ outcome: 'win', trophiesDelta: 30 });
+    expect(res).toMatchObject({ outcome: 'win', trophiesDelta: 20, ladder: 'bot' });
     expect(res.reward?.type).toBe('common');
-    expect(res.profile.trophies).toBe(30);
+    expect(res.profile.ladders.bot.trophies).toBe(20);
+    // The bot ladder does not touch the player ladder.
+    expect(res.profile.trophies).toBe(0);
     await expect(svc.finishMatch(token, 'm1', actions, false)).rejects.toThrow();
 
     // A tampered record is rejected.
@@ -202,7 +204,7 @@ describe('service', () => {
     await expect(svc.finishMatch(token, 'm2', bad, false)).rejects.toThrow();
   });
 
-  it('wins give packs right away, at most 10 a day', async () => {
+  it('bot-ladder wins give packs right away, at most 5 a day', async () => {
     let now = Date.UTC(2026, 0, 1, 12);
     const store = new MemoryStore();
     const svc = new GameService(store, plainHasher, () => now, seeded(9));
@@ -210,24 +212,25 @@ describe('service', () => {
     const { token, profile } = await svc.register('t@t.com', 'secret1', 'T');
     const mate = scholarsMate();
     const win = async (id: string) => {
-      await store.insertMatch({ id, userId: profile.id, ranked: true, color: 'w', botLevel: 1, playerDeck: classicDeck(), botDeck: classicDeck(), status: 'active', result: null, createdAt: now });
+      await store.insertMatch({ id, userId: profile.id, ranked: true, mode: 'bot', color: 'w', botLevel: 1, playerDeck: classicDeck(), botDeck: classicDeck(), status: 'active', result: null, createdAt: now });
       return svc.finishMatch(token, id, mate, false);
     };
-    for (let i = 0; i < DAILY_PACK_LIMIT; i++) {
+    const limit = LADDER_PACK_LIMIT.bot;
+    for (let i = 0; i < limit; i++) {
       const r = await win(`w${i}`);
       expect(r.reward).not.toBeNull();
-      expect(r.goldDelta).toBe(WIN_GOLD);
+      expect(r.goldDelta).toBe(LADDER_WIN_GOLD.bot);
     }
     const capped = await win('capped');
-    expect(capped).toMatchObject({ reward: null, rewardSkipped: true, goldDelta: WIN_GOLD });
-    expect(capped.profile.packsToday).toBe(DAILY_PACK_LIMIT);
+    expect(capped).toMatchObject({ reward: null, rewardSkipped: true, goldDelta: LADDER_WIN_GOLD.bot });
+    expect(capped.profile.ladders.bot.packsToday).toBe(limit);
     // Packs are ready to open at once: no timers.
     const packs = await svc.packs(token);
-    expect(packs.filter((p) => p.source.startsWith('Перемога'))).toHaveLength(DAILY_PACK_LIMIT);
+    expect(packs.filter((p) => p.source.startsWith('Перемога'))).toHaveLength(limit);
     await svc.openPack(token, packs[packs.length - 1].id);
     // Next day the limit resets.
     now += 864e5;
-    expect((await svc.me(token)).packsToday).toBe(0);
+    expect((await svc.me(token)).ladders.bot.packsToday).toBe(0);
     expect((await win('tomorrow')).reward).not.toBeNull();
   });
 });
@@ -255,7 +258,7 @@ describe('daily quests', () => {
     expect(play3).toMatchObject({ progress: 0, target: 3, claimed: false });
     await expect(svc.claimQuest(token, 'play3')).rejects.toThrow(/не виконано/);
     for (let i = 0; i < 3; i++) {
-      await store.insertMatch({ id: `q${i}`, userId: profile.id, ranked: true, color: 'w', botLevel: 1, playerDeck: classicDeck(), botDeck: classicDeck(), status: 'active', result: null, createdAt: now });
+      await store.insertMatch({ id: `q${i}`, userId: profile.id, ranked: true, mode: 'bot', color: 'w', botLevel: 1, playerDeck: classicDeck(), botDeck: classicDeck(), status: 'active', result: null, createdAt: now });
       await svc.finishMatch(token, `q${i}`, scholarsMate(), false);
     }
     const me = await svc.me(token);

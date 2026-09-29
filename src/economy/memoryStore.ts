@@ -1,7 +1,7 @@
 // In-memory Store. The browser demo persists it to localStorage; tests use
 // it as is.
 
-import type { CardRow, ChallengeRow, DeckRow, FriendRow, MatchRow, PackRow, PvpRow, SessionRow, Store, UserRow } from './store';
+import type { CardRow, ChallengeRow, DeckRow, FriendRow, MatchRow, PackRow, PvpRow, SeekRow, SessionRow, Store, UserRow } from './store';
 
 export interface MemoryData {
   users: UserRow[];
@@ -13,6 +13,7 @@ export interface MemoryData {
   friends: FriendRow[];
   challenges: ChallengeRow[];
   pvp: PvpRow[];
+  seeks: SeekRow[];
 }
 
 export const emptyData = (): MemoryData => ({
@@ -25,6 +26,7 @@ export const emptyData = (): MemoryData => ({
   friends: [],
   challenges: [],
   pvp: [],
+  seeks: [],
 });
 
 const clone = <T,>(x: T): T => JSON.parse(JSON.stringify(x));
@@ -46,6 +48,13 @@ export function withUserDefaults(u: UserRow): UserRow {
     botOverride: u.botOverride ?? -1,
     captureFx: u.captureFx ?? 'impact',
     ownedFx: u.ownedFx ?? '[]',
+    botTrophies: u.botTrophies ?? 0,
+    botBest: u.botBest ?? 0,
+    botCycle: u.botCycle ?? 0,
+    botPacksToday: u.botPacksToday ?? 0,
+    botPacksDay: u.botPacksDay ?? '',
+    leagueRewards: u.leagueRewards ?? '{}',
+    trials: u.trials ?? '{}',
   };
 }
 
@@ -233,5 +242,19 @@ export class MemoryStore implements Store {
     Object.assign(p, clone(patch));
     this.save();
     return true;
+  }
+
+  async listSeeks() {
+    return clone(this.data.seeks);
+  }
+  async putSeek(s: SeekRow) {
+    this.data.seeks = [...this.data.seeks.filter((x) => x.userId !== s.userId), clone(s)];
+    this.save();
+  }
+  async deleteSeek(userId: string) {
+    const had = this.data.seeks.some((x) => x.userId === userId);
+    this.data.seeks = this.data.seeks.filter((x) => x.userId !== userId);
+    if (had) this.save();
+    return had;
   }
 }

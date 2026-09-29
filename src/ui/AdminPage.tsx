@@ -56,7 +56,7 @@ export function AdminPage() {
                 <tr>
                   <th>Гравець</th>
                   <th>Роль</th>
-                  <th className="num">Кубки</th>
+                  <th className="num">Кубки ⚔ / 🤖</th>
                   <th className="num">Карток</th>
                   <th className="num">🪙 / 💎</th>
                   <th className="num">W / L</th>
@@ -80,10 +80,20 @@ export function AdminPage() {
                         className="num-input"
                         type="number"
                         defaultValue={u.trophies}
-                        aria-label={`Кубки ${u.name}`}
+                        aria-label={`Кубки ліги гравців ${u.name}`}
                         onBlur={(e) => {
                           const v = Number(e.target.value);
                           if (v !== u.trophies) void run(() => s.api.adminSetTrophies(u.id, v), `Кубки: ${u.name} → ${v}`);
+                        }}
+                      />
+                      <input
+                        className="num-input"
+                        type="number"
+                        defaultValue={u.botTrophies}
+                        aria-label={`Кубки ліги ботів ${u.name}`}
+                        onBlur={(e) => {
+                          const v = Number(e.target.value);
+                          if (v !== u.botTrophies) void run(() => s.api.adminSetTrophies(u.id, v, 'bot'), `Кубки ліги ботів: ${u.name} → ${v}`);
                         }}
                       />
                     </td>

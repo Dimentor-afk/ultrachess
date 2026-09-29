@@ -1,7 +1,7 @@
 // SQLite implementation of the game Store (Node's built-in node:sqlite).
 
 import { DatabaseSync } from 'node:sqlite';
-import type { CardRow, ChallengeRow, DeckRow, FriendRow, MatchRow, PackRow, PvpRow, SessionRow, Store, UserRow } from '../src/economy/store';
+import type { CardRow, ChallengeRow, DeckRow, FriendRow, MatchRow, PackRow, PvpRow, SeekRow, SessionRow, Store, UserRow } from '../src/economy/store';
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS users (
@@ -108,6 +108,11 @@ CREATE TABLE IF NOT EXISTS pvp (
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS seeks (
+  user_id TEXT PRIMARY KEY REFERENCES users(id),
+  deck TEXT NOT NULL,
+  updated_at INTEGER NOT NULL
+);
 `;
 
 type Row = Record<string, unknown>;
@@ -139,6 +144,13 @@ const USER_COLS: Record<keyof UserRow, string> = {
   botOverride: 'bot_override',
   captureFx: 'capture_fx',
   ownedFx: 'owned_fx',
+  botTrophies: 'bot_trophies',
+  botBest: 'bot_best',
+  botCycle: 'bot_cycle',
+  botPacksToday: 'bot_packs_today',
+  botPacksDay: 'bot_packs_day',
+  leagueRewards: 'league_rewards',
+  trials: 'trials',
 };
 
 /** Columns added after the first release, for databases created before them. */
@@ -156,6 +168,19 @@ const USER_MIGRATIONS: [string, string][] = [
   ['bot_override', 'INTEGER NOT NULL DEFAULT -1'],
   ['capture_fx', "TEXT NOT NULL DEFAULT 'impact'"],
   ['owned_fx', "TEXT NOT NULL DEFAULT '[]'"],
+  ['bot_trophies', 'INTEGER NOT NULL DEFAULT 0'],
+  ['bot_best', 'INTEGER NOT NULL DEFAULT 0'],
+  ['bot_cycle', 'INTEGER NOT NULL DEFAULT 0'],
+  ['bot_packs_today', 'INTEGER NOT NULL DEFAULT 0'],
+  ['bot_packs_day', "TEXT NOT NULL DEFAULT ''"],
+  ['league_rewards', "TEXT NOT NULL DEFAULT '{}'"],
+  ['trials', "TEXT NOT NULL DEFAULT '{}'"],
+];
+
+/** Columns added to other tables after the first release. */
+const OTHER_MIGRATIONS: [string, string, string][] = [
+  ['matches', 'mode', "TEXT NOT NULL DEFAULT ''"],
+  ['pvp', 'ranked', 'INTEGER NOT NULL DEFAULT 0'],
 ];
 
 const PACK_COLS: Record<keyof PackRow, string> = {
@@ -202,6 +227,13 @@ function user(r: Row | undefined): UserRow | null {
     botOverride: Number(r.bot_override ?? -1),
     captureFx: (r.capture_fx as string | null) ?? 'impact',
     ownedFx: (r.owned_fx as string | null) ?? '[]',
+    botTrophies: Number(r.bot_trophies ?? 0),
+    botBest: Number(r.bot_best ?? 0),
+    botCycle: Number(r.bot_cycle ?? 0),
+    botPacksToday: Number(r.bot_packs_today ?? 0),
+    botPacksDay: (r.bot_packs_day as string | null) ?? '',
+    leagueRewards: (r.league_rewards as string | null) ?? '{}',
+    trials: (r.trials as string | null) ?? '{}',
   };
 }
 
@@ -227,6 +259,7 @@ function match(r: Row | undefined): MatchRow | null {
     id: r.id as string,
     userId: r.user_id as string,
     ranked: !!r.ranked,
+    mode: (r.mode as string | null) ?? '',
     color: r.color as MatchRow['color'],
     botLevel: Number(r.bot_level),
     playerDeck: JSON.parse(r.player_deck as string),
@@ -267,6 +300,7 @@ function pvp(r: Row | undefined): PvpRow | null {
     status: r.status as PvpRow['status'],
     result: (r.result as string | null) ?? null,
     resignedBy: (r.resigned_by as PvpRow['resignedBy']) ?? null,
+    ranked: !!r.ranked,
     createdAt: Number(r.created_at),
     updatedAt: Number(r.updated_at),
   };
@@ -298,6 +332,10 @@ export class SqliteStore implements Store {
     this.db.exec(SCHEMA);
     const have = new Set((this.db.prepare('PRAGMA table_info(users)').all() as Row[]).map((r) => r.name as string));
     for (const [col, def] of USER_MIGRATIONS) if (!have.has(col)) this.db.exec(`ALTER TABLE users ADD COLUMN ${col} ${def}`);
+    for (const [table, col, def] of OTHER_MIGRATIONS) {
+      const cols = new Set((this.db.prepare(`PRAGMA table_info(${table})`).all() as Row[]).map((r) => r.name as string));
+      if (!cols.has(col)) this.db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${def}`);
+    }
   }
 
   async getUser(id: string) {
@@ -386,9 +424,9 @@ export class SqliteStore implements Store {
   async insertMatch(m: MatchRow) {
     this.db
       .prepare(
-        'INSERT INTO matches (id, user_id, ranked, color, bot_level, player_deck, bot_deck, status, result, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO matches (id, user_id, ranked, mode, color, bot_level, player_deck, bot_deck, status, result, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       )
-      .run(m.id, m.userId, m.ranked ? 1 : 0, m.color, m.botLevel, JSON.stringify(m.playerDeck), JSON.stringify(m.botDeck), m.status, m.result, m.createdAt);
+      .run(m.id, m.userId, m.ranked ? 1 : 0, m.mode, m.color, m.botLevel, JSON.stringify(m.playerDeck), JSON.stringify(m.botDeck), m.status, m.result, m.createdAt);
   }
   async getMatch(id: string) {
     return match(this.db.prepare('SELECT * FROM matches WHERE id = ?').get(id) as Row | undefined);
@@ -442,7 +480,7 @@ export class SqliteStore implements Store {
   async insertPvp(p: PvpRow) {
     this.db
       .prepare(
-        'INSERT INTO pvp (id, white_id, black_id, white_deck, black_deck, actions, action_count, status, result, resigned_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO pvp (id, white_id, black_id, white_deck, black_deck, actions, action_count, status, result, resigned_by, ranked, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       )
       .run(
         p.id,
@@ -455,6 +493,7 @@ export class SqliteStore implements Store {
         p.status,
         p.result,
         p.resignedBy,
+        p.ranked ? 1 : 0,
         p.createdAt,
         p.updatedAt,
       );
@@ -475,5 +514,21 @@ export class SqliteStore implements Store {
       vals.push(expectedActions);
     }
     return Number(this.db.prepare(sql).run(...vals).changes) > 0;
+  }
+
+  async listSeeks() {
+    return (this.db.prepare('SELECT * FROM seeks ORDER BY updated_at').all() as Row[]).map((r) => ({
+      userId: r.user_id as string,
+      deck: JSON.parse(r.deck as string),
+      updatedAt: Number(r.updated_at),
+    }));
+  }
+  async putSeek(s: SeekRow) {
+    this.db
+      .prepare('INSERT INTO seeks (user_id, deck, updated_at) VALUES (?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET deck = excluded.deck, updated_at = excluded.updated_at')
+      .run(s.userId, JSON.stringify(s.deck), s.updatedAt);
+  }
+  async deleteSeek(userId: string) {
+    return Number(this.db.prepare('DELETE FROM seeks WHERE user_id = ?').run(userId).changes) > 0;
   }
 }

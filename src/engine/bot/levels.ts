@@ -12,10 +12,13 @@ export interface BotLevel {
 
 export const BOT_LEVELS: BotLevel[] = [
   { level: 0, name: 'Мартін', elo: 250, opts: { depth: 1, timeMs: 500, noise: 260, blunder: 0.3, quiescence: false } },
-  { level: 1, name: 'Новачок', elo: 600, opts: { depth: 1, timeMs: 800, noise: 110, blunder: 0.1, quiescence: false } },
-  { level: 2, name: 'Любитель', elo: 1000, opts: { depth: 2, timeMs: 1200, noise: 45, blunder: 0.03 } },
-  { level: 3, name: 'Досвідчений', elo: 1400, opts: { depth: 2, timeMs: 1500, noise: 12 } },
-  { level: 4, name: 'Майстер', elo: 1800, opts: { depth: 3, timeMs: 2500, noise: 3 } },
+  { level: 1, name: 'Новачок', elo: 500, opts: { depth: 1, timeMs: 700, noise: 150, blunder: 0.15, quiescence: false } },
+  { level: 2, name: 'Учень', elo: 750, opts: { depth: 1, timeMs: 900, noise: 80, blunder: 0.07, quiescence: false } },
+  { level: 3, name: 'Любитель', elo: 1000, opts: { depth: 2, timeMs: 1200, noise: 45, blunder: 0.03 } },
+  { level: 4, name: 'Клубний гравець', elo: 1250, opts: { depth: 2, timeMs: 1300, noise: 25, blunder: 0.01 } },
+  { level: 5, name: 'Досвідчений', elo: 1500, opts: { depth: 2, timeMs: 1500, noise: 12 } },
+  { level: 6, name: 'Кандидат у майстри', elo: 1750, opts: { depth: 3, timeMs: 2000, noise: 6 } },
+  { level: 7, name: 'Майстер', elo: 2000, opts: { depth: 3, timeMs: 2500, noise: 2 } },
 ];
 
 export function botLevel(level: number): BotLevel {

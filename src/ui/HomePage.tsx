@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import type { MatchStart, PackView } from '../api/client';
-import { ARENAS, DAILY_PACK_LIMIT, PACKS, PACK_SHARD_PRICE, RARITIES, STARTER_PACK, WIN_GOLD, packName } from '../economy/packs';
+import type { MatchStart, PackView, PvpState } from '../api/client';
+import { PACKS, PACK_SHARD_PRICE, RARITIES, STARTER_PACK, packName } from '../economy/packs';
+import { LADDER_NAMES, LADDER_PACK_LIMIT, LADDER_TROPHIES, LADDER_WIN_GOLD, LEAGUES, type Ladder } from '../economy/leagues';
+import { PvpGame } from './PvpGame';
 import { RARITY_NAMES } from '../engine/cards';
 import type { Rarity } from '../engine/types';
 import { Game } from './MatchPage';
@@ -15,19 +17,39 @@ import type { FxName } from './fxSprites';
 import { errorText, useSession } from './state';
 
 
+/** Which ladder the home page shows (remembered per browser). */
+function savedLadder(): Ladder {
+  try {
+    return localStorage.getItem('uc.ladder') === 'pvp' ? 'pvp' : 'bot';
+  } catch {
+    return 'bot';
+  }
+}
+
 export function HomePage() {
   const s = useSession();
   const { api, profile, decks, packs } = s;
   const [game, setGame] = useState<{ start: MatchStart; key: number } | null>(null);
+  const [pvp, setPvp] = useState<PvpState | null>(null);
+  const [searching, setSearching] = useState<{ since: number; others: number } | null>(null);
   const [opening, setOpening] = useState<PackView | null>(null);
   const [level, setLevel] = useState(2);
   const [busy, setBusy] = useState(false);
   const [showOdds, setShowOdds] = useState(false);
+  const [ladder, setLadderState] = useState<Ladder>(savedLadder);
+  const setLadder = (l: Ladder) => {
+    setLadderState(l);
+    try {
+      localStorage.setItem('uc.ladder', l);
+    } catch {
+      // private mode: not remembered
+    }
+  };
 
   const activeDeck = decks.find((d) => d.id === profile.activeDeckId) ?? decks[0];
-  const arena = ARENAS[profile.arenaIndex];
-  const next = profile.nextArena;
-  const progress = next ? (profile.trophies - arena.minTrophies) / (next.minTrophies - arena.minTrophies) : 1;
+  const lv = profile.ladders[ladder];
+  const league = LEAGUES[ladder][lv.league];
+  const progress = lv.next ? (lv.trophies - league.minTrophies) / (lv.next.minTrophies - league.minTrophies) : 1;
 
   // The starter pack opens by itself on the first visit.
   const autoOpened = useRef(false);
@@ -51,6 +73,67 @@ export function HomePage() {
     }
   };
 
+  // Player ladder: keep asking the server until someone is matched.
+  useEffect(() => {
+    if (!searching) return;
+    let stop = false;
+    const tick = async () => {
+      try {
+        const r = await api.seek(activeDeck?.id);
+        if (stop) return;
+        if (r.pvpId) {
+          setSearching(null);
+          play('rare');
+          setPvp(await api.pvpState(r.pvpId));
+        } else {
+          setSearching((x) => (x ? { ...x, others: r.searching } : x));
+        }
+      } catch (e) {
+        if (!stop) {
+          setSearching(null);
+          s.toast(errorText(e), 'error');
+        }
+      }
+    };
+    void tick();
+    const t = setInterval(tick, 2000);
+    return () => {
+      stop = true;
+      clearInterval(t);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searching?.since]);
+
+  const cancelSearch = () => {
+    setSearching(null);
+    void api.cancelSeek().catch(() => undefined);
+  };
+
+  const resumeRanked = async () => {
+    if (!s.inbox.rankedGame) return;
+    try {
+      setPvp(await api.pvpState(s.inbox.rankedGame));
+    } catch (e) {
+      s.toast(errorText(e), 'error');
+    }
+  };
+
+  if (pvp) {
+    return (
+      <PvpGame
+        pvp={pvp}
+        onExit={() => {
+          setPvp(null);
+          void s.refreshInbox();
+        }}
+        onRematch={() => {
+          setPvp(null);
+          setSearching({ since: Date.now(), others: 0 });
+        }}
+      />
+    );
+  }
+
   if (game) {
     return (
       <Game
@@ -59,7 +142,7 @@ export function HomePage() {
         playerName={profile.name}
         playerAvatar={profile.avatar}
         captureFx={{ [game.start.color]: captureFxById(profile.captureFx).sprite as FxName }}
-        trophies={profile.trophies}
+        trophies={profile.ladders.bot.trophies}
         onFinish={async (actions, resigned) => {
           const v = await api.finishMatch(game.start.matchId, actions, resigned);
           s.setProfile(v.profile);
@@ -75,28 +158,60 @@ export function HomePage() {
     );
   }
 
+  const bot = botLevel(profile.rankedBot);
   return (
     <section className="page home">
+      <div className="ladder-switch" role="tablist" aria-label="Ліга">
+        {(['bot', 'pvp'] as Ladder[]).map((l) => (
+          <button key={l} role="tab" aria-selected={ladder === l} className={`ladder-tab ${ladder === l ? 'on' : ''}`} onClick={() => setLadder(l)}>
+            <span className="ladder-icon">{l === 'bot' ? '🤖' : '⚔'}</span>
+            <span>
+              <b>{LADDER_NAMES[l]}</b>
+              <small>
+                🏆 {profile.ladders[l].trophies} · {profile.ladders[l].leagueName}
+              </small>
+            </span>
+          </button>
+        ))}
+        <a className="btn btn-ghost btn-sm ladder-all" href="#/leagues">
+          Усі ліги ›
+        </a>
+      </div>
+
       <div className="home-top">
-        <div className="arena-card">
+        <a className={`arena-card ladder-${ladder}`} href={`#/leagues/${ladder}`} title="Переглянути всі ліги">
           <div className="arena-art" aria-hidden="true">
-            <img src={packArt(['common', 'rare', 'epic', 'legendary', 'mythic'][profile.arenaIndex] as never)} alt="" />
+            <img src={packArt(league.art)} alt="" />
           </div>
           <div className="arena-info">
-            <span className="eyebrow">Арена {profile.arenaIndex + 1}</span>
-            <h1>{profile.arena}</h1>
+            <span className="eyebrow">
+              {LADDER_NAMES[ladder]} · ліга {lv.league + 1} з {LEAGUES[ladder].length}
+            </span>
+            <h1>{lv.leagueName}</h1>
             <div className="trophy-row">
-              <span className="trophies">🏆 {profile.trophies}</span>
-              {next && <span className="muted small">до «{next.name}»: {next.minTrophies - profile.trophies}</span>}
+              <span className="trophies">🏆 {lv.trophies}</span>
+              {lv.next && (
+                <span className="muted small">
+                  до «{lv.next.name}»: {lv.next.minTrophies - lv.trophies}
+                </span>
+              )}
             </div>
             <div className="bar">
               <span style={{ width: `${Math.min(100, Math.max(0, progress * 100))}%` }} />
             </div>
-            <span className="muted small">
-              Перемоги {profile.wins} · Поразки {profile.losses} · Нічиї {profile.draws}
-            </span>
+            {lv.next && (lv.next.reward.gold > 0 || lv.next.reward.pack) && (
+              <span className="muted small">
+                За вихід у нову лігу: {lv.next.reward.gold > 0 && `🪙 ${lv.next.reward.gold}`}
+                {lv.next.reward.pack && ` + ${packName(lv.next.reward.pack)}`}
+              </span>
+            )}
+            {ladder === 'bot' && (
+              <span className="muted small">
+                Бот ліги: <b>{bot.name}</b> (~{bot.elo} Elo)
+              </span>
+            )}
           </div>
-        </div>
+        </a>
 
         <div className="battle-card">
           <div className="battle-deck">
@@ -116,48 +231,78 @@ export function HomePage() {
             </div>
             {activeDeck && <MiniBoard deck={activeDeck} />}
           </div>
-          <button className="btn btn-battle" disabled={busy || !activeDeck} onClick={() => startMatch(true)}>
-            <Icon name="sword" /> Бій
-          </button>
+          {ladder === 'bot' ? (
+            <button className="btn btn-battle" disabled={busy || !activeDeck} onClick={() => startMatch(true)}>
+              <Icon name="sword" /> Бій з ботом
+            </button>
+          ) : s.inbox.rankedGame ? (
+            <button className="btn btn-battle" onClick={resumeRanked}>
+              <Icon name="sword" /> Повернутися до гри
+            </button>
+          ) : searching ? (
+            <div className="searching">
+              <span className="spinner" aria-hidden="true" />
+              <span>
+                <b>Шукаємо суперника…</b>
+                <small className="muted">
+                  {Math.floor((Date.now() - searching.since) / 1000)} с · зараз шукають ще: {searching.others}
+                </small>
+              </span>
+              <button className="btn btn-sm" onClick={cancelSearch}>
+                Скасувати
+              </button>
+            </div>
+          ) : (
+            <button
+              className="btn btn-battle"
+              disabled={!activeDeck}
+              onClick={() => setSearching({ since: Date.now(), others: 0 })}
+            >
+              <Icon name="sword" /> Знайти суперника
+            </button>
+          )}
           {!activeDeck && <p className="muted small center">Відкрийте стартовий пак — з нього збереться перша колода.</p>}
-          <div className="ranked-bot">
-            <span className="muted small">
-              Суперник у рейтингу: <b>Бот · {botLevel(profile.rankedBot).name}</b> (~{botLevel(profile.rankedBot).elo} Elo)
-            </span>
-            {profile.role === 'admin' && (
-              <label className="admin-bot">
-                <span className="pill">адмін</span>
-                <select
-                  value={profile.botOverride ?? -1}
-                  aria-label="Сила рейтингового бота"
-                  onChange={async (e) => {
-                    const v = Number(e.target.value);
-                    try {
-                      s.setProfile(await api.setBotOverride(v < 0 ? null : v));
-                    } catch (err) {
-                      s.toast(errorText(err), 'error');
-                    }
-                  }}
-                >
-                  <option value={-1}>За ареною</option>
-                  {BOT_LEVELS.map((l) => (
-                    <option key={l.level} value={l.level}>
-                      {l.name} (~{l.elo})
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
-          </div>
+          {ladder === 'pvp' && (
+            <p className="muted small">
+              Гра з живим гравцем за кубки. Якщо суперник не ходить 1,5 хвилини, перемогу можна забрати.
+              {api.mode === 'local' && ' У демо без сервера суперником може бути лише інший акаунт у цьому браузері.'}
+            </p>
+          )}
+          {ladder === 'bot' && profile.role === 'admin' && (
+            <label className="admin-bot">
+              <span className="pill">адмін</span>
+              <select
+                value={profile.botOverride ?? -1}
+                aria-label="Сила бота в лізі"
+                onChange={async (e) => {
+                  const v = Number(e.target.value);
+                  try {
+                    s.setProfile(await api.setBotOverride(v < 0 ? null : v));
+                  } catch (err) {
+                    s.toast(errorText(err), 'error');
+                  }
+                }}
+              >
+                <option value={-1}>За лігою</option>
+                {BOT_LEVELS.map((l) => (
+                  <option key={l.level} value={l.level}>
+                    {l.name} (~{l.elo})
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <div className="next-reward">
-            <img src={packArt(profile.nextReward)} alt="" />
+            <img src={packArt(lv.nextPack)} alt="" />
             <span>
-              {profile.packsToday < profile.packsLimit ? (
+              {lv.packsToday < lv.packsLimit ? (
                 <>
-                  Нагорода за перемогу: <b>{packName(profile.nextReward)}</b> і 🪙 {WIN_GOLD}
+                  За перемогу: <b>{packName(lv.nextPack)}</b>, 🪙 {lv.winGold} і +{lv.win} 🏆 · паків сьогодні {lv.packsToday}/{lv.packsLimit}
                 </>
               ) : (
-                <>Ліміт паків на сьогодні вичерпано — за перемогу 🪙 {WIN_GOLD} і кубки</>
+                <>
+                  Ліміт {lv.packsLimit} паків на сьогодні в цій лізі вичерпано — за перемогу 🪙 {lv.winGold} і кубки
+                </>
               )}
             </span>
           </div>
@@ -171,7 +316,7 @@ export function HomePage() {
                   onClick={() => setLevel(l.level)}
                   title={`Приблизно ${l.elo} Elo`}
                 >
-                  {l.name}
+                  {l.elo}
                 </button>
               ))}
               <button className="btn btn-sm" disabled={busy || !activeDeck} onClick={() => startMatch(false)}>
@@ -179,6 +324,9 @@ export function HomePage() {
               </button>
             </div>
           </div>
+          <a className="trial-teaser" href="#/trials">
+            🏅 <b>Випробування</b> <span className="muted small">три перемоги поспіль — легендарний пак</span> ›
+          </a>
         </div>
       </div>
 
@@ -243,8 +391,9 @@ export function HomePage() {
         <h2>
           Ваші паки <span className="muted small">{packs.length}</span>
         </h2>
-        <span className="daily" title="Паки за перемоги в рейтингу оновлюються щодня">
-          Паки за перемоги сьогодні: <b>{profile.packsToday}</b> / {profile.packsLimit}
+        <span className="daily" title="Ліміти паків за перемоги в лігах оновлюються щодня">
+          Паки за перемоги сьогодні: 🤖 <b>{profile.ladders.bot.packsToday}</b>/{profile.ladders.bot.packsLimit} · ⚔{' '}
+          <b>{profile.ladders.pvp.packsToday}</b>/{profile.ladders.pvp.packsLimit}
         </span>
         <button className="btn btn-ghost btn-sm" onClick={() => setShowOdds(!showOdds)}>
           <Icon name="info" /> Шанси
@@ -253,7 +402,8 @@ export function HomePage() {
       {packs.length === 0 ? (
         <div className="panel empty-packs">
           <p className="muted">
-            Паків немає. Перемагайте в рейтингових боях — кожна перемога одразу дає пак (до {profile.packsLimit} на день). Паки також
+            Паків немає. Перемагайте в лігах — кожна перемога одразу дає пак (у лізі ботів до {profile.ladders.bot.packsLimit}, у лізі
+            гравців до {profile.ladders.pvp.packsLimit} на день). Паки також
             купуються за осколки в <a href="#/shop">магазині</a>.
           </p>
         </div>
@@ -349,8 +499,10 @@ function OddsTable() {
         Ліміт обмежує кількість сильних карток в одному паку: якщо випадає більше, зайві стають на рівень нижчими. Наприклад, міфічний пак
         дає рівно одну міфологічну, щонайбільше одну легендарну й не більше трьох епічних і вище разом.
         <br />
-        Перемога в рейтингу дає +30 кубків, 🪙 {WIN_GOLD} і одразу пак (цикл: звичайні, рідкісні, епічний, легендарний), але не більше{' '}
-        {DAILY_PACK_LIMIT} паків на день. Поразка — −20 кубків. Повторки карт автоматично стають осколками 💎, за які в магазині купуються паки.
+        Ліга гравців: перемога дає +{LADDER_TROPHIES.pvp.win} кубків, 🪙 {LADDER_WIN_GOLD.pvp} і одразу пак (цикл до легендарного), до{' '}
+        {LADDER_PACK_LIMIT.pvp} паків на день; поразка — {LADDER_TROPHIES.pvp.loss}. Ліга ботів: +{LADDER_TROPHIES.bot.win} / {LADDER_TROPHIES.bot.loss}{' '}
+        кубків, 🪙 {LADDER_WIN_GOLD.bot}, паки не вище рідкісного, до {LADDER_PACK_LIMIT.bot} на день. Повторки карт автоматично стають
+        осколками 💎, за які в магазині купуються паки.
       </p>
     </div>
   );

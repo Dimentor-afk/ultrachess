@@ -1,4 +1,5 @@
-import { DAILY_PACK_LIMIT, PACK_SHARD_PRICE, SHARDS_PER_DUPE, WIN_GOLD } from '../economy/packs';
+import { PACK_SHARD_PRICE, SHARDS_PER_DUPE } from '../economy/packs';
+import { LADDER_PACK_LIMIT, LADDER_TROPHIES, LADDER_WIN_GOLD } from '../economy/leagues';
 import { EFFECT_NAMES, RARITY_NAMES } from '../engine/cards';
 import type { EffectType, Rarity } from '../engine/types';
 import { cardArt } from './cardArt';
@@ -68,7 +69,9 @@ export function HelpPage() {
           <img className="pixel help-art" src="assets/packs/epic.png" alt="" />
           <h2>6. Паки, осколки, золото</h2>
           <p>
-            Перемога в рейтингу — +30 кубків, 🪙 {WIN_GOLD} і пак (до {DAILY_PACK_LIMIT} на день). Повторка картки стає осколками 💎 (
+            Дві ліги з окремими кубками. Ліга ботів: +{LADDER_TROPHIES.bot.win} кубків, 🪙 {LADDER_WIN_GOLD.bot} і пак (до{' '}
+            {LADDER_PACK_LIMIT.bot} на день). Ліга гравців: +{LADDER_TROPHIES.pvp.win}, 🪙 {LADDER_WIN_GOLD.pvp} і пак (до{' '}
+            {LADDER_PACK_LIMIT.pvp} на день). За перший вихід у нову лігу — бонус. Повторка картки стає осколками 💎 (
             {(Object.entries(SHARDS_PER_DUPE) as [Rarity, number][]).map(([r, n]) => `${RARITY_NAMES[r].toLowerCase()} ${n}`).join(', ')}
             ), за них у магазині купуються паки (від 💎 {PACK_SHARD_PRICE.common}). Золото купує кольори дошки.
           </p>

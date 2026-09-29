@@ -13,12 +13,16 @@ import { Avatar } from './common';
 import { themeById } from '../economy/themes';
 import { cardArt } from './cardArt';
 import { Icon } from './icons';
+import { LeaguesPage } from './LeaguesPage';
+import { TrialsPage } from './TrialsPage';
 import { type Loaded, SessionProvider, type Toast, errorText, loadAll, useSession } from './state';
 
-type Route = 'play' | 'deck' | 'shop' | 'friends' | 'top' | 'admin' | 'profile' | 'help';
+type Route = 'play' | 'leagues' | 'trials' | 'deck' | 'shop' | 'friends' | 'top' | 'admin' | 'profile' | 'help';
 
 const ROUTES: { id: Route; label: string; icon: string; admin?: boolean }[] = [
   { id: 'play', label: 'Грати', icon: 'play' },
+  { id: 'leagues', label: 'Ліги', icon: 'ladder' },
+  { id: 'trials', label: 'Випробування', icon: 'medal' },
   { id: 'deck', label: 'Колода', icon: 'cards' },
   { id: 'shop', label: 'Магазин', icon: 'shop' },
   { id: 'friends', label: 'Друзі', icon: 'users' },
@@ -27,7 +31,7 @@ const ROUTES: { id: Route; label: string; icon: string; admin?: boolean }[] = [
 ];
 
 function readRoute(): Route {
-  const h = window.location.hash.replace(/^#\/?/, '');
+  const h = window.location.hash.replace(/^#\/?/, '').split('/')[0];
   if (h === 'cards') return 'deck'; // the old collection page lives on the deck page now
   if (h === 'profile' || h === 'help') return h;
   return ROUTES.find((r) => r.id === h)?.id ?? 'play';
@@ -143,6 +147,8 @@ function Shell() {
           </a>
         </div>
         {route === 'play' && <HomePage />}
+        {route === 'leagues' && <LeaguesPage />}
+        {route === 'trials' && <TrialsPage />}
         {route === 'deck' && <DeckPage />}
         {route === 'shop' && <ShopPage />}
         {route === 'friends' && <FriendsPage />}

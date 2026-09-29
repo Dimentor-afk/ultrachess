@@ -65,7 +65,7 @@ export function SessionProvider({
 }) {
   const [data, setData] = useState<Loaded>(initial);
   const refresh = useCallback(async () => setData(await loadAll(api)), [api]);
-  const [inbox, setInbox] = useState<Inbox>({ friendRequests: 0, challenges: 0, yourTurn: 0 });
+  const [inbox, setInbox] = useState<Inbox>({ friendRequests: 0, challenges: 0, yourTurn: 0, rankedGame: null });
   const refreshInbox = useCallback(async () => {
     try {
       setInbox(await api.inbox());

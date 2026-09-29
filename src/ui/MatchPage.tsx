@@ -13,6 +13,8 @@ import { playerView } from '../engine/view';
 import { Board, type Mark, boardRing, squareCenter } from './Board';
 import { type Stage, advanceStage, nextStops, stageAt, startStage, stayMoves, stopsOf } from './stage';
 import { getSettings, play } from './settings';
+import { LADDER_NAMES } from '../economy/leagues';
+import { CLAIM_MS } from '../economy/service';
 import { DeckIntro, introSteps } from './DeckIntro';
 import type { FxName } from './fxSprites';
 import { requestBotTurn, requestHint } from './botClient';
@@ -27,6 +29,7 @@ export interface GameProps {
   onFinish?: (actions: Action[], resigned: boolean) => Promise<MatchFinish>;
   onExit: () => void;
   onRematch?: () => void;
+  rematchLabel?: string;
   /** A friend instead of the bot: moves go to the server, theirs come back by polling. */
   remote?: RemoteGame;
   /** Capture effect sprites per side. */
@@ -41,12 +44,16 @@ export interface RemoteGame {
   poll(): Promise<{ actions: Action[]; resignedBy: Color | null }>;
   send(action: Action, expected: number): Promise<void>;
   resign(): Promise<void>;
+  /** A player-ladder game (trophies at stake). */
+  ranked?: boolean;
+  /** Take the win when the opponent stalls (player ladder). */
+  claim?: () => Promise<void>;
 }
 
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-export function Game({ start, playerName, playerAvatar, trophies, onFinish, onExit, onRematch, remote, captureFx }: GameProps) {
+export function Game({ start, playerName, playerAvatar, trophies, onFinish, onExit, onRematch, rematchLabel, remote, captureFx }: GameProps) {
   const human = start.color;
   const bot = opposite(human);
   const botOpts = botLevel(start.botLevel).opts;
@@ -117,6 +124,15 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
   const [error, setError] = useState<string | null>(null);
   const [showSummary, setShowSummary] = useState(true);
   const [confirmResign, setConfirmResign] = useState(false);
+  // Player ladder: a stalled opponent can be timed out.
+  const [quietSince, setQuietSince] = useState(() => Date.now());
+  const [clock, setClock] = useState(() => Date.now());
+  useEffect(() => setQuietSince(Date.now()), [match.history.length]);
+  useEffect(() => {
+    if (!remote?.claim) return;
+    const t = setInterval(() => setClock(Date.now()), 5000);
+    return () => clearInterval(t);
+  }, [remote]);
   const alive = useRef(true);
   const historyRef = useRef<HTMLOListElement>(null);
   useEffect(() => () => void (alive.current = false), []);
@@ -441,7 +457,15 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
 
       <aside className="game-side">
         <div className={`panel status status-${match.result ? 'over' : myTurn ? 'mine' : 'bot'}`} aria-live="polite">
-          <span className="eyebrow mode-tag">{remote ? 'Гра з другом' : start.ranked ? 'Рейтинговий бій' : 'Тренування'}</span>
+          <span className="eyebrow mode-tag">{remote
+              ? remote.ranked
+                ? 'Ліга гравців'
+                : 'Гра з другом'
+              : start.trial
+                ? `${start.trial.name} · раунд ${start.trial.round}/${start.trial.rounds}`
+                : start.ranked
+                  ? 'Ліга ботів'
+                  : 'Тренування'}</span>
           <br />
           <strong>{statusText}</strong>
           {error && <p className="error-text">{error}</p>}
@@ -573,6 +597,18 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
         </div>
 
         <div className="game-actions">
+          {remote?.claim && !match.result && !myTurn && clock - quietSince > CLAIM_MS && (
+            <button
+              className="btn btn-primary"
+              onClick={() =>
+                remote.claim!()
+                  .then(resync)
+                  .catch((e) => setError(e instanceof Error ? e.message : String(e)))
+              }
+            >
+              Суперник мовчить — забрати перемогу
+            </button>
+          )}
           {!match.result && (
             <button
               className="btn btn-danger"
@@ -616,16 +652,19 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
             <p>
               {match.result.reason} · ходів: {match.result.moves}
             </p>
-            {remote && <p className="muted">Дружня гра: кубки не змінюються, партія є в історії обох гравців.</p>}
-            {!remote && !verdict && !verdictError && <p className="muted">Перевіряємо партію…</p>}
+            {remote && !remote.ranked && <p className="muted">Дружня гра: кубки не змінюються, партія є в історії обох гравців.</p>}
+            {onFinish && !verdict && !verdictError && <p className="muted">{remote ? 'Рахуємо кубки…' : 'Перевіряємо партію…'}</p>}
             {verdictError && <p className="error-text">{verdictError}</p>}
-            {verdict && start.ranked && (
+            {verdict?.ladder && (
               <div className="verdict">
+                <span className="eyebrow">{LADDER_NAMES[verdict.ladder]}</span>
                 <span className={`trophy-delta ${verdict.trophiesDelta >= 0 ? 'up' : 'down'}`}>
                   🏆 {verdict.trophiesDelta >= 0 ? '+' : ''}
                   {verdict.trophiesDelta}
                 </span>
-                <span className="muted">Тепер: {verdict.profile.trophies} · {verdict.profile.arena}</span>
+                <span className="muted">
+                  Тепер: {verdict.profile.ladders[verdict.ladder].trophies} · {verdict.profile.ladders[verdict.ladder].leagueName}
+                </span>
                 {verdict.goldDelta > 0 && <span className="loot-item gold">🪙 +{verdict.goldDelta} золота</span>}
                 {verdict.reward && (
                   <div className="reward">
@@ -633,21 +672,58 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
                     <div>
                       <b>{verdict.reward.name}</b>
                       <small className="muted">
-                        уже чекає на головній · паків сьогодні {verdict.profile.packsToday}/{verdict.profile.packsLimit}
+                        уже чекає на головній · паків сьогодні {verdict.profile.ladders[verdict.ladder].packsToday}/
+                        {verdict.profile.ladders[verdict.ladder].packsLimit}
                       </small>
                     </div>
                   </div>
                 )}
                 {verdict.rewardSkipped && (
-                  <p className="muted small">Ліміт {verdict.profile.packsLimit} паків на сьогодні вичерпано — завтра паки знову падатимуть.</p>
+                  <p className="muted small">
+                    Ліміт {verdict.profile.ladders[verdict.ladder].packsLimit} паків на сьогодні в цій лізі вичерпано — завтра паки знову падатимуть.
+                  </p>
+                )}
+                {verdict.leagueUps.map((l) => (
+                  <div key={l.name} className="league-up">
+                    <span className="league-up-title">🎉 Нова ліга: {l.name}!</span>
+                    <span>
+                      {l.gold > 0 && <>🪙 +{l.gold} </>}
+                      {l.pack && <>· {l.pack.name}</>}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {verdict?.trial && (
+              <div className="verdict">
+                <span className="eyebrow">{verdict.trial.name}</span>
+                {verdict.trial.status === 'won' ? (
+                  <>
+                    <span className="trophy-delta up">🏅 Випробування пройдено!</span>
+                    {verdict.trial.reward && (
+                      <div className="reward">
+                        <img className="pack-img" src={packArt(verdict.trial.reward.type)} alt="" />
+                        <div>
+                          <b>{verdict.trial.reward.name}</b>
+                          <small className="muted">уже чекає на головній</small>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : verdict.trial.status === 'lost' ? (
+                  <span className="trophy-delta down">Спробу завершено: {verdict.trial.wins} з {verdict.trial.rounds} перемог</span>
+                ) : (
+                  <span className="trophy-delta up">
+                    Раунд пройдено: {verdict.trial.wins} / {verdict.trial.rounds}
+                  </span>
                 )}
               </div>
             )}
-            {verdict && !start.ranked && <p className="muted">Тренування: кубки й паки не нараховуються.</p>}
+            {verdict && !verdict.ladder && !verdict.trial && <p className="muted">Тренування: кубки й паки не нараховуються.</p>}
             <div className="editor-actions">
               {onRematch && (
                 <button className="btn btn-primary" onClick={onRematch}>
-                  Ще бій
+                  {rematchLabel ?? (remote ? 'Шукати ще' : 'Ще бій')}
                 </button>
               )}
               <button className="btn" onClick={onExit}>

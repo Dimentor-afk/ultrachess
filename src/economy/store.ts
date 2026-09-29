@@ -41,6 +41,16 @@ export interface UserRow {
   /** Capture effect in use and the ones bought (JSON array of ids). */
   captureFx: string;
   ownedFx: string;
+  /** Bot ladder: trophies, record, wins for the reward cycle and packs won today. */
+  botTrophies: number;
+  botBest: number;
+  botCycle: number;
+  botPacksToday: number;
+  botPacksDay: string;
+  /** Highest league index already rewarded per ladder (JSON {bot, pvp}). */
+  leagueRewards: string;
+  /** Trial runs by trial id (JSON Record<string, TrialRun>). */
+  trials: string;
 }
 
 export interface SessionRow {
@@ -83,7 +93,10 @@ export interface DeckRow {
 export interface MatchRow {
   id: string;
   userId: string;
+  /** A bot-ladder match (trophies and rewards). */
   ranked: boolean;
+  /** 'bot' ladder, 'training', or 'trial:<id>'; '' in old rows (use `ranked`). */
+  mode: string;
   color: 'w' | 'b';
   botLevel: number;
   playerDeck: Deck;
@@ -124,7 +137,17 @@ export interface PvpRow {
   /** JSON {winner, reason, moves} once finished. */
   result: string | null;
   resignedBy: 'w' | 'b' | null;
+  /** A player-ladder game found by matchmaking (trophies and rewards). */
+  ranked: boolean;
   createdAt: number;
+  updatedAt: number;
+}
+
+/** A player waiting for a player-ladder opponent. */
+export interface SeekRow {
+  userId: string;
+  deck: Deck;
+  /** Refreshed while the player keeps searching; stale seeks are ignored. */
   updatedAt: number;
 }
 
@@ -175,6 +198,11 @@ export interface Store {
   insertPvp(p: PvpRow): Promise<void>;
   /** Write `patch` only if the game still has `expectedActions` actions (optimistic lock). */
   updatePvp(id: string, patch: Partial<PvpRow>, expectedActions?: number): Promise<boolean>;
+
+  listSeeks(): Promise<SeekRow[]>;
+  putSeek(s: SeekRow): Promise<void>;
+  /** Remove a seek; false if it was already gone (someone else took it). */
+  deleteSeek(userId: string): Promise<boolean>;
 }
 
 export interface Hasher {

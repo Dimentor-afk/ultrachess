@@ -1,11 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { ChallengesView, FriendsView, PlayerCard, PvpState } from '../api/client';
-import type { Action } from '../engine/match';
-import { Game, type RemoteGame } from './MatchPage';
+import { PvpGame } from './PvpGame';
 import { PlayerModal } from './PlayerModal';
 import { Avatar } from './common';
-import { captureFxById } from '../economy/captureFx';
-import type { FxName } from './fxSprites';
 import { Icon } from './icons';
 import { errorText, useSession } from './state';
 
@@ -74,43 +71,10 @@ export function FriendsPage() {
     }
   };
 
-  const remote = useMemo<RemoteGame | null>(() => {
-    if (!playing) return null;
-    const id = playing.id;
-    return {
-      opponentName: playing.opponent.name,
-      opponentAvatar: playing.opponent.avatar,
-      initialActions: playing.actions,
-      resignedBy: playing.resignedBy,
-      poll: async () => {
-        const st = await s.api.pvpState(id);
-        return { actions: st.actions, resignedBy: st.resignedBy };
-      },
-      send: async (action: Action, expected: number) => {
-        await s.api.pvpAction(id, action, expected);
-      },
-      resign: async () => {
-        await s.api.pvpResign(id);
-      },
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playing?.id]);
-
-  if (playing && remote) {
-    const mine = playing.color === 'w' ? playing.whiteDeck : playing.blackDeck;
-    const theirs = playing.color === 'w' ? playing.blackDeck : playing.whiteDeck;
+  if (playing) {
     return (
-      <Game
-        key={playing.id}
-        start={{ matchId: playing.id, ranked: false, color: playing.color, botLevel: 0, playerDeck: mine, botDeck: theirs }}
-        playerName={s.profile.name}
-        playerAvatar={s.profile.avatar}
-        trophies={s.profile.trophies}
-        remote={remote}
-        captureFx={{
-          w: captureFxById(playing.captureFx.w).sprite as FxName,
-          b: captureFxById(playing.captureFx.b).sprite as FxName,
-        }}
+      <PvpGame
+        pvp={playing}
         onExit={() => {
           setPlaying(null);
           void load();
@@ -120,8 +84,8 @@ export function FriendsPage() {
   }
 
   const friendIds = new Set([...(friends?.friends ?? []), ...(friends?.incoming ?? []), ...(friends?.outgoing ?? [])].map((f) => f.id));
-  const activeGames = ch?.games.filter((g) => g.status === 'active') ?? [];
-  const pastGames = ch?.games.filter((g) => g.status === 'finished').slice(0, 8) ?? [];
+  const activeGames = ch?.games.filter((g) => g.status === 'active' && !g.ranked) ?? [];
+  const pastGames = ch?.games.filter((g) => g.status === 'finished' && !g.ranked).slice(0, 8) ?? [];
 
   return (
     <section className="page friends">

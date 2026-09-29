@@ -115,12 +115,6 @@ export const PACK_SHARD_PRICE: Record<Exclude<PackType, 'starter'>, number> = {
   mythic: 2500,
 };
 
-/** Gold for every ranked win (on top of the gold inside packs). */
-export const WIN_GOLD = 20;
-
-/** Packs a player can win in ranked matches per day (UTC). */
-export const DAILY_PACK_LIMIT = 10;
-
 const pick = <T,>(xs: T[], rng: Rng): T => xs[Math.min(xs.length - 1, Math.floor(rng() * xs.length))];
 
 export function cardsOf(rarity: Rarity, type?: PieceType): Card[] {
@@ -191,50 +185,4 @@ export function rollStarter(rng: Rng = Math.random): string[] {
   });
   out.sort((a, b) => RARITIES.indexOf(a.rarity) - RARITIES.indexOf(b.rarity));
   return out.map((x) => x.id);
-}
-
-// ── Ranked play ──
-
-export interface Arena {
-  name: string;
-  minTrophies: number;
-  botLevel: number;
-  /** Highest rarity the bot may put into its deck. */
-  botMaxRarity: Rarity;
-}
-
-export const ARENAS: Arena[] = [
-  { name: "Дерев'яна арена", minTrophies: 0, botLevel: 1, botMaxRarity: 'common' },
-  { name: 'Кам’яна арена', minTrophies: 300, botLevel: 2, botMaxRarity: 'rare' },
-  { name: 'Срібна арена', minTrophies: 700, botLevel: 2, botMaxRarity: 'epic' },
-  { name: 'Золота арена', minTrophies: 1200, botLevel: 3, botMaxRarity: 'legendary' },
-  { name: 'Міфічна арена', minTrophies: 2000, botLevel: 4, botMaxRarity: 'mythological' },
-];
-
-export function arenaFor(trophies: number): Arena {
-  let a = ARENAS[0];
-  for (const x of ARENAS) if (trophies >= x.minTrophies) a = x;
-  return a;
-}
-
-export const TROPHIES = { win: 30, loss: -20, draw: 0 };
-
-/** Pack won for the n-th ranked win (early Clash Royale style cycle). */
-export const REWARD_CYCLE: Exclude<PackType, 'starter'>[] = [
-  'common',
-  'common',
-  'rare',
-  'common',
-  'common',
-  'rare',
-  'common',
-  'epic',
-  'common',
-  'common',
-  'rare',
-  'legendary',
-];
-
-export function rewardFor(winNumber: number): Exclude<PackType, 'starter'> {
-  return REWARD_CYCLE[winNumber % REWARD_CYCLE.length];
 }

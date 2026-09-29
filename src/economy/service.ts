@@ -5,27 +5,26 @@ import { CARDS, CARD_BY_ID } from '../engine/cards';
 import { DECK_SLOTS, classicDeck, deckPositions, validateDeck } from '../engine/deck';
 import { type Action, type MatchState, createMatch, performAction, resign } from '../engine/match';
 import type { Color, Deck, PieceType, Rarity } from '../engine/types';
+import { PACK_SHARD_PRICE, type PackType, RARITIES, type Rng, SHARDS_PER_DUPE, packGold, packName, rollPack } from './packs';
 import {
-  ARENAS,
-  DAILY_PACK_LIMIT,
-  PACK_SHARD_PRICE,
-  type PackType,
-  RARITIES,
-  type Rng,
-  SHARDS_PER_DUPE,
-  TROPHIES,
-  WIN_GOLD,
-  arenaFor,
-  packGold,
-  packName,
-  rewardFor,
-  rollPack,
-} from './packs';
+  BOT_LEAGUES,
+  LADDER_PACK_LIMIT,
+  LADDER_TROPHIES,
+  LADDER_WIN_GOLD,
+  LEAGUES,
+  type Ladder,
+  type LeagueReward,
+  PVP_LEAGUES,
+  type TrialRun,
+  ladderReward,
+  leagueIndex,
+  trialById,
+} from './leagues';
 import { BOARD_THEMES, DEFAULT_THEME, themeById } from './themes';
 import { CAPTURE_FX, DEFAULT_CAPTURE_FX, captureFxById } from './captureFx';
-import { botLevel } from '../engine/bot/levels';
+import { BOT_LEVELS, botLevel } from '../engine/bot/levels';
 import { type QuestEvent, type QuestView, addProgress, parseQuests, questViews } from './quests';
-import { type Hasher, type PackRow, type PvpRow, type Role, type Store, type UserRow, randomId } from './store';
+import { type Hasher, type MatchRow, type PackRow, type PvpRow, type Role, type Store, type UserRow, randomId } from './store';
 
 /** Short public code for finding a player (first 6 hex digits of the id). */
 const tagOf = (u: UserRow) => u.id.slice(0, 6).toUpperCase();
@@ -51,10 +50,11 @@ export interface Profile {
   wins: number;
   losses: number;
   draws: number;
+  /** Player-ladder league name (trophies above are the player ladder's). */
   arena: string;
-  arenaIndex: number;
-  nextArena: { name: string; minTrophies: number } | null;
-  nextReward: PackType;
+  ladders: Record<Ladder, LadderView>;
+  /** Trial runs by trial id. */
+  trials: Record<string, TrialRun>;
   activeDeckId: string | null;
   tag: string;
   avatar: string;
@@ -65,9 +65,6 @@ export interface Profile {
   /** Board themes owned (the free one included) and the one in use. */
   themes: string[];
   boardTheme: string;
-  /** Packs won today and the daily cap. */
-  packsToday: number;
-  packsLimit: number;
   quests: QuestView[];
   /** Level of the ranked bot the player will meet. */
   rankedBot: number;
@@ -76,6 +73,40 @@ export interface Profile {
   /** Capture effect in use and the ones owned (the free one included). */
   captureFx: string;
   ownedFx: string[];
+}
+
+export interface LadderView {
+  trophies: number;
+  best: number;
+  league: number;
+  leagueName: string;
+  next: { index: number; name: string; minTrophies: number; reward: LeagueReward } | null;
+  /** Packs won in this ladder today and its daily cap. */
+  packsToday: number;
+  packsLimit: number;
+  /** Pack for the next win (while under the cap). */
+  nextPack: Exclude<PackType, 'starter'>;
+  winGold: number;
+  win: number;
+  loss: number;
+}
+
+/** A league reached for the first time and what it paid. */
+export interface LeagueUp {
+  ladder: Ladder;
+  name: string;
+  gold: number;
+  pack: PackView | null;
+}
+
+/** What a ladder game changed for one player. */
+export interface LadderResult {
+  ladder: Ladder;
+  trophiesDelta: number;
+  goldDelta: number;
+  reward: PackView | null;
+  rewardSkipped: boolean;
+  leagueUps: LeagueUp[];
 }
 
 export interface PackView {
@@ -100,6 +131,8 @@ export interface OpenResult {
 export interface MatchStart {
   matchId: string;
   ranked: boolean;
+  /** Set for a trial match. */
+  trial?: { id: string; name: string; round: number; rounds: number };
   color: Color;
   botLevel: number;
   playerDeck: Deck;
@@ -114,6 +147,9 @@ export interface MatchFinish {
   reward: PackView | null;
   /** A win past today's pack limit gives no pack. */
   rewardSkipped: boolean;
+  leagueUps: LeagueUp[];
+  ladder: Ladder | null;
+  trial: { name: string; wins: number; rounds: number; status: TrialRun['status']; reward: PackView | null } | null;
   profile: Profile;
 }
 
@@ -125,6 +161,8 @@ export interface LeaderRow {
   trophies: number;
   wins: number;
   arena: string;
+  botTrophies: number;
+  botLeague: string;
 }
 
 /** A player as others see them (friends list, search, leaderboard). */
@@ -157,7 +195,7 @@ export interface PublicProfile extends PlayerCard {
 
 export interface HistoryRow {
   id: string;
-  kind: 'ranked' | 'training' | 'friend';
+  kind: 'ranked' | 'bot' | 'training' | 'friend' | 'trial';
   opponent: string;
   outcome: 'win' | 'loss' | 'draw';
   reason: string;
@@ -183,6 +221,8 @@ export interface PvpSummary {
   outcome: 'win' | 'loss' | 'draw' | null;
   moves: number;
   updatedAt: number;
+  /** A player-ladder game (listed on the home page, not with friends). */
+  ranked: boolean;
 }
 
 export interface PvpState {
@@ -197,15 +237,26 @@ export interface PvpState {
   actions: Action[];
   status: 'active' | 'finished';
   resignedBy: Color | null;
+  /** A player-ladder game; `ladder` is what it changed for you once finished. */
+  ranked: boolean;
+  ladder: LadderResult | null;
+  /** When the game last moved (a stalled opponent can be timed out). */
+  updatedAt: number;
 }
 
 export interface Inbox {
   friendRequests: number;
   challenges: number;
   yourTurn: number;
+  /** An unfinished player-ladder game to return to. */
+  rankedGame: string | null;
 }
 
 const ONLINE_MS = 2 * 60_000;
+/** A search that was not refreshed for this long is dropped. */
+const SEEK_TTL = 12_000;
+/** A player-ladder opponent who does not move for this long can be timed out. */
+export const CLAIM_MS = 90_000;
 
 export interface AdminUser {
   id: string;
@@ -213,6 +264,7 @@ export interface AdminUser {
   name: string;
   role: Role;
   trophies: number;
+  botTrophies: number;
   wins: number;
   losses: number;
   cards: number;
@@ -271,6 +323,13 @@ export class GameService {
       botOverride: -1,
       captureFx: DEFAULT_CAPTURE_FX,
       ownedFx: '[]',
+      botTrophies: 0,
+      botBest: 0,
+      botCycle: 0,
+      botPacksToday: 0,
+      botPacksDay: '',
+      leagueRewards: '{}',
+      trials: '{}',
     };
   }
 
@@ -338,9 +397,6 @@ export class GameService {
 
   private async profileOf(userId: string): Promise<Profile> {
     const u = (await this.store.getUser(userId))!;
-    const arena = arenaFor(u.trophies);
-    const i = ARENAS.indexOf(arena);
-    const next = ARENAS[i + 1];
     return {
       id: u.id,
       email: u.email,
@@ -350,10 +406,9 @@ export class GameService {
       wins: u.wins,
       losses: u.losses,
       draws: u.draws,
-      arena: arena.name,
-      arenaIndex: i,
-      nextArena: next ? { name: next.name, minTrophies: next.minTrophies } : null,
-      nextReward: rewardFor(u.cycle),
+      arena: PVP_LEAGUES[leagueIndex('pvp', u.trophies)].name,
+      ladders: { bot: this.ladderView(u, 'bot'), pvp: this.ladderView(u, 'pvp') },
+      trials: this.trialRuns(u),
       activeDeckId: u.activeDeckId,
       tag: tagOf(u),
       avatar: u.avatar,
@@ -363,8 +418,6 @@ export class GameService {
       shards: u.shards,
       themes: this.themesOf(u),
       boardTheme: themeById(u.boardTheme).id,
-      packsToday: u.packsDay === this.today() ? u.packsToday : 0,
-      packsLimit: DAILY_PACK_LIMIT,
       quests: questViews(parseQuests(u.quests, this.today())),
       rankedBot: this.rankedBot(u),
       botOverride: u.role === 'admin' && u.botOverride >= 0 ? u.botOverride : null,
@@ -404,13 +457,135 @@ export class GameService {
   }
 
   private rankedBot(u: UserRow): number {
-    return u.role === 'admin' && u.botOverride >= 0 ? u.botOverride : arenaFor(u.trophies).botLevel;
+    return u.role === 'admin' && u.botOverride >= 0 ? u.botOverride : BOT_LEAGUES[leagueIndex('bot', u.botTrophies)].botLevel!;
+  }
+
+  // ── Ladders ──
+
+  private ladderState(u: UserRow, ladder: Ladder) {
+    const today = this.today();
+    return ladder === 'bot'
+      ? { trophies: u.botTrophies, best: Math.max(u.botBest, u.botTrophies), cycle: u.botCycle, packs: u.botPacksDay === today ? u.botPacksToday : 0 }
+      : { trophies: u.trophies, best: Math.max(u.bestTrophies, u.trophies), cycle: u.cycle, packs: u.packsDay === today ? u.packsToday : 0 };
+  }
+
+  private ladderView(u: UserRow, ladder: Ladder): LadderView {
+    const st = this.ladderState(u, ladder);
+    const i = leagueIndex(ladder, st.trophies);
+    const next = LEAGUES[ladder][i + 1];
+    return {
+      trophies: st.trophies,
+      best: st.best,
+      league: i,
+      leagueName: LEAGUES[ladder][i].name,
+      next: next ? { index: i + 1, name: next.name, minTrophies: next.minTrophies, reward: next.reward } : null,
+      packsToday: st.packs,
+      packsLimit: LADDER_PACK_LIMIT[ladder],
+      nextPack: ladderReward(ladder, st.cycle),
+      winGold: LADDER_WIN_GOLD[ladder],
+      win: LADDER_TROPHIES[ladder].win,
+      loss: LADDER_TROPHIES[ladder].loss,
+    };
+  }
+
+  /** Highest league already paid for; before this feature, the best one reached so far. */
+  private rewardedLeague(u: UserRow, ladder: Ladder): number {
+    try {
+      const r = JSON.parse(u.leagueRewards || '{}') as Partial<Record<Ladder, number>>;
+      if (typeof r[ladder] === 'number') return r[ladder]!;
+    } catch {
+      // fall through
+    }
+    return leagueIndex(ladder, this.ladderState(u, ladder).best);
+  }
+
+  /** Apply one ladder game's outcome: trophies, gold, the win pack and league bonuses. */
+  private async settleLadder(userId: string, ladder: Ladder, outcome: 'win' | 'loss' | 'draw', source: string): Promise<LadderResult> {
+    const u = (await this.store.getUser(userId))!;
+    const st = this.ladderState(u, ladder);
+    const t = LADDER_TROPHIES[ladder];
+    const trophiesDelta = Math.max(-st.trophies, outcome === 'win' ? t.win : outcome === 'loss' ? t.loss : t.draw);
+    const trophies = st.trophies + trophiesDelta;
+    const patch: Partial<UserRow> = {
+      wins: u.wins + (outcome === 'win' ? 1 : 0),
+      losses: u.losses + (outcome === 'loss' ? 1 : 0),
+      draws: u.draws + (outcome === 'draw' ? 1 : 0),
+    };
+    if (ladder === 'bot') Object.assign(patch, { botTrophies: trophies, botBest: Math.max(st.best, trophies) });
+    else Object.assign(patch, { trophies, bestTrophies: Math.max(st.best, trophies) });
+
+    let gold = u.gold;
+    let goldDelta = 0;
+    let reward: PackView | null = null;
+    let rewardSkipped = false;
+    if (outcome === 'win') {
+      goldDelta = LADDER_WIN_GOLD[ladder];
+      gold += goldDelta;
+      if (st.packs < LADDER_PACK_LIMIT[ladder]) {
+        reward = this.view(await this.createPack(u.id, ladderReward(ladder, st.cycle), source));
+        const today = this.today();
+        if (ladder === 'bot') Object.assign(patch, { botCycle: st.cycle + 1, botPacksToday: st.packs + 1, botPacksDay: today });
+        else Object.assign(patch, { cycle: st.cycle + 1, packsToday: st.packs + 1, packsDay: today });
+      } else {
+        rewardSkipped = true;
+      }
+    }
+
+    // A league reached for the first time pays its bonus once.
+    const leagueUps: LeagueUp[] = [];
+    const reached = leagueIndex(ladder, trophies);
+    const paid = this.rewardedLeague(u, ladder);
+    for (let i = paid + 1; i <= reached; i++) {
+      const l = LEAGUES[ladder][i];
+      gold += l.reward.gold;
+      const pack = l.reward.pack ? this.view(await this.createPack(u.id, l.reward.pack, `Нова ліга: ${l.name}`)) : null;
+      leagueUps.push({ ladder, name: l.name, gold: l.reward.gold, pack });
+    }
+    if (reached > paid) {
+      let r: Record<string, number> = {};
+      try {
+        r = JSON.parse(u.leagueRewards || '{}');
+      } catch {
+        r = {};
+      }
+      patch.leagueRewards = JSON.stringify({ ...r, [ladder]: reached });
+    }
+    patch.gold = gold;
+    await this.store.updateUser(u.id, patch);
+    return { ladder, trophiesDelta, goldDelta, reward, rewardSkipped, leagueUps };
+  }
+
+  // ── Trials ──
+
+  private trialRuns(u: UserRow): Record<string, TrialRun> {
+    try {
+      return JSON.parse(u.trials || '{}');
+    } catch {
+      return {};
+    }
+  }
+
+  private async saveRun(u: UserRow, run: TrialRun): Promise<void> {
+    const fresh = (await this.store.getUser(u.id))!;
+    await this.store.updateUser(u.id, { trials: JSON.stringify({ ...this.trialRuns(fresh), [run.id]: run }) });
+  }
+
+  /** Pay the entry fee and start a fresh run. */
+  async enterTrial(token: string, id: string): Promise<Profile> {
+    const u = await this.auth(token);
+    const t = trialById(id);
+    if (!t) throw new ApiError(404, 'Такого випробування немає.');
+    if (this.trialRuns(u)[id]?.status === 'active') throw new ApiError(409, 'Ви вже проходите це випробування.');
+    if (u.shards < t.cost) throw new ApiError(400, `Вхід коштує ${t.cost} осколків, у вас ${u.shards}.`);
+    await this.store.updateUser(u.id, { shards: u.shards - t.cost });
+    await this.saveRun(u, { id, wins: 0, status: 'active' });
+    return this.profileOf(u.id);
   }
 
   /** Admin testing: pick the ranked bot's level (null = by arena). */
   async setBotOverride(token: string, level: number | null): Promise<Profile> {
     const u = await this.admin(token);
-    await this.store.updateUser(u.id, { botOverride: level === null ? -1 : Math.max(0, Math.min(4, Math.round(level))) });
+    await this.store.updateUser(u.id, { botOverride: level === null ? -1 : Math.max(0, Math.min(BOT_LEVELS.length - 1, Math.round(level))) });
     return this.profileOf(u.id);
   }
 
@@ -627,29 +802,67 @@ export class GameService {
     return classicDeck('bot', 'Колода бота');
   }
 
-  async startMatch(token: string, opts: { deckId?: string; ranked: boolean; level?: number }): Promise<MatchStart> {
+  async startMatch(token: string, opts: { deckId?: string; ranked: boolean; level?: number; trial?: string }): Promise<MatchStart> {
     const u = await this.auth(token);
-    const decks = await this.store.listDecks(u.id);
-    const d = decks.find((x) => x.id === (opts.deckId ?? u.activeDeckId)) ?? decks[0];
-    if (!d) throw new ApiError(400, 'Спочатку зберіть колоду.');
-    const owned = await this.ownedSet(u.id);
-    if (deckPositions(d.deck).some((id) => !owned.has(id))) throw new ApiError(400, 'У колоді є картки, яких немає в колекції.');
-    const arena = arenaFor(u.trophies);
-    const botLevel = opts.ranked ? this.rankedBot(u) : Math.max(0, Math.min(4, opts.level ?? 2));
-    const m = {
+    let playerDeck: Deck;
+    let botDeck: Deck;
+    let botLevel: number;
+    let mode: string;
+    let trialInfo: MatchStart['trial'];
+    if (opts.trial) {
+      const t = trialById(opts.trial);
+      if (!t) throw new ApiError(404, 'Такого випробування немає.');
+      const run = this.trialRuns(u)[t.id];
+      if (!run || run.status !== 'active') throw new ApiError(400, 'Спершу оплатіть вхід у випробування.');
+      if (run.matchId) {
+        // Leaving a trial game unfinished counts as a defeat (no restarting until you win).
+        const old = await this.store.getMatch(run.matchId);
+        if (old && old.status === 'active') {
+          await this.store.updateMatch(old.id, {
+            status: 'finished',
+            result: JSON.stringify({ outcome: 'loss', reason: 'Партію покинуто', moves: 0, trophiesDelta: 0 }),
+          });
+          await this.saveRun(u, { ...run, status: 'lost', matchId: undefined });
+          throw new ApiError(409, 'Попередню партію випробування не дограно — її зараховано як поразку, спробу завершено.');
+        }
+      }
+      playerDeck = t.classic ? classicDeck('trial', 'Класична колода') : await this.playableDeck(u.id, opts.deckId);
+      botDeck = classicDeck('bot', 'Класична колода');
+      botLevel = t.opponents[run.wins];
+      mode = `trial:${t.id}`;
+      trialInfo = { id: t.id, name: t.name, round: run.wins + 1, rounds: t.opponents.length };
+    } else {
+      const decks = await this.store.listDecks(u.id);
+      const d = decks.find((x) => x.id === (opts.deckId ?? u.activeDeckId)) ?? decks[0];
+      if (!d) throw new ApiError(400, 'Спочатку зберіть колоду.');
+      const owned = await this.ownedSet(u.id);
+      if (deckPositions(d.deck).some((id) => !owned.has(id))) throw new ApiError(400, 'У колоді є картки, яких немає в колекції.');
+      playerDeck = d.deck;
+      const league = BOT_LEAGUES[leagueIndex('bot', u.botTrophies)];
+      botLevel = opts.ranked ? this.rankedBot(u) : Math.max(0, Math.min(BOT_LEVELS.length - 1, opts.level ?? 2));
+      botDeck = opts.ranked ? this.botDeck(league.botMaxRarity!) : classicDeck('bot', 'Класична колода');
+      mode = opts.ranked ? 'bot' : 'training';
+    }
+    const m: MatchRow = {
       id: randomId(8),
       userId: u.id,
-      ranked: opts.ranked,
+      ranked: mode === 'bot',
+      mode,
       color: (this.rng() < 0.5 ? 'w' : 'b') as Color,
       botLevel,
-      playerDeck: d.deck,
-      botDeck: opts.ranked ? this.botDeck(arena.botMaxRarity) : classicDeck('bot', 'Класична колода'),
-      status: 'active' as const,
+      playerDeck,
+      botDeck,
+      status: 'active',
       result: null,
       createdAt: this.now(),
     };
     await this.store.insertMatch(m);
-    return { matchId: m.id, ranked: m.ranked, color: m.color, botLevel, playerDeck: m.playerDeck, botDeck: m.botDeck };
+    if (opts.trial) await this.saveRun(u, { ...this.trialRuns(u)[opts.trial], matchId: m.id });
+    return { matchId: m.id, ranked: m.ranked, color: m.color, botLevel, playerDeck, botDeck, trial: trialInfo };
+  }
+
+  private modeOf(m: MatchRow): string {
+    return m.mode || (m.ranked ? 'bot' : 'training');
   }
 
   /**
@@ -677,53 +890,51 @@ export class GameService {
     }
     const winner = state.result!.winner;
     const outcome: MatchFinish['outcome'] = winner === null ? 'draw' : winner === m.color ? 'win' : 'loss';
+    const mode = this.modeOf(m);
 
-    let trophiesDelta = 0;
-    let reward: PackView | null = null;
-    let rewardSkipped = false;
-    let goldDelta = 0;
-    if (m.ranked) {
-      trophiesDelta = outcome === 'win' ? TROPHIES.win : outcome === 'loss' ? TROPHIES.loss : TROPHIES.draw;
-      trophiesDelta = Math.max(-u.trophies, trophiesDelta);
-      const patch: Partial<UserRow> = {
-        trophies: u.trophies + trophiesDelta,
-        bestTrophies: Math.max(u.bestTrophies, u.trophies + trophiesDelta),
-        wins: u.wins + (outcome === 'win' ? 1 : 0),
-        losses: u.losses + (outcome === 'loss' ? 1 : 0),
-        draws: u.draws + (outcome === 'draw' ? 1 : 0),
-      };
-      if (outcome === 'win') {
-        goldDelta = WIN_GOLD;
-        patch.gold = u.gold + WIN_GOLD;
-        const today = this.today();
-        const won = u.packsDay === today ? u.packsToday : 0;
-        if (won < DAILY_PACK_LIMIT) {
-          reward = this.view(await this.createPack(u.id, rewardFor(u.cycle), 'Перемога в рейтинговому матчі'));
-          patch.cycle = u.cycle + 1;
-          patch.packsToday = won + 1;
-          patch.packsDay = today;
-        } else {
-          rewardSkipped = true;
-        }
+    let ladder: LadderResult | null = null;
+    let trial: MatchFinish['trial'] = null;
+    if (mode === 'bot') {
+      ladder = await this.settleLadder(u.id, 'bot', outcome, 'Перемога в лізі ботів');
+    } else if (mode.startsWith('trial:')) {
+      const t = trialById(mode.slice(6));
+      const run = this.trialRuns(u)[mode.slice(6)];
+      if (t && run && run.status === 'active' && run.matchId === m.id) {
+        const wins = outcome === 'win' ? run.wins + 1 : run.wins;
+        const status: TrialRun['status'] = outcome !== 'win' ? 'lost' : wins >= t.opponents.length ? 'won' : 'active';
+        const reward = status === 'won' ? this.view(await this.createPack(u.id, t.reward, `Нагорода: ${t.name}`)) : null;
+        await this.saveRun(u, { id: t.id, wins, status });
+        trial = { name: t.name, wins, rounds: t.opponents.length, status, reward };
       }
-      await this.store.updateUser(u.id, patch);
     }
     const events: QuestEvent[] = ['play'];
     if (outcome === 'win') events.push('win');
-    if (outcome === 'win' && m.ranked) events.push('winRanked');
+    if (outcome === 'win' && mode === 'bot') events.push('winRanked');
     await this.questEvent(u.id, events);
     await this.store.updateMatch(m.id, {
       status: 'finished',
-      result: JSON.stringify({ outcome, reason: state.result!.reason, moves: state.result!.moves, trophiesDelta }),
+      result: JSON.stringify({ outcome, reason: state.result!.reason, moves: state.result!.moves, trophiesDelta: ladder?.trophiesDelta ?? 0 }),
     });
-    return { outcome, reason: state.result!.reason, trophiesDelta, goldDelta, reward, rewardSkipped, profile: await this.profileOf(u.id) };
+    return {
+      outcome,
+      reason: state.result!.reason,
+      trophiesDelta: ladder?.trophiesDelta ?? 0,
+      goldDelta: ladder?.goldDelta ?? 0,
+      reward: ladder?.reward ?? null,
+      rewardSkipped: ladder?.rewardSkipped ?? false,
+      leagueUps: ladder?.leagueUps ?? [],
+      ladder: ladder ? 'bot' : null,
+      trial,
+      profile: await this.profileOf(u.id),
+    };
   }
 
   async leaderboard(): Promise<LeaderRow[]> {
-    return (await this.store.listUsers(50))
-      .filter((u) => u.passHash)
-      .sort((a, b) => b.trophies - a.trophies || b.wins - a.wins)
-      .slice(0, 50)
+    // Top 50 of each ladder (the page sorts by the one it shows).
+    const all = (await this.store.listUsers(1000)).filter((u) => u.passHash);
+    const top = (key: (u: UserRow) => number) => [...all].sort((a, b) => key(b) - key(a) || b.wins - a.wins).slice(0, 50);
+    const picked = new Map([...top((u) => u.trophies), ...top((u) => u.botTrophies)].map((u) => [u.id, u]));
+    return [...picked.values()]
       .map((u) => ({
         id: u.id,
         name: u.name,
@@ -731,7 +942,9 @@ export class GameService {
         avatar: u.avatar,
         trophies: u.trophies,
         wins: u.wins,
-        arena: arenaFor(u.trophies).name,
+        arena: PVP_LEAGUES[leagueIndex('pvp', u.trophies)].name,
+        botTrophies: u.botTrophies,
+        botLeague: BOT_LEAGUES[leagueIndex('bot', u.botTrophies)].name,
       }));
   }
 
@@ -760,7 +973,7 @@ export class GameService {
       tag: tagOf(u),
       avatar: u.avatar,
       trophies: u.trophies,
-      arena: arenaFor(u.trophies).name,
+      arena: PVP_LEAGUES[leagueIndex('pvp', u.trophies)].name,
       online: this.now() - u.lastSeen < ONLINE_MS,
       lastSeen: u.lastSeen,
     };
@@ -799,7 +1012,7 @@ export class GameService {
       const r = JSON.parse(m.result);
       out.push({
         id: m.id,
-        kind: m.ranked ? 'ranked' : 'training',
+        kind: this.modeOf(m) === 'bot' ? 'bot' : this.modeOf(m).startsWith('trial:') ? 'trial' : 'training',
         opponent: `Бот · ${botLevel(m.botLevel).name}`,
         outcome: r.outcome,
         reason: r.reason,
@@ -815,7 +1028,7 @@ export class GameService {
       const opp = await this.store.getUser(color === 'w' ? p.blackId : p.whiteId);
       out.push({
         id: p.id,
-        kind: 'friend',
+        kind: p.ranked ? 'ranked' : 'friend',
         opponent: opp?.name ?? 'Гравець',
         outcome: r.winner === null ? 'draw' : r.winner === color ? 'win' : 'loss',
         reason: r.reason,
@@ -925,6 +1138,7 @@ export class GameService {
         outcome: !r ? null : r.winner === null ? 'draw' : r.winner === color ? 'win' : 'loss',
         moves: state.history.length,
         updatedAt: p.updatedAt,
+        ranked: !!p.ranked,
       });
     }
     return { incoming, outgoing, games };
@@ -961,6 +1175,7 @@ export class GameService {
       status: 'active',
       result: null,
       resignedBy: null,
+      ranked: false,
       createdAt: this.now(),
       updatedAt: this.now(),
     };
@@ -996,7 +1211,88 @@ export class GameService {
       actions: JSON.parse(row.actions),
       status: row.status,
       resignedBy: row.resignedBy,
+      ranked: !!row.ranked,
+      ladder: row.result ? ((JSON.parse(row.result) as { ladder?: Record<Color, LadderResult> }).ladder?.[color] ?? null) : null,
+      updatedAt: row.updatedAt,
     };
+  }
+
+  /** A finished game's result; player-ladder games also settle trophies and rewards for both. */
+  private async pvpResult(row: PvpRow, state: MatchState): Promise<string> {
+    const winner = state.result!.winner;
+    const out: Record<string, unknown> = { winner, reason: state.result!.reason, moves: state.result!.moves };
+    if (row.ranked) {
+      const ladder: Partial<Record<Color, LadderResult>> = {};
+      for (const [id, c] of [[row.whiteId, 'w'], [row.blackId, 'b']] as [string, Color][]) {
+        const outcome = winner === null ? 'draw' : winner === c ? 'win' : 'loss';
+        ladder[c] = await this.settleLadder(id, 'pvp', outcome, 'Перемога в лізі гравців');
+      }
+      out.ladder = ladder;
+    }
+    return JSON.stringify(out);
+  }
+
+  // ── Player ladder matchmaking ──
+
+  /**
+   * Look for a player-ladder opponent. Call it again every couple of seconds
+   * while searching: it returns the game as soon as someone is matched.
+   */
+  async seek(token: string, deckId?: string): Promise<{ pvpId: string | null; searching: number }> {
+    const me = await this.auth(token);
+    const active = (await this.store.listPvp(me.id, 20)).find((p) => p.ranked && p.status === 'active');
+    if (active) {
+      await this.store.deleteSeek(me.id);
+      return { pvpId: active.id, searching: 0 };
+    }
+    const deck = await this.playableDeck(me.id, deckId);
+    const fresh = (await this.store.listSeeks()).filter((x) => x.userId !== me.id && this.now() - x.updatedAt < SEEK_TTL);
+    for (const other of fresh) {
+      // Taking the seek is the lock: only one player can remove it.
+      if (!(await this.store.deleteSeek(other.userId))) continue;
+      await this.store.deleteSeek(me.id);
+      const iAmWhite = this.rng() < 0.5;
+      const row: PvpRow = {
+        id: randomId(8),
+        whiteId: iAmWhite ? me.id : other.userId,
+        blackId: iAmWhite ? other.userId : me.id,
+        whiteDeck: iAmWhite ? deck : other.deck,
+        blackDeck: iAmWhite ? other.deck : deck,
+        actions: '[]',
+        status: 'active',
+        result: null,
+        resignedBy: null,
+        ranked: true,
+        createdAt: this.now(),
+        updatedAt: this.now(),
+      };
+      await this.store.insertPvp(row);
+      return { pvpId: row.id, searching: 0 };
+    }
+    await this.store.putSeek({ userId: me.id, deck, updatedAt: this.now() });
+    return { pvpId: null, searching: fresh.length };
+  }
+
+  async cancelSeek(token: string): Promise<void> {
+    const me = await this.auth(token);
+    await this.store.deleteSeek(me.id);
+  }
+
+  /** The opponent has not moved for too long: take the win. */
+  async pvpClaim(token: string, id: string): Promise<PvpState> {
+    const me = await this.auth(token);
+    const { row, color } = await this.pvpFor(me.id, id);
+    if (row.status !== 'active') throw new ApiError(409, 'Партію завершено.');
+    if (!row.ranked) throw new ApiError(400, 'У дружніх партіях час не обмежено.');
+    const state = this.replayPvp(row);
+    if (state.turn === color) throw new ApiError(409, 'Зараз ваш хід.');
+    if (this.now() - row.updatedAt < CLAIM_MS) throw new ApiError(409, 'Суперник ще має час на хід.');
+    const other: Color = color === 'w' ? 'b' : 'w';
+    const done = resign(state, other);
+    const patch: Partial<PvpRow> = { status: 'finished', resignedBy: other, updatedAt: this.now(), result: await this.pvpResult(row, done) };
+    await this.store.updatePvp(row.id, patch);
+    await this.pvpQuests(row, done.result!.winner);
+    return this.pvpView({ ...row, ...patch }, color);
   }
 
   async pvpState(token: string, id: string): Promise<PvpState> {
@@ -1025,11 +1321,13 @@ export class GameService {
     }
     actions.push(action);
     const patch: Partial<PvpRow> = { actions: JSON.stringify(actions), updatedAt: this.now() };
-    if (next.result) {
-      patch.status = 'finished';
-      patch.result = JSON.stringify({ winner: next.result.winner, reason: next.result.reason, moves: next.result.moves });
-    }
     if (!(await this.store.updatePvp(row.id, patch, expected))) throw new ApiError(409, 'Позиція змінилась — оновіть партію.');
+    if (next.result) {
+      // Settle only after the move is written, so a race cannot pay twice.
+      const fin: Partial<PvpRow> = { status: 'finished', result: await this.pvpResult(row, next) };
+      await this.store.updatePvp(row.id, fin);
+      Object.assign(patch, fin);
+    }
     if (next.result) await this.pvpQuests(row, next.result.winner);
     return this.pvpView({ ...row, ...patch }, color);
   }
@@ -1043,7 +1341,7 @@ export class GameService {
       status: 'finished',
       resignedBy: color,
       updatedAt: this.now(),
-      result: JSON.stringify({ winner: state.result!.winner, reason: state.result!.reason, moves: state.result!.moves }),
+      result: await this.pvpResult(row, state),
     };
     await this.store.updatePvp(row.id, patch);
     await this.pvpQuests(row, state.result!.winner);
@@ -1052,7 +1350,8 @@ export class GameService {
 
   private async pvpQuests(row: PvpRow, winner: Color | null): Promise<void> {
     for (const [id, c] of [[row.whiteId, 'w'], [row.blackId, 'b']] as [string, Color][]) {
-      await this.questEvent(id, winner === c ? ['play', 'friendGame', 'win'] : ['play', 'friendGame']);
+      const kind: QuestEvent[] = row.ranked ? (winner === c ? ['winRanked'] : []) : ['friendGame'];
+      await this.questEvent(id, winner === c ? ['play', 'win', ...kind] : ['play', ...kind]);
     }
   }
 
@@ -1085,10 +1384,13 @@ export class GameService {
     const friendRequests = (await this.store.listFriends(me.id)).filter((f) => f.status === 'pending' && f.toId === me.id).length;
     const challenges = (await this.store.listChallenges(me.id)).filter((c) => c.status === 'pending' && c.toId === me.id).length;
     let yourTurn = 0;
+    let rankedGame: string | null = null;
     for (const p of await this.store.listPvp(me.id, 30)) {
-      if (p.status === 'active' && this.replayPvp(p).turn === (p.whiteId === me.id ? 'w' : 'b')) yourTurn++;
+      if (p.status !== 'active') continue;
+      if (p.ranked) rankedGame = p.id;
+      else if (this.replayPvp(p).turn === (p.whiteId === me.id ? 'w' : 'b')) yourTurn++;
     }
-    return { friendRequests, challenges, yourTurn };
+    return { friendRequests, challenges, yourTurn, rankedGame };
   }
 
   // ── Admin ──
@@ -1104,6 +1406,7 @@ export class GameService {
         name: u.name,
         role: u.role,
         trophies: u.trophies,
+        botTrophies: u.botTrophies,
         wins: u.wins,
         losses: u.losses,
         cards: (await this.store.listCards(u.id)).length,
@@ -1127,9 +1430,10 @@ export class GameService {
     for (const c of CARDS) if (!owned.has(c.id)) await this.store.addCard(userId, c.id);
   }
 
-  async adminSetTrophies(token: string, userId: string, trophies: number): Promise<void> {
+  async adminSetTrophies(token: string, userId: string, trophies: number, ladder: Ladder = 'pvp'): Promise<void> {
     await this.admin(token);
-    await this.store.updateUser(userId, { trophies: Math.max(0, Math.round(trophies)) });
+    const t = Math.max(0, Math.round(trophies));
+    await this.store.updateUser(userId, ladder === 'bot' ? { botTrophies: t } : { trophies: t });
   }
 
   async adminSetRole(token: string, userId: string, role: Role): Promise<void> {

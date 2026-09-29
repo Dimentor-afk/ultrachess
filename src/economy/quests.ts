@@ -13,7 +13,7 @@ export interface QuestDef {
 export const QUEST_POOL: QuestDef[] = [
   { id: 'play3', text: 'Зіграйте 3 партії', event: 'play', target: 3, reward: { gold: 60 } },
   { id: 'win1', text: 'Здобудьте перемогу', event: 'win', target: 1, reward: { gold: 40 } },
-  { id: 'ranked2', text: 'Виграйте 2 рейтингові бої', event: 'winRanked', target: 2, reward: { shards: 40 } },
+  { id: 'ranked2', text: 'Виграйте 2 бої в лігах', event: 'winRanked', target: 2, reward: { shards: 40 } },
   { id: 'packs2', text: 'Відкрийте 2 паки', event: 'openPack', target: 2, reward: { gold: 50 } },
   { id: 'friend1', text: 'Зіграйте партію з другом', event: 'friendGame', target: 1, reward: { shards: 30 } },
 ];
