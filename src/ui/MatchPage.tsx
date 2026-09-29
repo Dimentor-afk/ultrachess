@@ -10,9 +10,11 @@ import type { Color, Move, PieceType, Square } from '../engine/types';
 import type { MatchFinish, MatchStart } from '../api/client';
 import { packArt, pieceSprite } from './cardArt';
 import { playerView } from '../engine/view';
-import { Board, type Mark, squareCenter } from './Board';
+import { Board, type Mark, boardRing, squareCenter } from './Board';
 import { type Stage, makeStage } from './stage';
-import { play } from './settings';
+import { getSettings, play } from './settings';
+import { DeckIntro } from './DeckIntro';
+import type { FxName } from './fxSprites';
 import { requestBotTurn, requestHint } from './botClient';
 import { Avatar, CardView, Glyph } from './common';
 
@@ -27,6 +29,8 @@ export interface GameProps {
   onRematch?: () => void;
   /** A friend instead of the bot: moves go to the server, theirs come back by polling. */
   remote?: RemoteGame;
+  /** Capture effect sprites per side. */
+  captureFx?: Partial<Record<Color, FxName>>;
 }
 
 export interface RemoteGame {
@@ -42,7 +46,7 @@ export interface RemoteGame {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-export function Game({ start, playerName, playerAvatar, trophies, onFinish, onExit, onRematch, remote }: GameProps) {
+export function Game({ start, playerName, playerAvatar, trophies, onFinish, onExit, onRematch, remote, captureFx }: GameProps) {
   const human = start.color;
   const bot = opposite(human);
   const botOpts = botLevel(start.botLevel).opts;
@@ -105,6 +109,8 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
   const [linePreview, setPreview] = useState<Square[]>([]);
   const [mirage, setMirage] = useState(false);
   const [thinking, setThinking] = useState(false);
+  // A fresh game opens with the opponent's deck; the bot waits for it.
+  const [intro, setIntro] = useState(() => getSettings().animations && (remote ? remote.initialActions.length === 0 : true));
   const [hintBusy, setHintBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showSummary, setShowSummary] = useState(true);
@@ -173,7 +179,7 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
   const botToken = useRef(0);
   useEffect(() => {
     const token = ++botToken.current;
-    if (remote || match.result || match.turn !== bot) {
+    if (remote || intro || match.result || match.turn !== bot) {
       setThinking(false);
       return;
     }
@@ -205,7 +211,7 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
       setThinking(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [match]);
+  }, [match, intro]);
 
   // Friend games: pick up the opponent's moves.
   useEffect(() => {
@@ -376,11 +382,12 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
             checkSquare={checkSquare}
             onSquare={onSquare}
             celebrate={!!match.result && match.result.winner === human}
+            captureFx={captureFx}
           />
           {popover && (
             <div
-              className={`board-popover ${squareCenter(popover.square, human).y < 50 ? 'grow-down' : 'grow-up'}`}
-              style={{ left: `${squareCenter(popover.square, human).x}%`, top: `${squareCenter(popover.square, human).y}%` }}
+              className={`board-popover ${squareCenter(popover.square, human, boardRing(view, marks)).y < 50 ? 'grow-down' : 'grow-up'}`}
+              style={{ left: `${squareCenter(popover.square, human, boardRing(view, marks)).x}%`, top: `${squareCenter(popover.square, human, boardRing(view, marks)).y}%` }}
               role="dialog"
               aria-label="Оберіть варіант ходу"
             >
@@ -567,6 +574,14 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
           )}
         </div>
       </aside>
+
+      {intro && (
+        <DeckIntro
+          deck={start.botDeck}
+          opponent={remote ? remote.opponentName : `Бот · ${botLevel(start.botLevel).name}`}
+          onDone={() => setIntro(false)}
+        />
+      )}
 
       {match.result && showSummary && (
         <div className="modal-backdrop">

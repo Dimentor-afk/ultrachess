@@ -4,6 +4,8 @@ import type { Action } from '../engine/match';
 import { Game, type RemoteGame } from './MatchPage';
 import { PlayerModal } from './PlayerModal';
 import { Avatar } from './common';
+import { captureFxById } from '../economy/captureFx';
+import type { FxName } from './fxSprites';
 import { Icon } from './icons';
 import { errorText, useSession } from './state';
 
@@ -105,6 +107,10 @@ export function FriendsPage() {
         playerAvatar={s.profile.avatar}
         trophies={s.profile.trophies}
         remote={remote}
+        captureFx={{
+          w: captureFxById(playing.captureFx.w).sprite as FxName,
+          b: captureFxById(playing.captureFx.b).sprite as FxName,
+        }}
         onExit={() => {
           setPlaying(null);
           void load();

@@ -17,7 +17,7 @@ describe('match fx', () => {
     m = mv(m, 'e2e4');
     expect(m.fx!.moves).toEqual([{ from: parseSquare('e2'), to: parseSquare('e4'), style: 'slide' }]);
     m = mv(mv(m, 'd7d5'), 'e4d5');
-    expect(m.fx!.sprites).toContainEqual({ kind: 'capture', square: parseSquare('d5') });
+    expect(m.fx!.sprites).toContainEqual({ kind: 'capture', square: parseSquare('d5'), by: 'w' });
   });
 
   it('castling slides the rook too', () => {

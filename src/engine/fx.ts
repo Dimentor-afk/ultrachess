@@ -28,6 +28,8 @@ export interface FxSprite {
   square: Square;
   /** Only this side sees the effect (hidden abilities). */
   owner?: Color;
+  /** Side that made the capture (the capturer's chosen effect plays). */
+  by?: Color;
 }
 
 export interface FxMove {
@@ -97,7 +99,7 @@ export function computeFx(
   for (const e of info.events ?? []) {
     switch (e.type) {
       case 'captured':
-        sprites.push({ kind: 'capture', square: e.square });
+        sprites.push({ kind: 'capture', square: e.square, by: e.piece.color === 'w' ? 'b' : 'w' });
         break;
       case 'kamikaze':
       case 'ambush':

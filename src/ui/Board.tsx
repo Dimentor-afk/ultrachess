@@ -10,18 +10,29 @@ import { useSettings } from './settings';
 
 export type Mark = 'move' | 'capture' | 'option' | 'stay';
 
-/** Grid tracks: a 0.5-wide ring, 8 squares, a 0.5-wide ring. */
-const RING = 0.5;
-const TOTAL = 8 + 2 * RING;
-const trackCenter = (i: number) => (i === 0 ? RING / 2 : i === 9 ? RING + 8 + RING / 2 : RING + i - 0.5);
+/**
+ * Grid tracks: a ring, 8 squares, a ring. The ring is a thin frame, and
+ * widens while levitation platforms are around so a platform sits wholly
+ * outside the board instead of overlapping the edge squares.
+ */
+const THIN_RING = 0.5;
+const WIDE_RING = 0.95;
+
+/** Ring width for this position: wide when something is (or may land) on it. */
+export function boardRing(view: PlayerView, marks: Map<Square, unknown>): number {
+  const onRing = view.cells.some((c, s) => c && !isBoardSquare(s)) || [...marks.keys()].some((s) => !isBoardSquare(s));
+  return onRing ? WIDE_RING : THIN_RING;
+}
 
 /** Centre of a square in percent of the board, for overlays and animations. */
-export function squareCenter(s: Square, orientation: Color): { x: number; y: number } {
+export function squareCenter(s: Square, orientation: Color, ring = THIN_RING): { x: number; y: number } {
+  const total = 8 + 2 * ring;
+  const center = (i: number) => (i === 0 ? ring / 2 : i === 9 ? ring + 8 + ring / 2 : ring + i - 0.5);
   const f = fileOf(s);
   const r = rankOf(s);
   const col = orientation === 'w' ? f + 1 : 8 - f;
   const row = orientation === 'w' ? 8 - r : r + 1;
-  return { x: (trackCenter(col) / TOTAL) * 100, y: (trackCenter(row) / TOTAL) * 100 };
+  return { x: (center(col) / total) * 100, y: (center(row) / total) * 100 };
 }
 
 interface Props {
@@ -36,16 +47,20 @@ interface Props {
   onSquare: (s: Square) => void;
   /** Fireworks over the board (a won game). */
   celebrate?: boolean;
+  /** Each side's capture effect sprite. */
+  captureFx?: Partial<Record<Color, FxName>>;
 }
 
 const FILES = 'abcdefgh';
 
-export function Board({ view, orientation, selected, marks, lastMove, hint, preview, checkSquare, onSquare, celebrate = false }: Props) {
+export function Board({ view, orientation, selected, marks, lastMove, hint, preview, checkSquare, onSquare, celebrate = false, captureFx }: Props) {
   const barrier = new Set(view.barriers.flatMap((b) => b.squares));
   const ranks = orientation === 'w' ? [8, 7, 6, 5, 4, 3, 2, 1, 0, -1] : [-1, 0, 1, 2, 3, 4, 5, 6, 7, 8];
   const files = orientation === 'w' ? [-1, 0, 1, 2, 3, 4, 5, 6, 7, 8] : [8, 7, 6, 5, 4, 3, 2, 1, 0, -1];
   const labelRank = orientation === 'w' ? -1 : 8;
   const labelFile = orientation === 'w' ? -1 : 8;
+  const ring = boardRing(view, marks);
+  const TOTAL = 8 + 2 * ring;
 
   // Animate the last action once: every piece that changed squares slides
   // (or hops / warps), and its effects play over the board. A preview of a
@@ -61,8 +76,8 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
   const live = fx && anim.current.sig === sig ? fx : null;
   const slides = new Map<Square, { style: CSSProperties; cls: string }>();
   for (const m of live?.moves ?? []) {
-    const a = squareCenter(m.from, orientation);
-    const b = squareCenter(m.to, orientation);
+    const a = squareCenter(m.from, orientation, ring);
+    const b = squareCenter(m.to, orientation, ring);
     slides.set(m.to, {
       cls: `slide slide-${m.style}`,
       style: { '--dx': `${a.x - b.x}cqw`, '--dy': `${a.y - b.y}cqw` } as CSSProperties,
@@ -71,7 +86,7 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
   const sprites: { name: FxName; square: Square; delay: number }[] = [];
   if (live) {
     live.sprites.forEach((x, i) => {
-      const name = x.kind as FxName;
+      const name = x.kind === 'capture' && x.by && captureFx?.[x.by] ? captureFx[x.by]! : (x.kind as FxName);
       // Quake and eclipse ripple along their line.
       const delay = x.kind === 'quake' || x.kind === 'eclipse' ? i * 45 : x.kind === 'capture' || x.kind === 'explode' ? 180 : 0;
       sprites.push({ name, square: x.square, delay });
@@ -147,12 +162,22 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
     }
   }
   return (
-    <div className={`board ${live?.shake ? 'shake' : ''}`} key={live?.shake ? `shake-${anim.current.n}` : 'board'}>
+    <div
+      className={`board ${live?.shake ? 'shake' : ''} ${ring > THIN_RING ? 'wide-ring' : ''}`}
+      key={live?.shake ? `shake-${anim.current.n}` : 'board'}
+      style={
+        {
+          gridTemplateColumns: `${ring}fr repeat(8, 1fr) ${ring}fr`,
+          gridTemplateRows: `${ring}fr repeat(8, 1fr) ${ring}fr`,
+          '--platform': `${(0.9 / TOTAL) * 100}cqw`,
+        } as CSSProperties
+      }
+    >
       {cells}
       <div className="fx-layer" aria-hidden="true">
         {sprites.map((x, i) => {
           const spec = FX[x.name];
-          const c = squareCenter(x.square, orientation);
+          const c = squareCenter(x.square, orientation, ring);
           const cell = 100 / TOTAL;
           return (
             <span

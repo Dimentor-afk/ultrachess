@@ -22,6 +22,7 @@ import {
   rollPack,
 } from './packs';
 import { BOARD_THEMES, DEFAULT_THEME, themeById } from './themes';
+import { CAPTURE_FX, DEFAULT_CAPTURE_FX, captureFxById } from './captureFx';
 import { botLevel } from '../engine/bot/levels';
 import { type QuestEvent, type QuestView, addProgress, parseQuests, questViews } from './quests';
 import { type Hasher, type PackRow, type PvpRow, type Role, type Store, type UserRow, randomId } from './store';
@@ -72,6 +73,9 @@ export interface Profile {
   rankedBot: number;
   /** Admin testing override (null = by arena). */
   botOverride: number | null;
+  /** Capture effect in use and the ones owned (the free one included). */
+  captureFx: string;
+  ownedFx: string[];
 }
 
 export interface PackView {
@@ -184,6 +188,8 @@ export interface PvpSummary {
 export interface PvpState {
   id: string;
   color: Color;
+  /** Each side's capture effect. */
+  captureFx: Record<Color, string>;
   you: PlayerCard;
   opponent: PlayerCard;
   whiteDeck: Deck;
@@ -263,6 +269,8 @@ export class GameService {
       lastSeen: 0,
       quests: '{}',
       botOverride: -1,
+      captureFx: DEFAULT_CAPTURE_FX,
+      ownedFx: '[]',
     };
   }
 
@@ -360,7 +368,39 @@ export class GameService {
       quests: questViews(parseQuests(u.quests, this.today())),
       rankedBot: this.rankedBot(u),
       botOverride: u.role === 'admin' && u.botOverride >= 0 ? u.botOverride : null,
+      captureFx: captureFxById(u.captureFx).id,
+      ownedFx: this.fxOf(u),
     };
+  }
+
+  private fxOf(u: UserRow): string[] {
+    let bought: string[] = [];
+    try {
+      bought = JSON.parse(u.ownedFx || '[]');
+    } catch {
+      bought = [];
+    }
+    return CAPTURE_FX.filter((f) => f.price === 0 || bought.includes(f.id)).map((f) => f.id);
+  }
+
+  /** Buy a capture effect for gold and switch to it. */
+  async buyCaptureFx(token: string, id: string): Promise<Profile> {
+    const u = await this.auth(token);
+    const fx = CAPTURE_FX.find((f) => f.id === id);
+    if (!fx) throw new ApiError(404, 'Такого ефекту немає.');
+    const owned = this.fxOf(u);
+    if (owned.includes(id)) throw new ApiError(409, 'Цей ефект уже ваш.');
+    if (u.gold < fx.price) throw new ApiError(400, `Потрібно ${fx.price} золота, у вас ${u.gold}.`);
+    const bought = owned.filter((f) => captureFxById(f).price > 0).concat(id);
+    await this.store.updateUser(u.id, { gold: u.gold - fx.price, ownedFx: JSON.stringify(bought), captureFx: id });
+    return this.profileOf(u.id);
+  }
+
+  async setCaptureFx(token: string, id: string): Promise<Profile> {
+    const u = await this.auth(token);
+    if (!this.fxOf(u).includes(id)) throw new ApiError(400, 'Спочатку купіть цей ефект.');
+    await this.store.updateUser(u.id, { captureFx: id });
+    return this.profileOf(u.id);
   }
 
   private rankedBot(u: UserRow): number {
@@ -943,9 +983,12 @@ export class GameService {
   }
 
   private async pvpView(row: PvpRow, color: Color): Promise<PvpState> {
+    const w = await this.store.getUser(row.whiteId);
+    const b = await this.store.getUser(row.blackId);
     return {
       id: row.id,
       color,
+      captureFx: { w: captureFxById(w?.captureFx).id, b: captureFxById(b?.captureFx).id },
       you: await this.cardOf(color === 'w' ? row.whiteId : row.blackId),
       opponent: await this.cardOf(color === 'w' ? row.blackId : row.whiteId),
       whiteDeck: row.whiteDeck,

@@ -62,6 +62,8 @@ export interface Platform {
   pieceId: string;
   /** The piece dies at the end of this ply if it is still on the platform. */
   expiresAfterPly: number;
+  /** A piece that took the platform by capture goes back here instead of falling. */
+  returnTo?: Square;
 }
 
 /** Затемнювач's barrier: a diagonal the opponent may not cross during one ply. */

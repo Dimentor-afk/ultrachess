@@ -10,6 +10,8 @@ import { packArt } from './cardArt';
 import { Icon } from './icons';
 import { BOT_LEVELS, botLevel } from '../engine/bot/levels';
 import { play } from './settings';
+import { captureFxById } from '../economy/captureFx';
+import type { FxName } from './fxSprites';
 import { errorText, useSession } from './state';
 
 
@@ -56,6 +58,7 @@ export function HomePage() {
         start={game.start}
         playerName={profile.name}
         playerAvatar={profile.avatar}
+        captureFx={{ [game.start.color]: captureFxById(profile.captureFx).sprite as FxName }}
         trophies={profile.trophies}
         onFinish={async (actions, resigned) => {
           const v = await api.finishMatch(game.start.matchId, actions, resigned);

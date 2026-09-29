@@ -38,6 +38,9 @@ export interface UserRow {
   quests: string;
   /** Admin testing: ranked bot level override, -1 = by arena. */
   botOverride: number;
+  /** Capture effect in use and the ones bought (JSON array of ids). */
+  captureFx: string;
+  ownedFx: string;
 }
 
 export interface SessionRow {

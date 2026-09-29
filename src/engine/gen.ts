@@ -20,6 +20,15 @@ export interface GenCtx {
   squareAttacked?: (s: Square) => boolean;
 }
 
+/**
+ * Where a piece ends after taking a piece on a levitation platform: on the
+ * platform itself (it holds it while the platform lives); a king hits from
+ * where it stands and never leaves the board.
+ */
+export function platformLanding(piece: Piece, from: Square, platform: Square): Square {
+  return piece.type === 'king' ? from : platform;
+}
+
 export function makeCtx(pos: Position, color: Color, ply: number, attack: boolean): GenCtx {
   const enemy = opposite(color);
   const enemyIllusions = new Map<Square, Piece>();
@@ -164,7 +173,7 @@ export function slideMoves(
     if (!block || !block.piece || block.piece.color !== ctx.enemy || block.k < minCapture) continue;
     const path = [...stepSquares(steps), block.s];
     if (block.ring) {
-      out.push(mk(piece, from, from, { captures: [block.s], target: block.s, path, label: 'Взяти на платформі' }));
+      out.push(mk(piece, from, platformLanding(piece, from, block.s), { captures: [block.s], target: block.s, path, label: 'Взяти на платформі' }));
       continue;
     }
     out.push(mk(piece, from, block.s, { captures: [block.s], path }));
@@ -206,7 +215,7 @@ export function leapMoves(
       if (fromRing || opts.noCapture) continue;
       const p = ctx.pos.board[t];
       if (p && p.color === ctx.enemy) {
-        out.push(mk(piece, from, from, { captures: [t], target: t, path: [t], label: 'Взяти на платформі' }));
+        out.push(mk(piece, from, platformLanding(piece, from, t), { captures: [t], target: t, path: [t], label: 'Взяти на платформі' }));
       }
       continue;
     }

@@ -28,7 +28,9 @@ CREATE TABLE IF NOT EXISTS users (
   best_trophies INTEGER NOT NULL DEFAULT 0,
   last_seen INTEGER NOT NULL DEFAULT 0,
   quests TEXT NOT NULL DEFAULT '{}',
-  bot_override INTEGER NOT NULL DEFAULT -1
+  bot_override INTEGER NOT NULL DEFAULT -1,
+  capture_fx TEXT NOT NULL DEFAULT 'impact',
+  owned_fx TEXT NOT NULL DEFAULT '[]'
 );
 CREATE TABLE IF NOT EXISTS sessions (
   token TEXT PRIMARY KEY,
@@ -135,6 +137,8 @@ const USER_COLS: Record<keyof UserRow, string> = {
   lastSeen: 'last_seen',
   quests: 'quests',
   botOverride: 'bot_override',
+  captureFx: 'capture_fx',
+  ownedFx: 'owned_fx',
 };
 
 /** Columns added after the first release, for databases created before them. */
@@ -150,6 +154,8 @@ const USER_MIGRATIONS: [string, string][] = [
   ['last_seen', 'INTEGER NOT NULL DEFAULT 0'],
   ['quests', "TEXT NOT NULL DEFAULT '{}'"],
   ['bot_override', 'INTEGER NOT NULL DEFAULT -1'],
+  ['capture_fx', "TEXT NOT NULL DEFAULT 'impact'"],
+  ['owned_fx', "TEXT NOT NULL DEFAULT '[]'"],
 ];
 
 const PACK_COLS: Record<keyof PackRow, string> = {
@@ -194,6 +200,8 @@ function user(r: Row | undefined): UserRow | null {
     lastSeen: Number(r.last_seen ?? 0),
     quests: (r.quests as string | null) ?? '{}',
     botOverride: Number(r.bot_override ?? -1),
+    captureFx: (r.capture_fx as string | null) ?? 'impact',
+    ownedFx: (r.owned_fx as string | null) ?? '[]',
   };
 }
 

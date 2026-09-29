@@ -44,6 +44,8 @@ export function withUserDefaults(u: UserRow): UserRow {
     lastSeen: u.lastSeen ?? 0,
     quests: u.quests ?? '{}',
     botOverride: u.botOverride ?? -1,
+    captureFx: u.captureFx ?? 'impact',
+    ownedFx: u.ownedFx ?? '[]',
   };
 }
 

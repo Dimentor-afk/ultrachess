@@ -4,6 +4,9 @@ import { BOARD_THEMES, type BoardTheme } from '../economy/themes';
 import { RARITY_NAMES } from '../engine/cards';
 import type { Rarity } from '../engine/types';
 import { packArt } from './cardArt';
+import { CAPTURE_FX } from '../economy/captureFx';
+import { FxOnce } from './FxOnce';
+import type { FxName } from './fxSprites';
 import { errorText, useSession } from './state';
 
 type ShopPack = Exclude<PackType, 'starter'>;
@@ -41,6 +44,12 @@ export function ShopPage() {
         s.setProfile(await s.api.buyTheme(t.id));
         s.toast(`Дошка «${t.name}» ваша!`);
       }
+    });
+
+  const fx = (id: string, owned: boolean) =>
+    run(id, async () => {
+      s.setProfile(owned ? await s.api.setCaptureFx(id) : await s.api.buyCaptureFx(id));
+      if (!owned) s.toast('Новий ефект взяття — побачите його в наступному бою!');
     });
 
   return (
@@ -85,6 +94,36 @@ export function ShopPage() {
         Осколки за одну повторку:{' '}
         {(Object.entries(SHARDS_PER_DUPE) as [Rarity, number][]).map(([r, n]) => `${RARITY_NAMES[r].toLowerCase()} ${n}`).join(' · ')}.
       </p>
+
+      <div className="section-head">
+        <h2>💥 Ефекти взяття</h2>
+        <span className="muted small">Грають, коли ваша фігура б'є — і в іграх з друзями їх бачить суперник</span>
+      </div>
+      <div className="shop-fx">
+        {CAPTURE_FX.map((f) => {
+          const owned = profile.ownedFx.includes(f.id);
+          const active = profile.captureFx === f.id;
+          return (
+            <article key={f.id} className={`shop-fx-card ${active ? 'active' : ''}`}>
+              <div className="fx-preview" aria-hidden="true">
+                <FxOnce name={f.sprite as FxName} width={96} loop />
+              </div>
+              <b>{f.name}</b>
+              {active ? (
+                <span className="pill pill-ok">вибрано</span>
+              ) : owned ? (
+                <button className="btn btn-sm" disabled={busy === f.id} onClick={() => fx(f.id, true)}>
+                  Вибрати
+                </button>
+              ) : (
+                <button className="btn btn-sm btn-primary btn-price" disabled={profile.gold < f.price || busy === f.id} onClick={() => fx(f.id, false)}>
+                  🪙 {f.price}
+                </button>
+              )}
+            </article>
+          );
+        })}
+      </div>
 
       <div className="section-head">
         <h2>🪙 Дошки за золото</h2>

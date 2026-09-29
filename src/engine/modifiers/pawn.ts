@@ -1,5 +1,5 @@
 import { NO_SQUARE, forward, isBoardSquare, offset, pawnStartRank, rankOf } from '../coords';
-import { type GenCtx, enemyAt, isEmptyBoard, mk, seen, withPromotion } from '../gen';
+import { type GenCtx, enemyAt, isEmptyBoard, mk, platformLanding, seen, withPromotion } from '../gen';
 import type { Move, Piece, Square } from '../types';
 import type { Generator } from './registry';
 
@@ -17,7 +17,7 @@ function captureAt(ctx: GenCtx, p: Piece, from: Square, t: Square, out: Move[]):
   if (!isBoardSquare(t)) {
     const q = ctx.pos.board[t];
     if (q && q.color === ctx.enemy) {
-      out.push(mk(p, from, from, { captures: [t], target: t, path: [t], label: 'Взяти на платформі' }));
+      out.push(mk(p, from, platformLanding(p, from, t), { captures: [t], target: t, path: [t], label: 'Взяти на платформі' }));
     }
     return;
   }

@@ -101,6 +101,14 @@ describe('bishop cards', () => {
     const attacked = applyMove(build({ ...base, h4: 'b:rook-classic' }), lev.find((m) => m.to === sq(-1, 3))!);
     expect(legalMoves(attacked).some((m) => m.from === S('h4') && m.captures[0] === sq(-1, 3))).toBe(true);
 
+    // The attacker takes the platform, holds it while it lives and then steps back.
+    let held = applyMove(attacked, legalMoves(attacked).find((m) => m.from === S('h4') && m.captures[0] === sq(-1, 3))!);
+    expect(held.board[sq(-1, 3)]?.cardId).toBe('rook-classic');
+    expect(held.platforms).toEqual([expect.objectContaining({ square: sq(-1, 3), returnTo: S('h4') })]);
+    for (let i = 0; i < 6 && held.board[sq(-1, 3)]; i++) held = kingShuffle(held);
+    expect(held.board[sq(-1, 3)]).toBeNull();
+    expect(held.board[S('h4')]?.cardId).toBe('rook-classic');
+
     // It can come back...
     pos = kingShuffle(pos);
     expect(legalMoves(pos).some((m) => m.from === sq(-1, 3) && m.to === S('a5'))).toBe(true);

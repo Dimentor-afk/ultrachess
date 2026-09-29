@@ -34,12 +34,13 @@ describe('illusions (§4.6)', () => {
     expect(JSON.stringify(playerView(asMatch(after), 'b'))).not.toContain('ill-');
   });
 
-  it('block the opponent and vanish when attacked, wasting the turn', () => {
+  it('vanish when attacked; the attacker takes the square', () => {
     const after = play(setup(), 'c1', 'e3');
     const attempt = findMove(after, 'c8', 'c1');
     expect(attempt.captures).toEqual([S('c1')]);
     const next = play(after, 'c8', 'c1');
-    expect(at(next, 'c8')).toBe('b:rook-classic');
+    expect(at(next, 'c8')).toBeNull();
+    expect(at(next, 'c1')).toBe('b:rook-classic');
     expect(next.hiddenState.w.illusions).toHaveLength(0);
     expect(next.turn).toBe('w');
   });

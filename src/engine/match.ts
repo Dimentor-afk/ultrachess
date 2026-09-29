@@ -153,6 +153,8 @@ function eventText(e: GameEvent): string | null {
       return `Засідник атакував на ${squareName(e.square)} і загинув`;
     case 'fell':
       return `${getCard(e.piece.cardId).name} впав із платформи`;
+    case 'platformReturn':
+      return `${getCard(e.piece.cardId).name} повернувся з платформи на ${squareName(e.to)}`;
     case 'barricade':
       return `Барикада! Пішак на ${squareName(e.square)} перекрив мат`;
     case 'captured':

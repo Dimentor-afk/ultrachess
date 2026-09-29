@@ -66,6 +66,8 @@ export interface Api {
   buyPack(type: PackType): Promise<{ pack: PackView; profile: Profile }>;
   buyTheme(id: string): Promise<Profile>;
   setBoardTheme(id: string): Promise<Profile>;
+  buyCaptureFx(id: string): Promise<Profile>;
+  setCaptureFx(id: string): Promise<Profile>;
   decks(): Promise<Deck[]>;
   saveDeck(deck: Deck): Promise<Deck[]>;
   deleteDeck(id: string): Promise<Deck[]>;
@@ -132,6 +134,8 @@ class HttpApi implements Api {
   buyPack = (type: PackType) => this.call<{ pack: PackView; profile: Profile }>('POST', 'shop/pack', { type });
   buyTheme = (id: string) => this.call<Profile>('POST', 'shop/theme', { id });
   setBoardTheme = (id: string) => this.call<Profile>('POST', 'profile/theme', { id });
+  buyCaptureFx = (id: string) => this.call<Profile>('POST', 'shop/fx', { id });
+  setCaptureFx = (id: string) => this.call<Profile>('POST', 'profile/fx', { id });
   decks = () => this.call<Deck[]>('GET', 'decks');
   saveDeck = (deck: Deck) => this.call<Deck[]>('PUT', 'decks', deck);
   deleteDeck = (id: string) => this.call<Deck[]>('DELETE', `decks/${id}`);
@@ -270,6 +274,8 @@ class LocalApi implements Api {
   buyPack = async (type: PackType) => this.svc.buyPack(await this.t(), type);
   buyTheme = async (id: string) => this.svc.buyTheme(await this.t(), id);
   setBoardTheme = async (id: string) => this.svc.setBoardTheme(await this.t(), id);
+  buyCaptureFx = async (id: string) => this.svc.buyCaptureFx(await this.t(), id);
+  setCaptureFx = async (id: string) => this.svc.setCaptureFx(await this.t(), id);
   decks = async () => this.svc.decks(await this.t());
   saveDeck = async (deck: Deck) => this.svc.saveDeck(await this.t(), deck);
   deleteDeck = async (id: string) => this.svc.deleteDeck(await this.t(), id);

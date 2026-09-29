@@ -5338,3 +5338,158 @@ html.no-anim .fx {
 .board-wrap {
   container-type: inline-size;
 }
+
+/* Platforms fill their (widened) ring cell exactly: never over the board. */
+.platform-tile {
+  width: var(--platform, 11cqw);
+  height: var(--platform, 11cqw);
+}
+
+.board.wide-ring .cell.ring:not(:disabled) {
+  background: radial-gradient(circle, rgba(91, 140, 255, 0.12), transparent 70%);
+}
+
+.shop-fx {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.8rem;
+}
+
+.shop-fx-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.8rem;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.shop-fx-card.active {
+  border-color: var(--ok);
+  box-shadow: 0 0 0 1px var(--ok) inset;
+}
+
+.fx-preview {
+  position: relative;
+  width: 100%;
+  height: 96px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: repeating-conic-gradient(var(--dark-sq) 0 25%, var(--light-sq) 0 50%) 50% / 48px 48px;
+}
+
+.fx-preview .fx {
+  transform: translate(-50%, -50%);
+}
+
+/* ---------- Opponent deck intro ---------- */
+.deck-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 20px 16px;
+  overflow-y: auto;
+  background: radial-gradient(ellipse at top, rgba(120, 60, 60, 0.35), transparent 60%), rgba(8, 10, 18, 0.92);
+  backdrop-filter: blur(6px);
+  animation: intro-fade 0.3s ease-out;
+}
+.deck-intro-head {
+  text-align: center;
+  animation: intro-drop 0.5s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+.deck-intro-head h2 {
+  margin: 2px 0;
+  font-size: clamp(1.6rem, 5vw, 2.4rem);
+}
+.deck-intro-head .eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  font-size: 0.75rem;
+  color: #ff8a80;
+}
+.deck-intro-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: min(900px, 100%);
+}
+.intro-group {
+  display: grid;
+  grid-template-columns: 76px 1fr;
+  align-items: center;
+  gap: 10px;
+}
+.intro-label {
+  font-weight: 700;
+  color: var(--muted, #9aa3b5);
+  text-align: right;
+  animation: intro-fade 0.3s ease-out both;
+}
+.intro-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.intro-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  grid-template-rows: auto auto 1fr;
+  column-gap: 8px;
+  width: 260px;
+  max-width: 100%;
+  padding: 6px 8px 6px 6px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  animation: intro-fly 0.55s cubic-bezier(0.2, 1.3, 0.4, 1) both;
+}
+.intro-card.r-rare { border-color: #4c8dff; }
+.intro-card.r-epic { border-color: #b560ff; box-shadow: 0 0 12px rgba(181, 96, 255, 0.35); }
+.intro-card.r-legendary { border-color: #ffb938; box-shadow: 0 0 14px rgba(255, 185, 56, 0.4); }
+.intro-card.r-mythic { border-color: #ff5a7a; box-shadow: 0 0 18px rgba(255, 90, 122, 0.5); }
+.intro-art {
+  position: relative;
+  grid-row: 1 / 4;
+  width: 56px;
+  height: 56px;
+}
+.intro-art img { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }
+.intro-count {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  padding: 0 5px;
+  border-radius: 8px;
+  background: #222a3c;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.intro-card b { font-size: 0.9rem; line-height: 1.2; }
+.intro-rules {
+  font-size: 0.72rem;
+  color: var(--muted, #9aa3b5);
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.deck-intro-actions { margin-top: auto; padding-top: 8px; }
+@keyframes intro-fade { from { opacity: 0; } }
+@keyframes intro-drop { from { opacity: 0; transform: translateY(-30px) scale(0.9); } }
+@keyframes intro-fly {
+  from { opacity: 0; transform: translate(40vw, -20px) rotate(18deg) scale(0.6); }
+  to { opacity: 1; transform: none; }
+}
+@media (max-width: 560px) {
+  .intro-group { grid-template-columns: 1fr; }
+  .intro-label { text-align: left; }
+  .intro-card { width: 100%; }
+}

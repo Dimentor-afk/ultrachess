@@ -31,7 +31,7 @@ import {
   removeIllusionsOf,
 } from './position';
 import { hasAnyLegalTurn } from './status';
-import type { Color, Move, Piece, PieceType, Position, Square } from './types';
+import type { Color, Move, Piece, PieceType, Platform, Position, Square } from './types';
 
 export const ILLUSION_LIFETIME_PLIES = 5; // 3 opponent turns
 export const PLATFORM_LIFETIME_PLIES = 5; // 3 opponent turns
@@ -50,6 +50,7 @@ export type GameEvent =
   | { type: 'riderLanding'; piece: Piece; to: Square }
   | { type: 'ambush'; ambusher: Piece; square: Square }
   | { type: 'fell'; piece: Piece }
+  | { type: 'platformReturn'; piece: Piece; to: Square }
   | { type: 'barricade'; square: Square; color: Color };
 
 export interface ApplyOpts {
@@ -216,9 +217,10 @@ function makeIllusion(next: Position, src: Piece, s: Square, ply: number): void 
 
 export function applyMoveWithEvents(
   pos: Position,
-  m: Move,
+  move: Move,
   opts: ApplyOpts = {},
 ): { pos: Position; events: GameEvent[] } {
+  let m = move;
   const next = clonePosition(pos);
   const events: GameEvent[] = [];
   const mover = next.board[m.from];
@@ -228,13 +230,18 @@ export function applyMoveWithEvents(
   const ply = next.ply;
   let resetClock = mover.type === 'pawn';
 
-  // An attempt to take an illusion: it vanishes and the turn is spent.
+  // An attempt to take an illusion: it vanishes. A piece that was going to
+  // land there simply steps onto the empty square; otherwise the turn is spent.
   const touch = m.touch ?? m.captures[0];
   if (touch !== undefined && next.board[touch] === null && illusionAt(next, enemy, touch)) {
     removeIllusionAt(next, enemy, touch);
     events.push({ type: 'illusionDispelled', square: touch, owner: enemy });
-    endPly(next, color, events, opts, false);
-    return { pos: next, events };
+    if (m.to === touch && isBoardSquare(touch) && m.captures.length === 1) {
+      m = { ...m, captures: [], steps: undefined };
+    } else {
+      endPly(next, color, events, opts, false);
+      return { pos: next, events };
+    }
   }
 
   next.board[m.from] = null;
@@ -256,6 +263,8 @@ export function applyMoveWithEvents(
   let finalTo = m.to;
   let skip = m.skip ?? 0;
   const victims: { piece: Piece; square: Square }[] = [];
+  // Taking a piece on a platform: the attacker holds the platform until it expires.
+  let heldPlatform: Platform | null = null;
   for (let i = 0; i < m.captures.length; i++) {
     const c = m.captures[i];
     const victim = next.board[c];
@@ -270,7 +279,10 @@ export function applyMoveWithEvents(
       break;
     }
     next.board[c] = null;
-    if (!isBoardSquare(c)) next.platforms = next.platforms.filter((pl) => pl.pieceId !== victim.id);
+    if (!isBoardSquare(c)) {
+      heldPlatform = next.platforms.find((pl) => pl.pieceId === victim.id) ?? null;
+      next.platforms = next.platforms.filter((pl) => pl.pieceId !== victim.id);
+    }
     resetClock = true;
     victims.push({ piece: victim, square: c });
     if (alive && victim.cardId === 'rook-kamikaze' && mover.type !== 'rook' && mover.type !== 'queen') {
@@ -304,6 +316,10 @@ export function applyMoveWithEvents(
     if (m.loseCastling) next.castlingLost[mover.id] = true;
     if (m.levitate) {
       next.platforms.push({ square: finalTo, pieceId: mover.id, expiresAfterPly: ply + PLATFORM_LIFETIME_PLIES });
+    }
+    if (heldPlatform && !isBoardSquare(finalTo)) {
+      const back = isBoardSquare(m.from) ? m.from : undefined;
+      next.platforms.push({ square: finalTo, pieceId: mover.id, expiresAfterPly: heldPlatform.expiresAfterPly, returnTo: back });
     }
     if (passenger) next.passengers[mover.id] = passenger;
     removeIllusionsOf(next, mover.id);
@@ -344,8 +360,14 @@ function endPly(next: Position, color: Color, events: GameEvent[], opts: ApplyOp
     const p = next.board[pl.square];
     if (p && p.id === pl.pieceId) {
       next.board[pl.square] = null;
-      forgetPiece(next, p);
-      events.push({ type: 'fell', piece: p });
+      if (pl.returnTo !== undefined && next.board[pl.returnTo] === null) {
+        // It took the platform by capture: it steps back where it attacked from.
+        next.board[pl.returnTo] = p;
+        events.push({ type: 'platformReturn', piece: p, to: pl.returnTo });
+      } else {
+        forgetPiece(next, p);
+        events.push({ type: 'fell', piece: p });
+      }
     }
   }
   next.platforms = next.platforms.filter((pl) => pl.expiresAfterPly > ply);
