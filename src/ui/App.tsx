@@ -54,7 +54,7 @@ export function App() {
     <>
       {!api || loaded === null ? (
         <div className="splash">
-          <img src={cardArt('knight-berserk')!} alt="" className="pixel splash-art" />
+          <img src={cardArt('knight-galloper')!} alt="" className="pixel splash-art" />
           <span className="logo">
             Ultra<b>chess</b>
           </span>
@@ -93,7 +93,7 @@ function Shell() {
     <div className="shell">
       <aside className="sidebar">
         <a className="brand" href="#/play">
-          <img src={cardArt('knight-berserk')!} alt="" className="pixel brand-art" />
+          <img src={cardArt('knight-galloper')!} alt="" className="pixel brand-art" />
           <span>
             Ultra<b>chess</b>
           </span>

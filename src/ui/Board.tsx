@@ -99,14 +99,17 @@ function squareLabel(s: Square, piece: ViewPiece | null, marked: boolean): strin
 export function PieceView({ piece }: { piece: ViewPiece }) {
   const card = getCard(piece.cardId);
   const special = !card.id.endsWith('-classic');
+  const sprite = pieceSprite(card.id, piece.type, piece.color);
   return (
     <span
-      className={`piece piece-${piece.color} r-${card.rarity} ${special ? 'special' : ''} ${piece.illusion ? 'illusion' : ''}`}
+      className={`piece piece-${piece.color} r-${card.rarity} ${special ? 'special' : ''} ${piece.illusion ? 'illusion' : ''} ${
+        sprite.tint ? 'tinted' : ''
+      }`}
       title={`${card.name}\n${card.rulesText}`}
     >
       <span className="piece-base" />
       {special && <span className="piece-aura" />}
-      <img className="piece-sprite pixel" src={pieceSprite(card.id, piece.type)} alt="" draggable={false} />
+      <img className="piece-sprite pixel" src={sprite.src} alt="" draggable={false} />
       {special && (
         <span className="piece-emblem">
           <Emblem cardId={card.id} />
@@ -115,7 +118,7 @@ export function PieceView({ piece }: { piece: ViewPiece }) {
       {piece.frozen && <span className="badge badge-frozen" title="Пропускає хід">❄</span>}
       {piece.passenger && (
         <span className="badge badge-passenger" title="Пішак-пасажир">
-          <img className="piece-sprite pixel" src={pieceSprite('pawn-classic', 'pawn')} alt="" draggable={false} />
+          <img className="piece-sprite pixel" src={pieceSprite('pawn-classic', 'pawn', piece.color).src} alt="" draggable={false} />
         </span>
       )}
       {piece.platformTurnsLeft !== null && (

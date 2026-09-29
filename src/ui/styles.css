@@ -1325,7 +1325,13 @@ select optgroup {
 }
 
 .piece-b > .piece-sprite {
-  filter: brightness(0.34) saturate(1.5) contrast(1.15) drop-shadow(0.25cqw 0 0 #e9cf87) drop-shadow(-0.25cqw 0 0 #e9cf87)
+  filter: drop-shadow(0.25cqw 0 0 #e9cf87) drop-shadow(-0.25cqw 0 0 #e9cf87) drop-shadow(0 0.25cqw 0 #e9cf87)
+    drop-shadow(0 -0.25cqw 0 #e9cf87) drop-shadow(0 0.6cqw 0.3cqw rgba(0, 0, 0, 0.5));
+}
+
+/* Themed pieces without a dark version: darken the light sprite. */
+.piece-b.tinted > .piece-sprite {
+  filter: brightness(0.4) saturate(1.5) contrast(1.15) drop-shadow(0.25cqw 0 0 #e9cf87) drop-shadow(-0.25cqw 0 0 #e9cf87)
     drop-shadow(0 0.25cqw 0 #e9cf87) drop-shadow(0 -0.25cqw 0 #e9cf87) drop-shadow(0 0.6cqw 0.3cqw rgba(0, 0, 0, 0.5));
 }
 
@@ -3748,7 +3754,29 @@ th.num {
 
   .hub-top .inspect {
     position: static;
-    max-width: 360px;
+    max-width: 520px;
+  }
+
+  /* Compact side-by-side card so the collection stays close to the board. */
+  .hub-top .inspect .gcard {
+    flex-direction: row;
+  }
+
+  .hub-top .inspect .gcard-art {
+    flex: 0 0 34%;
+    aspect-ratio: auto;
+    min-height: 120px;
+    border-radius: 13px 6px 6px 13px;
+  }
+
+  .hub-top .inspect .gcard-type,
+  .hub-top .inspect .gcard-effects {
+    display: none;
+  }
+
+  .hub-top .inspect .gcard-body {
+    flex: 1 1 auto;
+    min-width: 0;
   }
 }
 
