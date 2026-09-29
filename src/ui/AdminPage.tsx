@@ -58,6 +58,7 @@ export function AdminPage() {
                   <th>Роль</th>
                   <th className="num">Кубки</th>
                   <th className="num">Карток</th>
+                  <th className="num">🪙 / 💎</th>
                   <th className="num">W / L</th>
                   <th>Дії</th>
                 </tr>
@@ -88,6 +89,9 @@ export function AdminPage() {
                     </td>
                     <td className="num">{u.cards} / 69</td>
                     <td className="num">
+                      {u.gold} / {u.shards}
+                    </td>
+                    <td className="num">
                       {u.wins} / {u.losses}
                     </td>
                     <td>
@@ -97,6 +101,12 @@ export function AdminPage() {
                         </button>
                         <button className="btn btn-sm" onClick={() => run(() => s.api.adminGrantAllCards(u.id), `Усі карти → ${u.name}`)}>
                           Усі карти
+                        </button>
+                        <button
+                          className="btn btn-sm"
+                          onClick={() => run(() => s.api.adminGrantCurrency(u.id, 1000, 1000), `+1000 🪙 і +1000 💎 → ${u.name}`)}
+                        >
+                          +1000 🪙💎
                         </button>
                         {u.id !== s.profile.id && (
                           <button

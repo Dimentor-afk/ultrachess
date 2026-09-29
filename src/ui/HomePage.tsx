@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { MatchStart, PackView } from '../api/client';
-import { ARENAS, PACKS, PACK_SLOTS, RARITIES, STARTER_PACK, packName } from '../economy/packs';
+import { ARENAS, DAILY_PACK_LIMIT, PACKS, PACK_SHARD_PRICE, RARITIES, STARTER_PACK, WIN_GOLD, packName } from '../economy/packs';
 import { RARITY_NAMES } from '../engine/cards';
 import type { Rarity } from '../engine/types';
 import { Game } from './MatchPage';
@@ -16,23 +16,6 @@ const LEVELS = [
   { level: 3, name: 'Складний' },
 ];
 
-function useNow(): number {
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, []);
-  return now;
-}
-
-function formatLeft(ms: number): string {
-  const s = Math.max(0, Math.ceil(ms / 1000));
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  return h ? `${h} год ${m} хв` : m ? `${m} хв ${String(sec).padStart(2, '0')} с` : `${sec} с`;
-}
-
 export function HomePage() {
   const s = useSession();
   const { api, profile, decks, packs } = s;
@@ -41,20 +24,16 @@ export function HomePage() {
   const [level, setLevel] = useState(2);
   const [busy, setBusy] = useState(false);
   const [showOdds, setShowOdds] = useState(false);
-  const now = useNow();
 
   const activeDeck = decks.find((d) => d.id === profile.activeDeckId) ?? decks[0];
   const arena = ARENAS[profile.arenaIndex];
   const next = profile.nextArena;
   const progress = next ? (profile.trophies - arena.minTrophies) / (next.minTrophies - arena.minTrophies) : 1;
-  const slotPacks = packs.filter((p) => p.slot);
-  const extraPacks = packs.filter((p) => !p.slot);
-  const unlocking = slotPacks.some((p) => p.status === 'unlocking' && (p.unlockAt ?? 0) > now);
 
   // The starter pack opens by itself on the first visit.
   const autoOpened = useRef(false);
   useEffect(() => {
-    const starter = packs.find((p) => p.type === 'starter' && p.status === 'ready');
+    const starter = packs.find((p) => p.type === 'starter');
     if (starter && !autoOpened.current) {
       autoOpened.current = true;
       setOpening(starter);
@@ -95,34 +74,8 @@ export function HomePage() {
     );
   }
 
-  const slotAction = async (p: PackView) => {
-    try {
-      if (p.status === 'ready' || (p.status === 'unlocking' && (p.unlockAt ?? 0) <= now)) return setOpening(p);
-      if (p.status === 'locked') {
-        s.setPacks(await api.startUnlock(p.id));
-        s.toast(`${p.name}: відкриття почалось`);
-      }
-    } catch (e) {
-      s.toast(errorText(e), 'error');
-    }
-  };
-
   return (
     <section className="page home">
-      {extraPacks.length > 0 && (
-        <div className="ready-packs">
-          {extraPacks.map((p) => (
-            <button key={p.id} className={`ready-pack pack-${p.type}`} onClick={() => setOpening(p)}>
-              <img src={packArt(p.type)} alt="" />
-              <span>
-                <b>{p.name}</b>
-                <small className="muted">{p.source}</small>
-              </span>
-              <span className="slot-state ready">Відкрити</span>
-            </button>
-          ))}
-        </div>
-      )}
       <div className="home-top">
         <div className="arena-card">
           <div className="arena-art" aria-hidden="true">
@@ -165,11 +118,17 @@ export function HomePage() {
           <button className="btn btn-battle" disabled={busy || !activeDeck} onClick={() => startMatch(true)}>
             <Icon name="sword" /> Бій
           </button>
-          {!activeDeck && <p className="muted small center">Відкрийте стартовий пак нижче — з нього збереться перша колода.</p>}
+          {!activeDeck && <p className="muted small center">Відкрийте стартовий пак — з нього збереться перша колода.</p>}
           <div className="next-reward">
             <img src={packArt(profile.nextReward)} alt="" />
             <span>
-              Наступна нагорода за перемогу: <b>{packName(profile.nextReward)}</b>
+              {profile.packsToday < profile.packsLimit ? (
+                <>
+                  Нагорода за перемогу: <b>{packName(profile.nextReward)}</b> і 🪙 {WIN_GOLD}
+                </>
+              ) : (
+                <>Ліміт паків на сьогодні вичерпано — за перемогу 🪙 {WIN_GOLD} і кубки</>
+              )}
             </span>
           </div>
           <div className="training">
@@ -189,56 +148,34 @@ export function HomePage() {
       </div>
 
       <div className="section-head">
-        <h2>Слоти паків</h2>
+        <h2>
+          Ваші паки <span className="muted small">{packs.length}</span>
+        </h2>
+        <span className="daily" title="Паки за перемоги в рейтингу оновлюються щодня">
+          Паки за перемоги сьогодні: <b>{profile.packsToday}</b> / {profile.packsLimit}
+        </span>
         <button className="btn btn-ghost btn-sm" onClick={() => setShowOdds(!showOdds)}>
           <Icon name="info" /> Шанси
         </button>
       </div>
-      <div className="slots">
-        {Array.from({ length: PACK_SLOTS }, (_, i) => {
-          const p = slotPacks[i];
-          if (!p) {
-            return (
-              <div key={i} className="slot empty">
-                <span className="muted small">Порожній слот</span>
-                <span className="muted tiny">Перемагайте в рейтингу</span>
-              </div>
-            );
-          }
-          const ready = p.status === 'ready' || (p.status === 'unlocking' && (p.unlockAt ?? 0) <= now);
-          return (
-            <button key={p.id} className={`slot pack-${p.type} ${ready ? 'ready' : ''}`} onClick={() => slotAction(p)}>
+      {packs.length === 0 ? (
+        <div className="panel empty-packs">
+          <p className="muted">
+            Паків немає. Перемагайте в рейтингових боях — кожна перемога одразу дає пак (до {profile.packsLimit} на день). Паки також
+            купуються за осколки в <a href="#/shop">магазині</a>.
+          </p>
+        </div>
+      ) : (
+        <div className="pack-shelf">
+          {packs.map((p) => (
+            <button key={p.id} className={`shelf-pack pack-${p.type}`} onClick={() => setOpening(p)} title={p.source}>
               <img src={packArt(p.type)} alt="" />
               <b>{p.name}</b>
-              {ready ? (
-                <span className="slot-state ready">Відкрити!</span>
-              ) : p.status === 'unlocking' ? (
-                <span className="slot-state">
-                  <Icon name="clock" /> {formatLeft((p.unlockAt ?? 0) - now)}
-                </span>
-              ) : (
-                <span className="slot-state" title={unlocking ? 'Інший пак уже відкривається' : ''}>
-                  <Icon name="lock" /> {p.unlockMinutes} хв
-                </span>
-              )}
-              {profile.role === 'admin' && !ready && (
-                <span
-                  className="admin-skip"
-                  role="button"
-                  tabIndex={0}
-                  onClick={async (e) => {
-                    e.stopPropagation();
-                    await api.adminFinishUnlock(p.id);
-                    s.setPacks(await api.packs());
-                  }}
-                >
-                  адмін: зараз
-                </span>
-              )}
+              <span className="slot-state ready">Відкрити</span>
             </button>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      )}
 
       {showOdds && <OddsTable />}
 
@@ -274,7 +211,8 @@ function OddsTable() {
               ))}
               <th>Гарантія</th>
               <th>Ліміт у паку</th>
-              <th>Відкриття</th>
+              <th>Золото</th>
+              <th>У магазині</th>
             </tr>
           </thead>
           <tbody>
@@ -288,7 +226,8 @@ function OddsTable() {
               </td>
               <td>—</td>
               <td className="small">без лег і міфів</td>
-              <td>одразу</td>
+              <td>🪙 {STARTER_PACK.gold}</td>
+              <td>—</td>
             </tr>
             {Object.values(PACKS).map((p) => (
               <tr key={p.type}>
@@ -307,7 +246,8 @@ function OddsTable() {
                     .map(([r, n]) => `${RARITY_NAMES[r as Rarity].toLowerCase()}${r === 'mythological' ? '' : '+'} ≤ ${n}`)
                     .join(', ')}
                 </td>
-                <td>{p.unlockMinutes >= 60 ? `${p.unlockMinutes / 60} год` : `${p.unlockMinutes} хв`}</td>
+                <td>🪙 {p.gold}</td>
+                <td>💎 {PACK_SHARD_PRICE[p.type as keyof typeof PACK_SHARD_PRICE]}</td>
               </tr>
             ))}
           </tbody>
@@ -317,8 +257,8 @@ function OddsTable() {
         Ліміт обмежує кількість сильних карток в одному паку: якщо випадає більше, зайві стають на рівень нижчими. Наприклад, міфічний пак
         дає рівно одну міфологічну, щонайбільше одну легендарну й не більше трьох епічних і вище разом.
         <br />
-        Перемога в рейтингу дає +30 кубків і пак у вільний слот (цикл: звичайні, рідкісні, епічний, легендарний), поразка — −20. Паки зі
-        слотів відкриваються по одному за таймером. Повторки карт збираються в скрині повторок і міняються на паки.
+        Перемога в рейтингу дає +30 кубків, 🪙 {WIN_GOLD} і одразу пак (цикл: звичайні, рідкісні, епічний, легендарний), але не більше{' '}
+        {DAILY_PACK_LIMIT} паків на день. Поразка — −20 кубків. Повторки карт автоматично стають осколками 💎, за які в магазині купуються паки.
       </p>
     </div>
   );

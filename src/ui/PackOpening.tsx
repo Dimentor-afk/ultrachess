@@ -106,7 +106,7 @@ export function PackOpening({
           </div>
           <div className={`reveal-tag ${flipped ? 'show' : ''}`}>
             <span className={`rarity-tag r-${card.rarity}`}>{RARITY_NAMES[card.rarity]}</span>
-            {current!.isNew ? <span className="badge-new">НОВА!</span> : <span className="badge-dupe">+1 повторка</span>}
+            {current!.isNew ? <span className="badge-new">НОВА!</span> : <span className="badge-dupe">повторка → 💎 +{current!.shards}</span>}
           </div>
           <p className="muted small">Натисніть, щоб продовжити</p>
         </div>
@@ -115,11 +115,15 @@ export function PackOpening({
       {phase === 'summary' && result && (
         <div className="opening-summary">
           <h2>{pack.name}</h2>
+          <div className="loot">
+            <span className="loot-item gold">🪙 +{result.gold} золота</span>
+            {result.shards > 0 && <span className="loot-item shards">💎 +{result.shards} осколків</span>}
+          </div>
           <div className="summary-grid">
             {result.cards.map((c, i) => (
               <div key={i} className="summary-card">
                 <CardView card={CARD_BY_ID[c.cardId]} />
-                {c.isNew ? <span className="badge-new">НОВА!</span> : <span className="badge-dupe">+1 повторка</span>}
+                {c.isNew ? <span className="badge-new">НОВА!</span> : <span className="badge-dupe">💎 +{c.shards}</span>}
               </div>
             ))}
           </div>

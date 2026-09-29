@@ -3789,3 +3789,437 @@ th.num {
     max-width: 130px;
   }
 }
+
+/* ── Wallet, pack shelf, shop ── */
+
+.wallet {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin: -0.4rem 0 0.6rem;
+}
+
+.wallet-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.8rem 0.25rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(7, 11, 22, 0.7);
+  border: 1px solid var(--line);
+  color: var(--text);
+  text-decoration: none;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.wallet-item b {
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.wallet-item.gold b { color: var(--gold); }
+.wallet-item.shards b,
+.shards-text { color: #8fd8ff; }
+
+.wallet-item:hover {
+  border-color: var(--gold);
+}
+
+.loot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  justify-content: center;
+}
+
+.loot-item {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  padding: 0.3rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--line);
+  animation: card-in 0.4s ease-out backwards;
+}
+
+.loot-item.gold { color: var(--gold); border-color: rgba(245, 196, 81, 0.5); }
+.loot-item.shards { color: #8fd8ff; border-color: rgba(143, 216, 255, 0.5); animation-delay: 0.1s; }
+
+.daily {
+  margin-left: auto;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.daily b {
+  color: var(--gold);
+}
+
+.pack-shelf {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.8rem;
+}
+
+.shelf-pack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.9rem 0.5rem;
+  border-radius: 16px;
+  border: 1px solid var(--gold);
+  background: radial-gradient(circle at 50% 35%, rgba(245, 196, 81, 0.18), transparent 65%), linear-gradient(180deg, #1a2548, #111a31);
+  color: var(--text);
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.shelf-pack:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.4), 0 0 20px rgba(245, 196, 81, 0.25);
+}
+
+.shelf-pack img {
+  width: 58px;
+  height: 106px;
+  filter: drop-shadow(0 8px 10px rgba(0, 0, 0, 0.5));
+  animation: wiggle 1.8s ease-in-out infinite;
+}
+
+.shelf-pack b {
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.empty-packs p {
+  margin: 0;
+}
+
+.shop-packs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 0.9rem;
+}
+
+.shop-pack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  text-align: center;
+  padding: 1rem 0.8rem;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, #1c2a52, #111a33);
+}
+
+.shop-pack.can {
+  border-color: #8fd8ff;
+  box-shadow: 0 0 20px rgba(143, 216, 255, 0.18);
+}
+
+.shop-pack img {
+  width: 64px;
+  height: 117px;
+  filter: drop-shadow(0 10px 12px rgba(0, 0, 0, 0.5));
+}
+
+.shop-pack .bar {
+  width: 100%;
+}
+
+.shop-pack .bar span {
+  background: linear-gradient(90deg, #3aa0e0, #8fd8ff);
+}
+
+.btn-price {
+  font-family: var(--font-display);
+  font-weight: 400;
+  min-width: 7rem;
+  margin-top: auto;
+}
+
+.shop-themes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.9rem;
+}
+
+.shop-theme {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.8rem;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.shop-theme.active {
+  border-color: var(--ok);
+  box-shadow: 0 0 0 1px var(--ok) inset;
+}
+
+.theme-preview {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  width: 100%;
+  max-width: 120px;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 3px solid var(--frame);
+}
+
+.shards-note {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  text-decoration: none;
+  color: var(--text);
+  margin-top: 0.8rem;
+}
+
+.shards-note:hover {
+  border-color: #8fd8ff;
+}
+
+.shards-big {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  color: #8fd8ff;
+  white-space: nowrap;
+}
+
+@media (max-width: 860px) {
+  .wallet {
+    position: sticky;
+    top: calc(env(safe-area-inset-top, 0px) + 6px);
+    z-index: 25;
+    margin-top: 0;
+  }
+
+  .daily {
+    margin-left: 0;
+    width: 100%;
+    order: 3;
+  }
+}
+
+/* A light sprite standing in for a black piece, as on the board. */
+.gcard-pixel.tinted {
+  filter: brightness(0.4) saturate(1.5) contrast(1.15) drop-shadow(1px 0 0 #e9cf87) drop-shadow(-1px 0 0 #e9cf87)
+    drop-shadow(0 1px 0 #e9cf87) drop-shadow(0 -1px 0 #e9cf87);
+}
+
+/* ── Moving pieces ── */
+
+.slide {
+  position: relative;
+  z-index: 6;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  animation: slide-in 0.26s cubic-bezier(0.3, 0.7, 0.4, 1);
+}
+
+.platform-tile .slide {
+  position: static;
+}
+
+@keyframes slide-in {
+  from {
+    transform: translate(var(--dx), var(--dy));
+  }
+}
+
+.mark-stay {
+  position: absolute;
+  inset: 4%;
+  border-radius: 12%;
+  box-shadow: inset 0 0 0 0.5cqw var(--gold), 0 0 1.4cqw rgba(245, 196, 81, 0.8);
+  animation: pulse 1.2s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.mark-option {
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+/* ── On-board choice popover ── */
+
+.board-wrap {
+  position: relative;
+}
+
+.board-popover {
+  position: absolute;
+  z-index: 20;
+  transform: translate(-50%, -110%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.45rem;
+  border-radius: 12px;
+  background: rgba(10, 15, 30, 0.96);
+  border: 1px solid var(--gold);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
+  animation: card-in 0.18s ease-out;
+  max-width: 240px;
+}
+
+.board-popover .btn {
+  justify-content: flex-start;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/* ── Ability dock under the board ── */
+
+.ability-dock {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.5rem;
+}
+
+.ability-tile {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 0.7rem 0.45rem 0.45rem;
+  border-radius: 14px;
+  border: 2px solid color-mix(in srgb, var(--r) 55%, transparent);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--r) 22%, #121a33), #0e1529);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.12s, box-shadow 0.15s, filter 0.15s;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.45);
+}
+
+.ability-tile:disabled {
+  cursor: default;
+  filter: saturate(0.5) brightness(0.8);
+}
+
+.ability-tile.ready:not(:disabled) {
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.45), 0 0 18px color-mix(in srgb, var(--r) 55%, transparent);
+}
+
+.ability-tile.ready:not(:disabled):hover {
+  transform: translateY(-2px);
+}
+
+.ability-tile.ready:not(:disabled):active {
+  transform: translateY(1px);
+}
+
+/* Mythic buttons: animated rainbow rim so they read as the big move. */
+.ability-tile.r-mythological.ready:not(:disabled) {
+  border-color: transparent;
+  background:
+    linear-gradient(135deg, #3a0f24, #121a33) padding-box,
+    conic-gradient(from var(--spin, 0deg), #ff4d6d, #ffb02e, #f5c451, #b673ff, #4aa3ff, #ff4d6d) border-box;
+  animation: rim-spin 3s linear infinite;
+}
+
+@property --spin {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes rim-spin {
+  to {
+    --spin: 360deg;
+  }
+}
+
+.ability-tile.on {
+  border-color: var(--gold) !important;
+  background: linear-gradient(135deg, rgba(245, 196, 81, 0.3), #121a33) !important;
+}
+
+.ability-art {
+  position: relative;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle, color-mix(in srgb, var(--r) 45%, transparent), transparent 70%), #0b1020;
+}
+
+.ability-art img {
+  width: 80%;
+  height: 80%;
+  object-fit: contain;
+}
+
+.ability-art img.tinted {
+  filter: brightness(0.4) saturate(1.5) drop-shadow(1px 0 0 #e9cf87) drop-shadow(-1px 0 0 #e9cf87);
+}
+
+.ability-cd {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: inherit;
+  background: rgba(0, 0, 0, 0.6);
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  color: #fff;
+}
+
+.ability-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.ability-text b {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 1rem;
+}
+
+.ability-text small {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.ability-tile.ready:not(:disabled) .ability-text small {
+  color: var(--gold);
+}
+
+.ability-tile.r-mythological {
+  padding: 0.6rem 0.9rem 0.6rem 0.6rem;
+}
+
+.ability-tile.r-mythological .ability-art {
+  width: 58px;
+  height: 58px;
+}
+
+.ability-tile.r-mythological .ability-text b {
+  font-size: 1.2rem;
+}
+
+.ability-eyebrow {
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--r-mythological);
+}

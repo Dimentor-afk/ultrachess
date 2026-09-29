@@ -1,10 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { EXCHANGE, packName } from '../economy/packs';
-import { CARDS, CARD_BY_ID, PIECE_NAMES, PIECE_ORDER, RARITY_NAMES, RARITY_ORDER } from '../engine/cards';
+import { CARDS, CARD_BY_ID, PIECE_NAMES, PIECE_ORDER, RARITY_ORDER } from '../engine/cards';
 import { cardAt, deckPositions, placeCard, slotType, validateDeck } from '../engine/deck';
-import type { Card, Deck, PieceType, Rarity } from '../engine/types';
+import type { Card, Deck, PieceType } from '../engine/types';
 import { Emblem } from './art';
-import { packArt } from './cardArt';
 import { CardArt, CardView, RarityTag } from './common';
 import { Icon } from './icons';
 import { errorText, useSession } from './state';
@@ -57,7 +55,6 @@ function DeckHub({ deck }: { deck: Deck }) {
   const [message, setMessage] = useState<{ text: string; bad: boolean } | null>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [busy, setBusy] = useState<string | null>(null);
   const pressRef = useRef<{ cardId: string; x: number; y: number; started: boolean } | null>(null);
   const errors = useMemo(() => validateDeck(draft), [draft]);
 
@@ -233,24 +230,6 @@ function DeckHub({ deck }: { deck: Deck }) {
   const mine = shown.filter((c) => owned[c.id]);
   const locked = shown.filter((c) => !owned[c.id]);
   const ownedCount = Object.keys(owned).length;
-  const dupes = Object.entries(owned)
-    .filter(([, v]) => v.dupes > 0)
-    .map(([id, v]) => ({ card: CARD_BY_ID[id], dupes: v.dupes }))
-    .sort((a, b) => b.dupes / EXCHANGE[b.card.rarity].need - a.dupes / EXCHANGE[a.card.rarity].need);
-
-  const exchange = async (cardId: string) => {
-    setBusy(cardId);
-    try {
-      const pack = await s.api.exchange(cardId);
-      await s.refresh();
-      s.toast(`Обмін виконано: ${pack.name} чекає на головній.`);
-    } catch (e) {
-      s.toast(errorText(e), 'error');
-    } finally {
-      setBusy(null);
-    }
-  };
-
   const shownCard = CARD_BY_ID[inspect ?? armed ?? cardAt(draft, selected)];
   const pawnVersions = draft.pawnVersions.map((id) => CARD_BY_ID[id]);
 
@@ -278,7 +257,6 @@ function DeckHub({ deck }: { deck: Deck }) {
         <span className="mini-card-emblem">
           <Emblem cardId={c.id} />
         </span>
-        {!isLocked && owned[c.id].dupes > 0 && <span className="dupe-badge">+{owned[c.id].dupes}</span>}
       </div>
       <div className="mini-card-body">
         <strong>{c.name}</strong>
@@ -421,45 +399,12 @@ function DeckHub({ deck }: { deck: Deck }) {
       <div className="mini-cards hub-cards">{mine.map((c) => miniCard(c, false))}</div>
       {mine.length === 0 && <p className="muted small">Тут поки нічого — відкривайте паки.</p>}
 
-      <div className="panel dupes-chest">
-        <div className="section-head">
-          <h2>
-            <Icon name="swap" /> Скриня повторок
-          </h2>
-          <span className="muted small">
-            {Object.entries(EXCHANGE)
-              .map(([r, x]) => `${x.need} × ${RARITY_NAMES[r as Rarity].toLowerCase()} → ${packName(x.pack).toLowerCase()}`)
-              .join(' · ')}
-          </span>
-        </div>
-        {dupes.length === 0 ? (
-          <p className="muted small">Повторок поки немає. Коли з паку випаде картка, яка вже є, вона ляже сюди.</p>
-        ) : (
-          <div className="dupes">
-            {dupes.map(({ card, dupes: n }) => {
-              const rule = EXCHANGE[card.rarity];
-              const ready = n >= rule.need;
-              return (
-                <div key={card.id} className={`dupe r-${card.rarity} ${ready ? 'ready' : ''}`}>
-                  <CardArt cardId={card.id} className="dupe-art" />
-                  <div className="dupe-info">
-                    <b>{card.name}</b>
-                    <div className="bar small-bar">
-                      <span style={{ width: `${Math.min(100, (n / rule.need) * 100)}%` }} />
-                    </div>
-                    <span className="muted tiny">
-                      {n} / {rule.need}
-                    </span>
-                  </div>
-                  <button className="btn btn-sm btn-primary" disabled={!ready || busy === card.id} onClick={() => exchange(card.id)}>
-                    <img className="btn-pack" src={packArt(rule.pack)} alt="" /> Обміняти
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+      <a className="panel shards-note" href="#/shop">
+        <span className="shards-big">💎 {s.profile.shards}</span>
+        <span className="muted small">
+          Повторки не лежать мертвим вантажем: кожна одразу стає осколками, а за осколки в магазині купуються паки.
+        </span>
+      </a>
 
       {locked.length > 0 && (
         <>

@@ -1,3 +1,4 @@
+import { type CSSProperties, useRef } from 'react';
 import { getCard } from '../engine/cards';
 import { fileOf, isBoardSquare, rankOf, sq } from '../engine/coords';
 import type { Color, Square } from '../engine/types';
@@ -5,7 +6,23 @@ import type { PlayerView, ViewPiece } from '../engine/view';
 import { Emblem } from './art';
 import { pieceSprite } from './cardArt';
 
-export type Mark = 'move' | 'capture' | 'option';
+export type Mark = 'move' | 'capture' | 'option' | 'stay';
+
+/** Grid tracks: a 0.72-wide ring, 8 squares, a 0.72-wide ring. */
+const RING = 0.72;
+const TOTAL = 8 + 2 * RING;
+const trackCenter = (i: number) => (i === 0 ? RING / 2 : i === 9 ? RING + 8 + RING / 2 : RING + i - 0.5);
+
+/** Centre of a square in percent of the board, for overlays and animations. */
+export function squareCenter(s: Square, orientation: Color): { x: number; y: number } {
+  const f = fileOf(s);
+  const r = rankOf(s);
+  const col = orientation === 'w' ? f + 1 : 8 - f;
+  const row = orientation === 'w' ? 8 - r : r + 1;
+  return { x: (trackCenter(col) / TOTAL) * 100, y: (trackCenter(row) / TOTAL) * 100 };
+}
+
+
 
 interface Props {
   view: PlayerView;
@@ -27,6 +44,27 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
   const files = orientation === 'w' ? [-1, 0, 1, 2, 3, 4, 5, 6, 7, 8] : [8, 7, 6, 5, 4, 3, 2, 1, 0, -1];
   const labelRank = orientation === 'w' ? -1 : 8;
   const labelFile = orientation === 'w' ? -1 : 8;
+
+  // Slide the piece that just moved from its old square, once per move. A
+  // preview of a move and the move itself share a signature, so they slide once.
+  const sig = view.lastMove ? `${view.ply}:${view.lastMove.color}:${view.lastMove.from}:${view.lastMove.to}` : '';
+  const anim = useRef<{ seen: Set<string>; sig: string; n: number }>({ seen: new Set([sig]), sig: '', n: 0 });
+  if (sig && !anim.current.seen.has(sig)) {
+    anim.current.seen.add(sig);
+    anim.current.sig = sig;
+    anim.current.n++;
+  }
+  const lm = anim.current.sig === sig ? view.lastMove : null;
+  let slide: { square: Square; style: CSSProperties; key: string } | null = null;
+  if (lm && lm.to !== null && lm.to !== lm.from) {
+    const a = squareCenter(lm.from, orientation);
+    const b = squareCenter(lm.to, orientation);
+    slide = {
+      square: lm.to,
+      key: `slide-${anim.current.n}`,
+      style: { '--dx': `${a.x - b.x}cqw`, '--dy': `${a.y - b.y}cqw` } as CSSProperties,
+    };
+  }
 
   const cells = [];
   for (const r of ranks) {
@@ -55,7 +93,14 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
 
       const content = (
         <>
-          {piece && <PieceView piece={piece} />}
+          {piece &&
+            (slide && slide.square === s ? (
+              <span key={slide.key} className="slide" style={slide.style}>
+                <PieceView piece={piece} />
+              </span>
+            ) : (
+              <PieceView piece={piece} />
+            ))}
           {mark && <span className={`mark mark-${mark}`} />}
         </>
       );

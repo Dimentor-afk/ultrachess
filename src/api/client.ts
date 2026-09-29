@@ -31,9 +31,10 @@ export interface Api {
   logout(): Promise<void>;
   collection(): Promise<Collection>;
   packs(): Promise<PackView[]>;
-  startUnlock(id: string): Promise<PackView[]>;
   openPack(id: string): Promise<OpenResult>;
-  exchange(cardId: string): Promise<PackView>;
+  buyPack(type: PackType): Promise<{ pack: PackView; profile: Profile }>;
+  buyTheme(id: string): Promise<Profile>;
+  setBoardTheme(id: string): Promise<Profile>;
   decks(): Promise<Deck[]>;
   saveDeck(deck: Deck): Promise<Deck[]>;
   deleteDeck(id: string): Promise<Deck[]>;
@@ -46,7 +47,7 @@ export interface Api {
   adminGrantAllCards(userId: string): Promise<void>;
   adminSetTrophies(userId: string, trophies: number): Promise<void>;
   adminSetRole(userId: string, role: Role): Promise<void>;
-  adminFinishUnlock(packId: string): Promise<void>;
+  adminGrantCurrency(userId: string, gold: number, shards: number): Promise<void>;
 }
 
 // ── Server ──
@@ -79,9 +80,10 @@ class HttpApi implements Api {
   logout = () => this.call<void>('POST', 'auth/logout', {});
   collection = () => this.call<Collection>('GET', 'collection');
   packs = () => this.call<PackView[]>('GET', 'packs');
-  startUnlock = (id: string) => this.call<PackView[]>('POST', `packs/${id}/unlock`, {});
   openPack = (id: string) => this.call<OpenResult>('POST', `packs/${id}/open`, {});
-  exchange = (cardId: string) => this.call<PackView>('POST', 'exchange', { cardId });
+  buyPack = (type: PackType) => this.call<{ pack: PackView; profile: Profile }>('POST', 'shop/pack', { type });
+  buyTheme = (id: string) => this.call<Profile>('POST', 'shop/theme', { id });
+  setBoardTheme = (id: string) => this.call<Profile>('POST', 'profile/theme', { id });
   decks = () => this.call<Deck[]>('GET', 'decks');
   saveDeck = (deck: Deck) => this.call<Deck[]>('PUT', 'decks', deck);
   deleteDeck = (id: string) => this.call<Deck[]>('DELETE', `decks/${id}`);
@@ -95,7 +97,8 @@ class HttpApi implements Api {
   adminGrantAllCards = (userId: string) => this.call<void>('POST', `admin/users/${userId}/all-cards`, {});
   adminSetTrophies = (userId: string, trophies: number) => this.call<void>('POST', `admin/users/${userId}/trophies`, { trophies });
   adminSetRole = (userId: string, role: Role) => this.call<void>('POST', `admin/users/${userId}/role`, { role });
-  adminFinishUnlock = (packId: string) => this.call<void>('POST', `admin/packs/${packId}/finish`, {});
+  adminGrantCurrency = (userId: string, gold: number, shards: number) =>
+    this.call<void>('POST', `admin/users/${userId}/currency`, { gold, shards });
 }
 
 // ── Browser only ──
@@ -193,9 +196,10 @@ class LocalApi implements Api {
   }
   collection = async () => this.svc.collection(await this.t());
   packs = async () => this.svc.packs(await this.t());
-  startUnlock = async (id: string) => this.svc.startUnlock(await this.t(), id);
   openPack = async (id: string) => this.svc.openPack(await this.t(), id);
-  exchange = async (cardId: string) => this.svc.exchange(await this.t(), cardId);
+  buyPack = async (type: PackType) => this.svc.buyPack(await this.t(), type);
+  buyTheme = async (id: string) => this.svc.buyTheme(await this.t(), id);
+  setBoardTheme = async (id: string) => this.svc.setBoardTheme(await this.t(), id);
   decks = async () => this.svc.decks(await this.t());
   saveDeck = async (deck: Deck) => this.svc.saveDeck(await this.t(), deck);
   deleteDeck = async (id: string) => this.svc.deleteDeck(await this.t(), id);
@@ -211,7 +215,8 @@ class LocalApi implements Api {
   adminGrantAllCards = async (userId: string) => this.svc.adminGrantAllCards(await this.t(), userId);
   adminSetTrophies = async (userId: string, trophies: number) => this.svc.adminSetTrophies(await this.t(), userId, trophies);
   adminSetRole = async (userId: string, role: Role) => this.svc.adminSetRole(await this.t(), userId, role);
-  adminFinishUnlock = async (packId: string) => this.svc.adminFinishUnlock(await this.t(), packId);
+  adminGrantCurrency = async (userId: string, gold: number, shards: number) =>
+    this.svc.adminGrantCurrency(await this.t(), userId, gold, shards);
 }
 
 /** Use the server when it answers, otherwise the in-browser demo. */

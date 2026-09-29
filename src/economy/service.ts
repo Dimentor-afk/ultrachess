@@ -7,18 +7,21 @@ import { type Action, createMatch, performAction, resign } from '../engine/match
 import type { Color, Deck, PieceType, Rarity } from '../engine/types';
 import {
   ARENAS,
-  EXCHANGE,
-  PACKS,
-  PACK_SLOTS,
+  DAILY_PACK_LIMIT,
+  PACK_SHARD_PRICE,
   type PackType,
   RARITIES,
   type Rng,
+  SHARDS_PER_DUPE,
   TROPHIES,
+  WIN_GOLD,
   arenaFor,
+  packGold,
   packName,
   rewardFor,
   rollPack,
 } from './packs';
+import { BOARD_THEMES, DEFAULT_THEME, themeById } from './themes';
 import { type Hasher, type PackRow, type Role, type Store, type UserRow, randomId } from './store';
 
 export const ADMIN_EMAILS = ['koldmiand@gmail.com'];
@@ -47,16 +50,20 @@ export interface Profile {
   nextArena: { name: string; minTrophies: number } | null;
   nextReward: PackType;
   activeDeckId: string | null;
+  gold: number;
+  shards: number;
+  /** Board themes owned (the free one included) and the one in use. */
+  themes: string[];
+  boardTheme: string;
+  /** Packs won today and the daily cap. */
+  packsToday: number;
+  packsLimit: number;
 }
 
 export interface PackView {
   id: string;
   type: PackType;
   name: string;
-  slot: boolean;
-  status: 'locked' | 'unlocking' | 'ready';
-  unlockAt: number | null;
-  unlockMinutes: number;
   source: string;
 }
 
@@ -66,7 +73,10 @@ export interface Collection {
 
 export interface OpenResult {
   pack: PackView;
-  cards: { cardId: string; isNew: boolean }[];
+  /** `shards` > 0 for a duplicate: it was turned into that many shards. */
+  cards: { cardId: string; isNew: boolean; shards: number }[];
+  gold: number;
+  shards: number;
 }
 
 export interface MatchStart {
@@ -82,7 +92,9 @@ export interface MatchFinish {
   outcome: 'win' | 'loss' | 'draw';
   reason: string;
   trophiesDelta: number;
+  goldDelta: number;
   reward: PackView | null;
+  /** A win past today's pack limit gives no pack. */
   rewardSkipped: boolean;
   profile: Profile;
 }
@@ -103,6 +115,8 @@ export interface AdminUser {
   wins: number;
   losses: number;
   cards: number;
+  gold: number;
+  shards: number;
   claimed: boolean;
 }
 
@@ -143,6 +157,12 @@ export class GameService {
       starterGiven: false,
       activeDeckId: null,
       createdAt: this.now(),
+      gold: 0,
+      shards: 0,
+      themes: '[]',
+      boardTheme: DEFAULT_THEME,
+      packsToday: 0,
+      packsDay: '',
     };
   }
 
@@ -222,7 +242,27 @@ export class GameService {
       nextArena: next ? { name: next.name, minTrophies: next.minTrophies } : null,
       nextReward: rewardFor(u.cycle),
       activeDeckId: u.activeDeckId,
+      gold: u.gold,
+      shards: u.shards,
+      themes: this.themesOf(u),
+      boardTheme: themeById(u.boardTheme).id,
+      packsToday: u.packsDay === this.today() ? u.packsToday : 0,
+      packsLimit: DAILY_PACK_LIMIT,
     };
+  }
+
+  private today(): string {
+    return new Date(this.now()).toISOString().slice(0, 10);
+  }
+
+  private themesOf(u: UserRow): string[] {
+    let bought: string[] = [];
+    try {
+      bought = JSON.parse(u.themes || '[]');
+    } catch {
+      bought = [];
+    }
+    return BOARD_THEMES.filter((t) => t.price === 0 || bought.includes(t.id)).map((t) => t.id);
   }
 
   async me(token: string): Promise<Profile> {
@@ -233,24 +273,40 @@ export class GameService {
 
   async collection(token: string): Promise<Collection> {
     const u = await this.auth(token);
+    await this.settleDupes(u.id);
     const owned: Collection['owned'] = {};
     for (const c of await this.store.listCards(u.id)) owned[c.cardId] = { dupes: c.dupes };
     return { owned };
   }
 
+  /** Turn every stored duplicate into shards. Returns the shards added. */
+  private async settleDupes(userId: string): Promise<number> {
+    let gained = 0;
+    for (const c of await this.store.listCards(userId)) {
+      if (c.dupes <= 0) continue;
+      gained += c.dupes * SHARDS_PER_DUPE[CARD_BY_ID[c.cardId]?.rarity ?? 'common'];
+      await this.store.setDupes(userId, c.cardId, 0);
+    }
+    if (gained) {
+      const u = (await this.store.getUser(userId))!;
+      await this.store.updateUser(userId, { shards: u.shards + gained });
+    }
+    return gained;
+  }
+
   private async giveStarter(user: UserRow): Promise<void> {
     if (user.starterGiven) return;
     await this.store.updateUser(user.id, { starterGiven: true });
-    await this.createPack(user.id, 'starter', false, 'Реєстрація');
+    await this.createPack(user.id, 'starter', 'Реєстрація');
   }
 
-  private async createPack(userId: string, type: PackType, slot: boolean, source: string): Promise<PackRow> {
+  private async createPack(userId: string, type: PackType, source: string): Promise<PackRow> {
     const p: PackRow = {
       id: randomId(8),
       userId,
       type,
-      slot,
-      status: slot ? 'locked' : 'ready',
+      slot: false,
+      status: 'ready',
       unlockAt: null,
       source,
       createdAt: this.now(),
@@ -262,67 +318,74 @@ export class GameService {
   }
 
   private view(p: PackRow): PackView {
-    let status = p.status as PackView['status'];
-    if (status === 'unlocking' && p.unlockAt !== null && p.unlockAt <= this.now()) status = 'ready';
-    return {
-      id: p.id,
-      type: p.type,
-      name: packName(p.type),
-      slot: p.slot,
-      status,
-      unlockAt: p.unlockAt,
-      unlockMinutes: p.type === 'starter' ? 0 : PACKS[p.type].unlockMinutes,
-      source: p.source,
-    };
+    return { id: p.id, type: p.type, name: packName(p.type), source: p.source };
   }
 
   async packs(token: string): Promise<PackView[]> {
     const u = await this.auth(token);
     const list = (await this.store.listPacks(u.id)).filter((p) => p.status !== 'opened');
-    // Finished timers become ready packs.
+    // Packs from the old timer system are simply ready now.
     for (const p of list) {
-      if (p.status === 'unlocking' && p.unlockAt !== null && p.unlockAt <= this.now()) {
-        await this.store.updatePack(p.id, { status: 'ready' });
+      if (p.status !== 'ready') {
+        await this.store.updatePack(p.id, { status: 'ready', slot: false });
         p.status = 'ready';
       }
     }
     return list.sort((a, b) => a.createdAt - b.createdAt).map((p) => this.view(p));
   }
 
-  async startUnlock(token: string, packId: string): Promise<PackView[]> {
-    const u = await this.auth(token);
-    const all = await this.packs(token);
-    const p = await this.store.getPack(packId);
-    if (!p || p.userId !== u.id || p.status !== 'locked') throw new ApiError(400, 'Цей пак не можна відкривати.');
-    if (all.some((x) => x.status === 'unlocking')) throw new ApiError(409, 'Одночасно відкривається лише один пак.');
-    await this.store.updatePack(p.id, { status: 'unlocking', unlockAt: this.now() + PACKS[p.type as Exclude<PackType, 'starter'>].unlockMinutes * 6e4 });
-    return this.packs(token);
-  }
-
   async openPack(token: string, packId: string): Promise<OpenResult> {
     const u = await this.auth(token);
-    await this.packs(token); // settle finished timers
+    await this.packs(token); // settle legacy packs
     const p = await this.store.getPack(packId);
     if (!p || p.userId !== u.id) throw new ApiError(404, 'Пак не знайдено.');
-    if (!(await this.store.claimPack(p.id, u.id, this.now()))) throw new ApiError(409, 'Пак ще не готовий.');
+    if (!(await this.store.claimPack(p.id, u.id, this.now()))) throw new ApiError(409, 'Цей пак уже відкрито.');
     const ids = rollPack(p.type, this.rng);
     const cards: OpenResult['cards'] = [];
-    for (const id of ids) cards.push({ cardId: id, isNew: await this.store.addCard(u.id, id) });
+    for (const id of ids) {
+      const isNew = await this.store.addCard(u.id, id);
+      cards.push({ cardId: id, isNew, shards: isNew ? 0 : SHARDS_PER_DUPE[CARD_BY_ID[id].rarity] });
+    }
     await this.store.updatePack(p.id, { result: JSON.stringify(ids) });
+    const shards = await this.settleDupes(u.id);
+    const gold = packGold(p.type);
+    const fresh = (await this.store.getUser(u.id))!;
+    await this.store.updateUser(u.id, { gold: fresh.gold + gold });
     if (p.type === 'starter') await this.ensureStarterDeck(u.id);
-    return { pack: this.view({ ...p, status: 'ready' }), cards };
+    return { pack: this.view(p), cards, gold, shards };
   }
 
-  /** Trade identical duplicates for a pack (10 common → common pack, …). */
-  async exchange(token: string, cardId: string): Promise<PackView> {
+  // ── Shop ──
+
+  /** Buy a pack for shards; it lands with the other ready packs. */
+  async buyPack(token: string, type: PackType): Promise<{ pack: PackView; profile: Profile }> {
     const u = await this.auth(token);
-    const card = CARD_BY_ID[cardId];
-    const row = (await this.store.listCards(u.id)).find((c) => c.cardId === cardId);
-    if (!card || !row) throw new ApiError(404, 'Картку не знайдено.');
-    const rule = EXCHANGE[card.rarity];
-    if (row.dupes < rule.need) throw new ApiError(400, `Потрібно ${rule.need} однакових повторок.`);
-    await this.store.setDupes(u.id, cardId, row.dupes - rule.need);
-    return this.view(await this.createPack(u.id, rule.pack, false, `Обмін повторок: ${card.name}`));
+    if (type === 'starter' || !(type in PACK_SHARD_PRICE)) throw new ApiError(400, 'Такого паку в магазині немає.');
+    const price = PACK_SHARD_PRICE[type];
+    if (u.shards < price) throw new ApiError(400, `Потрібно ${price} осколків, у вас ${u.shards}.`);
+    await this.store.updateUser(u.id, { shards: u.shards - price });
+    const pack = this.view(await this.createPack(u.id, type, 'Магазин'));
+    return { pack, profile: await this.profileOf(u.id) };
+  }
+
+  /** Buy a board theme for gold and put it on. */
+  async buyTheme(token: string, id: string): Promise<Profile> {
+    const u = await this.auth(token);
+    const theme = BOARD_THEMES.find((t) => t.id === id);
+    if (!theme) throw new ApiError(404, 'Такої дошки немає.');
+    const owned = this.themesOf(u);
+    if (owned.includes(id)) throw new ApiError(409, 'Ця дошка вже ваша.');
+    if (u.gold < theme.price) throw new ApiError(400, `Потрібно ${theme.price} золота, у вас ${u.gold}.`);
+    const bought = owned.filter((t) => themeById(t).price > 0).concat(id);
+    await this.store.updateUser(u.id, { gold: u.gold - theme.price, themes: JSON.stringify(bought), boardTheme: id });
+    return this.profileOf(u.id);
+  }
+
+  async setBoardTheme(token: string, id: string): Promise<Profile> {
+    const u = await this.auth(token);
+    if (!this.themesOf(u).includes(id)) throw new ApiError(400, 'Спочатку купіть цю дошку.');
+    await this.store.updateUser(u.id, { boardTheme: id });
+    return this.profileOf(u.id);
   }
 
   // ── Decks ──
@@ -454,6 +517,7 @@ export class GameService {
     let trophiesDelta = 0;
     let reward: PackView | null = null;
     let rewardSkipped = false;
+    let goldDelta = 0;
     if (m.ranked) {
       trophiesDelta = outcome === 'win' ? TROPHIES.win : outcome === 'loss' ? TROPHIES.loss : TROPHIES.draw;
       trophiesDelta = Math.max(-u.trophies, trophiesDelta);
@@ -464,10 +528,15 @@ export class GameService {
         draws: u.draws + (outcome === 'draw' ? 1 : 0),
       };
       if (outcome === 'win') {
-        const inSlots = (await this.store.listPacks(u.id)).filter((p) => p.slot && p.status !== 'opened').length;
-        if (inSlots < PACK_SLOTS) {
-          reward = this.view(await this.createPack(u.id, rewardFor(u.cycle), true, 'Перемога в рейтинговому матчі'));
+        goldDelta = WIN_GOLD;
+        patch.gold = u.gold + WIN_GOLD;
+        const today = this.today();
+        const won = u.packsDay === today ? u.packsToday : 0;
+        if (won < DAILY_PACK_LIMIT) {
+          reward = this.view(await this.createPack(u.id, rewardFor(u.cycle), 'Перемога в рейтинговому матчі'));
           patch.cycle = u.cycle + 1;
+          patch.packsToday = won + 1;
+          patch.packsDay = today;
         } else {
           rewardSkipped = true;
         }
@@ -478,7 +547,7 @@ export class GameService {
       status: 'finished',
       result: JSON.stringify({ outcome, reason: state.result!.reason, moves: state.result!.moves }),
     });
-    return { outcome, reason: state.result!.reason, trophiesDelta, reward, rewardSkipped, profile: await this.profileOf(u.id) };
+    return { outcome, reason: state.result!.reason, trophiesDelta, goldDelta, reward, rewardSkipped, profile: await this.profileOf(u.id) };
   }
 
   async leaderboard(): Promise<LeaderRow[]> {
@@ -505,6 +574,8 @@ export class GameService {
         wins: u.wins,
         losses: u.losses,
         cards: (await this.store.listCards(u.id)).length,
+        gold: u.gold,
+        shards: u.shards,
         claimed: !!u.passHash,
       });
     }
@@ -514,7 +585,7 @@ export class GameService {
   async adminGrantPack(token: string, userId: string, type: PackType): Promise<void> {
     await this.admin(token);
     if (!(await this.store.getUser(userId))) throw new ApiError(404, 'Гравця не знайдено.');
-    await this.createPack(userId, type, false, 'Подарунок адміністратора');
+    await this.createPack(userId, type, 'Подарунок адміністратора');
   }
 
   async adminGrantAllCards(token: string, userId: string): Promise<void> {
@@ -534,11 +605,13 @@ export class GameService {
     await this.store.updateUser(userId, { role });
   }
 
-  /** Finish the timer of one of your own packs right away. */
-  async adminFinishUnlock(token: string, packId: string): Promise<void> {
-    const me = await this.admin(token);
-    const p = await this.store.getPack(packId);
-    if (!p || p.userId !== me.id || p.status === 'opened') throw new ApiError(404, 'Пак не знайдено.');
-    await this.store.updatePack(p.id, { status: 'ready', unlockAt: this.now() });
+  async adminGrantCurrency(token: string, userId: string, gold: number, shards: number): Promise<void> {
+    await this.admin(token);
+    const u = await this.store.getUser(userId);
+    if (!u) throw new ApiError(404, 'Гравця не знайдено.');
+    await this.store.updateUser(userId, {
+      gold: Math.max(0, u.gold + Math.round(gold || 0)),
+      shards: Math.max(0, u.shards + Math.round(shards || 0)),
+    });
   }
 }

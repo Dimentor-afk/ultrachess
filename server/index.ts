@@ -104,9 +104,10 @@ const routes: [string, RegExp, Handler][] = [
   ['GET', /^me$/, ({ token }) => svc.me(token).catch(() => null)],
   ['GET', /^collection$/, ({ token }) => svc.collection(token)],
   ['GET', /^packs$/, ({ token }) => svc.packs(token)],
-  ['POST', /^packs\/(\w+)\/unlock$/, ({ token, params }) => svc.startUnlock(token, params[0])],
   ['POST', /^packs\/(\w+)\/open$/, ({ token, params }) => svc.openPack(token, params[0])],
-  ['POST', /^exchange$/, ({ token, body }) => svc.exchange(token, String(body.cardId ?? ''))],
+  ['POST', /^shop\/pack$/, ({ token, body }) => svc.buyPack(token, String(body.type) as never)],
+  ['POST', /^shop\/theme$/, ({ token, body }) => svc.buyTheme(token, String(body.id ?? ''))],
+  ['POST', /^profile\/theme$/, ({ token, body }) => svc.setBoardTheme(token, String(body.id ?? ''))],
   ['GET', /^decks$/, ({ token }) => svc.decks(token)],
   ['PUT', /^decks$/, ({ token, body }) => svc.saveDeck(token, body as never)],
   ['POST', /^decks\/active$/, ({ token, body }) => svc.setActiveDeck(token, String(body.id ?? ''))],
@@ -136,7 +137,11 @@ const routes: [string, RegExp, Handler][] = [
     /^admin\/users\/(\w+)\/role$/,
     ({ token, params, body }) => svc.adminSetRole(token, params[0], body.role === 'admin' ? 'admin' : 'player'),
   ],
-  ['POST', /^admin\/packs\/(\w+)\/finish$/, ({ token, params }) => svc.adminFinishUnlock(token, params[0])],
+  [
+    'POST',
+    /^admin\/users\/(\w+)\/currency$/,
+    ({ token, params, body }) => svc.adminGrantCurrency(token, params[0], Number(body.gold ?? 0), Number(body.shards ?? 0)),
+  ],
 ];
 
 function isSecure(req: IncomingMessage): boolean {

@@ -22,6 +22,14 @@ export interface UserRow {
   starterGiven: boolean;
   activeDeckId: string | null;
   createdAt: number;
+  gold: number;
+  shards: number;
+  /** Board themes bought in the shop (JSON array of ids). */
+  themes: string;
+  boardTheme: string;
+  /** Packs won in ranked matches on `packsDay` (UTC date, YYYY-MM-DD). */
+  packsToday: number;
+  packsDay: string;
 }
 
 export interface SessionRow {
@@ -36,13 +44,14 @@ export interface CardRow {
   dupes: number;
 }
 
+/** 'locked'/'unlocking' only exist in old data from the timer era; they count as ready. */
 export type PackStatus = 'locked' | 'unlocking' | 'ready' | 'opened';
 
 export interface PackRow {
   id: string;
   userId: string;
   type: PackType;
-  /** Occupies one of the 4 reward slots (packs won in matches). */
+  /** Legacy (reward slots were removed); always false for new packs. */
   slot: boolean;
   status: PackStatus;
   unlockAt: number | null;

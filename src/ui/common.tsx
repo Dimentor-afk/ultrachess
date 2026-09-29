@@ -2,7 +2,7 @@ import { EFFECT_NAMES, PIECE_NAMES, RARITY_NAMES, getCard } from '../engine/card
 import type { Card, Color, PieceType } from '../engine/types';
 import type { ReactNode } from 'react';
 import { Emblem, PieceSvg } from './art';
-import { cardArt } from './cardArt';
+import { cardArt, pieceSprite } from './cardArt';
 import { Icon } from './icons';
 
 /** Inline piece icon sized to the surrounding text. */
@@ -25,13 +25,17 @@ export function CardView({
   compact = false,
   locked = false,
   badge,
+  color,
 }: {
   card: Card;
   compact?: boolean;
   locked?: boolean;
   badge?: ReactNode;
+  /** Show the sprite of this side, exactly as the piece looks on the board. */
+  color?: Color;
 }) {
-  const art = cardArt(card.id);
+  const sprite = color ? pieceSprite(card.id, card.pieceType, color) : null;
+  const art = sprite ? sprite.src : cardArt(card.id);
   return (
     <article className={`gcard r-${card.rarity} ${compact ? 'gcard-compact' : ''} ${locked ? 'locked' : ''}`}>
       <div className="gcard-art">
@@ -41,7 +45,7 @@ export function CardView({
           </span>
         )}
         {art ? (
-          <img className="gcard-pixel" src={art} alt="" loading="lazy" />
+          <img className={`gcard-pixel ${sprite?.tint ? 'tinted' : ''}`} src={art} alt="" loading="lazy" />
         ) : (
           <PieceSvg type={card.pieceType} color="w" className="gcard-piece" />
         )}

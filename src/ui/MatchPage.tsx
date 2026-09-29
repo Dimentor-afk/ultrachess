@@ -8,9 +8,10 @@ import { type Action, type MatchState, createMatch, fullMoves, performAction, re
 import { findKing } from '../engine/position';
 import type { Color, Move, PieceType, Square } from '../engine/types';
 import type { MatchFinish, MatchStart } from '../api/client';
-import { packArt } from './cardArt';
+import { packArt, pieceSprite } from './cardArt';
 import { playerView } from '../engine/view';
-import { Board, type Mark } from './Board';
+import { Board, type Mark, squareCenter } from './Board';
+import { type Stage, makeStage } from './stage';
 import { requestBotTurn, requestHint } from './botClient';
 import { CardView, Glyph } from './common';
 
@@ -60,9 +61,14 @@ export function Game({ start, playerName, trophies, onFinish, onExit, onRematch 
       .catch((e) => alive.current && setVerdictError(e instanceof Error ? e.message : String(e)));
   };
   const [selected, setSelected] = useState<Square | null>(null);
-  const [choice, setChoice] = useState<Move[] | null>(null);
+  // A move with several variants is chosen on the board: the piece is shown
+  // on its usual landing square and the other landing squares are marked.
+  const [stage, setStage] = useState<Stage | null>(null);
+  // Variants that end on the same square (promotion, …) pick from a small
+  // popover over that square.
+  const [popover, setPopover] = useState<{ square: Square; moves: Move[] } | null>(null);
   const [menu, setMenu] = useState<string | null>(null);
-  const [preview, setPreview] = useState<Square[]>([]);
+  const [linePreview, setPreview] = useState<Square[]>([]);
   const [mirage, setMirage] = useState(false);
   const [thinking, setThinking] = useState(false);
   const [hintBusy, setHintBusy] = useState(false);
@@ -73,7 +79,16 @@ export function Game({ start, playerName, trophies, onFinish, onExit, onRematch 
   const historyRef = useRef<HTMLOListElement>(null);
   useEffect(() => () => void (alive.current = false), []);
 
-  const view = useMemo(() => playerView(match, human), [match, human]);
+  const realView = useMemo(() => playerView(match, human), [match, human]);
+  const preview = useMemo(() => {
+    if (!stage) return null;
+    try {
+      return performAction(match, { type: 'move', move: stage.byDest.get(stage.main)![0] });
+    } catch {
+      return null;
+    }
+  }, [stage, match]);
+  const view = useMemo(() => (preview ? playerView(preview, human) : realView), [preview, realView, human]);
   useEffect(() => {
     const el = historyRef.current;
     if (el) el.scrollTop = el.scrollHeight;
@@ -87,6 +102,10 @@ export function Game({ start, playerName, trophies, onFinish, onExit, onRematch 
 
   const marks = useMemo(() => {
     const out = new Map<Square, Mark>();
+    if (stage) {
+      for (const d of stage.byDest.keys()) out.set(d, d === stage.main ? 'stay' : 'option');
+      return out;
+    }
     if (view.pending && myTurn) {
       for (const s of view.pending.options) out.set(s, 'option');
       return out;
@@ -96,7 +115,7 @@ export function Game({ start, playerName, trophies, onFinish, onExit, onRematch 
       out.set(m.target, m.captures.length || cur === 'capture' ? 'capture' : 'move');
     }
     return out;
-  }, [view.pending, myTurn, fromSelected]);
+  }, [view.pending, myTurn, fromSelected, stage]);
 
   const act = useCallback(
     (action: Action) => {
@@ -107,7 +126,8 @@ export function Game({ start, playerName, trophies, onFinish, onExit, onRematch 
         setError(e instanceof Error ? e.message : String(e));
       }
       setSelected(null);
-      setChoice(null);
+      setStage(null);
+      setPopover(null);
       setMenu(null);
       setPreview([]);
       if (action.type === 'move') setMirage(false);
@@ -159,6 +179,17 @@ export function Game({ start, playerName, trophies, onFinish, onExit, onRematch 
       setSelected(cell ? s : null);
       return;
     }
+    if (popover) return setPopover(null);
+    if (stage) {
+      const group = stage.byDest.get(s);
+      if (!group) {
+        setStage(null);
+        setSelected(null);
+        return;
+      }
+      if (group.length === 1) return act({ type: 'move', move: group[0] });
+      return setPopover({ square: s, moves: group });
+    }
     if (view.pending) {
       if (view.pending.options.includes(s)) act({ type: 'choose', square: s });
       return;
@@ -166,7 +197,11 @@ export function Game({ start, playerName, trophies, onFinish, onExit, onRematch 
     if (selected !== null) {
       const ms = fromSelected.filter((m) => m.target === s);
       if (ms.length === 1) return act({ type: 'move', move: ms[0] });
-      if (ms.length > 1) return setChoice(ms);
+      if (ms.length > 1) {
+        const st = makeStage(s, ms);
+        if (st.byDest.size === 1) return setPopover({ square: st.main, moves: ms });
+        return setStage(st);
+      }
     }
     setSelected(cell && s !== selected ? s : null);
   };
@@ -214,6 +249,8 @@ export function Game({ start, playerName, trophies, onFinish, onExit, onRematch 
   if (match.result) {
     statusText =
       match.result.winner === null ? `Нічия — ${match.result.reason}` : match.result.winner === human ? `Перемога! ${match.result.reason}` : `Поразка. ${match.result.reason}`;
+  } else if (stage) {
+    statusText = 'Оберіть: натисніть фігуру, щоб лишити її тут, або підсвічену клітинку для особливого ходу';
   } else if (myTurn && view.pending) {
     statusText = 'Вершника вдарили: оберіть клітинку для відстрибу';
   } else if (myTurn) {
@@ -236,17 +273,36 @@ export function Game({ start, playerName, trophies, onFinish, onExit, onRematch 
           <Captured types={lostPieces(match, human)} color={human} />
           {thinking && <span className="thinking" aria-live="polite">думає…</span>}
         </div>
-        <Board
-          view={view}
-          orientation={human}
-          selected={selected}
-          marks={marks}
-          lastMove={lastMove}
-          hint={hint}
-          preview={new Set(preview)}
-          checkSquare={checkSquare}
-          onSquare={onSquare}
-        />
+        <div className="board-wrap">
+          <Board
+            view={view}
+            orientation={human}
+            selected={stage ? stage.main : selected}
+            marks={marks}
+            lastMove={lastMove}
+            hint={hint}
+            preview={new Set(linePreview)}
+            checkSquare={checkSquare}
+            onSquare={onSquare}
+          />
+          {popover && (
+            <div
+              className="board-popover"
+              style={{ left: `${squareCenter(popover.square, human).x}%`, top: `${squareCenter(popover.square, human).y}%` }}
+              role="dialog"
+              aria-label="Оберіть варіант ходу"
+            >
+              {popover.moves.map((m, i) => (
+                <button key={i} className="btn btn-sm" onClick={() => act({ type: 'move', move: m })}>
+                  {m.promotion && <Glyph type={m.promotion} color={human} />} {m.promotion ? PROMO_NAMES[m.promotion] : m.label}
+                </button>
+              ))}
+              <button className="btn btn-sm btn-ghost" onClick={() => setPopover(null)}>
+                ✕
+              </button>
+            </div>
+          )}
+        </div>
         <div className={`player-bar ${myTurn ? 'to-move' : ''}`}>
           <span className="pb-who">
             <span className="avatar">{playerName.slice(0, 1).toUpperCase()}</span>
@@ -275,84 +331,96 @@ export function Game({ start, playerName, trophies, onFinish, onExit, onRematch 
         </div>
 
         {myAbilityPieces.length > 0 && (
-          <div className="panel">
-            <h2>Здібності</h2>
-            {myAbilityPieces.map(({ c, s }) => {
+          <div className="ability-dock" aria-label="Здібності">
+            {myAbilityPieces.map(({ c }) => {
               const card = getCard(c!.cardId);
               const def = ABILITY_DEFS[c!.cardId];
               const cd = match.cooldowns[c!.id] ?? 0;
               const ready = cd === 0;
-              const canPress = myTurn && !busy && !view.pending && ready && !!def && !def.viaMove && abilityReady(match, c!.id);
+              const canPress = myTurn && !busy && !view.pending && !stage && ready && !!def && !def.viaMove && abilityReady(match, c!.id);
+              const on = (def?.id === 'mirage' && mirage) || menu === c!.id || (def?.id === 'immortal' && view.immortalArmed);
+              const press = () => {
+                if (!def) return;
+                if (def.id === 'mirage') {
+                  setMirage(!mirage);
+                  setSelected(mirage ? null : (mirageMoves[0]?.from ?? null));
+                } else if (def.id === 'immortal') act({ type: 'ability', pieceId: c!.id, key: 'arm' });
+                else if (def.id === 'hint') void showHint(c!.id);
+                else setMenu(menu === c!.id ? null : c!.id);
+              };
+              const disabled = def?.id === 'mirage' ? !myTurn || busy || (!mirage && mirageMoves.length === 0) : !canPress;
+              const sprite = pieceSprite(c!.cardId, c!.type, human);
               return (
-                <div key={c!.id} className="ability">
-                  <div className="ability-head">
-                    <span>
-                      <Glyph type={c!.type} color={human} /> {def?.name ?? 'Левітація'}{' '}
-                      <span className="muted small">({card.name}, {squareName(s)})</span>
-                    </span>
-                    <span className={`pill ${ready ? 'pill-ok' : ''}`}>{ready ? 'готово' : `ще ${cd} ход.`}</span>
-                  </div>
-                  {def?.id === 'mirage' && (
-                    <button
-                      className={`btn btn-sm ${mirage ? 'btn-primary' : ''}`}
-                      disabled={!myTurn || busy || (!mirage && mirageMoves.length === 0)}
-                      onClick={() => {
-                        setMirage(!mirage);
-                        setSelected(mirageMoves[0]?.from ?? null);
-                      }}
-                    >
-                      {mirage ? 'Скасувати міраж' : 'Міраж: стрибок з ілюзіями'}
-                    </button>
-                  )}
-                  {def && !def.viaMove && (
-                    <>
-                      <button
-                        className="btn btn-sm"
-                        disabled={!canPress}
-                        onClick={() => {
-                          if (def.id === 'immortal') act({ type: 'ability', pieceId: c!.id, key: 'arm' });
-                          else if (def.id === 'hint') void showHint(c!.id);
-                          else setMenu(menu === c!.id ? null : c!.id);
-                        }}
-                      >
-                        {def.id === 'immortal' ? 'Увімкнути захист' : def.id === 'hint' ? 'Показати найкращий хід' : 'Обрати лінію…'}
-                      </button>
-                      {def.id === 'immortal' && view.immortalArmed && <p className="small ok-text">Захист діє на цей хід суперника.</p>}
-                      {hintBusy && def.id === 'hint' && <p className="small muted">Рахую…</p>}
-                      {view.hint && def.id === 'hint' && (
-                        <p className="small ok-text">
-                          Підказка: {PIECE_NAMES[view.cells[view.hint.from]?.type ?? 'pawn']} {squareName(view.hint.from)} → {squareName(view.hint.target)} ({view.hint.label})
-                        </p>
-                      )}
-                      {menu === c!.id && (
-                        <div className="ability-options" onMouseLeave={() => setPreview([])}>
-                          {menuOptions.map((o) => (
-                            <button
-                              key={o.key}
-                              className="btn btn-sm"
-                              onMouseEnter={() => setPreview(o.squares)}
-                              onFocus={() => setPreview(o.squares)}
-                              onClick={() => act({ type: 'ability', pieceId: c!.id, key: o.key })}
-                            >
-                              {o.label}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
+                <button
+                  key={c!.id}
+                  type="button"
+                  className={`ability-tile r-${card.rarity} ${ready ? 'ready' : ''} ${on ? 'on' : ''} ${!def || def.viaMove ? 'passive' : ''}`}
+                  disabled={!def || def.viaMove ? true : disabled}
+                  onClick={press}
+                  title={card.rulesText}
+                >
+                  <span className="ability-art">
+                    <img className={`pixel ${sprite.tint ? 'tinted' : ''}`} src={sprite.src} alt="" />
+                    {!ready && <span className="ability-cd">{cd}</span>}
+                  </span>
+                  <span className="ability-text">
+                    {card.rarity === 'mythological' && <span className="ability-eyebrow">Міфічна здібність</span>}
+                    <b>{def?.name ?? 'Левітація'}</b>
+                    <small>
+                      {!ready
+                        ? `перезарядка: ${cd} ход.`
+                        : !def || def.viaMove
+                          ? 'готово — ходом фігури'
+                          : def.id === 'immortal'
+                            ? view.immortalArmed
+                              ? 'захист увімкнено'
+                              : 'увімкнути захист'
+                            : def.id === 'hint'
+                              ? hintBusy
+                                ? 'рахую…'
+                                : 'показати найкращий хід'
+                              : def.id === 'mirage'
+                                ? mirage
+                                  ? 'скасувати'
+                                  : 'стрибок з ілюзіями'
+                                : 'обрати лінію'}
+                    </small>
+                  </span>
+                </button>
               );
             })}
-            <p className="muted small">Кнопки не витрачають хід — після них ви ходите як звичайно.</p>
           </div>
+        )}
+        {menu && (
+          <div className="ability-options" onMouseLeave={() => setPreview([])}>
+            {menuOptions.map((o) => (
+              <button
+                key={o.key}
+                className="btn btn-sm"
+                onMouseEnter={() => setPreview(o.squares)}
+                onFocus={() => setPreview(o.squares)}
+                onClick={() => act({ type: 'ability', pieceId: menu, key: o.key })}
+              >
+                {o.label}
+              </button>
+            ))}
+            <button className="btn btn-sm btn-ghost" onClick={() => setMenu(null)}>
+              Скасувати
+            </button>
+          </div>
+        )}
+        {view.hint && (
+          <p className="tip">
+            Підказка: {PIECE_NAMES[view.cells[view.hint.from]?.type ?? 'pawn']} {squareName(view.hint.from)} → {squareName(view.hint.target)} (
+            {view.hint.label})
+          </p>
         )}
 
         <div className="panel">
           <h2>Фігура</h2>
           {selectedPiece ? (
             <div>
-              <CardView card={getCard(selectedPiece.cardId)} compact />
+              <CardView card={getCard(selectedPiece.cardId)} compact color={selectedPiece.color} />
               <ul className="piece-status small">
                 <li>
                   {selectedPiece.color === human ? 'Ваша' : 'Суперника'}, {squareName(selected!)}
@@ -387,6 +455,8 @@ export function Game({ start, playerName, trophies, onFinish, onExit, onRematch 
               className="btn btn-danger"
               onClick={() => {
                 if (!confirmResign) return setConfirmResign(true);
+                setStage(null);
+                setPopover(null);
                 setMatch(resign(matchRef.current, human));
                 report(true);
               }}
@@ -402,23 +472,6 @@ export function Game({ start, playerName, trophies, onFinish, onExit, onRematch 
           )}
         </div>
       </aside>
-
-      {choice && (
-        <div className="modal-backdrop" onClick={() => setChoice(null)}>
-          <div className="modal" role="dialog" aria-label="Оберіть варіант ходу" onClick={(e) => e.stopPropagation()}>
-            <h2>Оберіть варіант</h2>
-            {choice.map((m, i) => (
-              <button key={i} className="btn btn-block" onClick={() => act({ type: 'move', move: m })}>
-                {m.label}
-                {m.to !== null && m.to !== m.target ? ` → ${squareName(m.to)}` : ''}
-              </button>
-            ))}
-            <button className="btn btn-ghost btn-block" onClick={() => setChoice(null)}>
-              Скасувати
-            </button>
-          </div>
-        </div>
-      )}
 
       {match.result && showSummary && (
         <div className="modal-backdrop">
@@ -438,16 +491,21 @@ export function Game({ start, playerName, trophies, onFinish, onExit, onRematch 
                   {verdict.trophiesDelta}
                 </span>
                 <span className="muted">Тепер: {verdict.profile.trophies} · {verdict.profile.arena}</span>
+                {verdict.goldDelta > 0 && <span className="loot-item gold">🪙 +{verdict.goldDelta} золота</span>}
                 {verdict.reward && (
                   <div className="reward">
                     <img className="pack-img" src={packArt(verdict.reward.type)} alt="" />
                     <div>
                       <b>{verdict.reward.name}</b>
-                      <small className="muted">у слоті на головній · відкривається {verdict.reward.unlockMinutes} хв</small>
+                      <small className="muted">
+                        уже чекає на головній · паків сьогодні {verdict.profile.packsToday}/{verdict.profile.packsLimit}
+                      </small>
                     </div>
                   </div>
                 )}
-                {verdict.rewardSkipped && <p className="error-text small">Усі 4 слоти зайняті — пак не отримано. Відкрийте паки!</p>}
+                {verdict.rewardSkipped && (
+                  <p className="muted small">Ліміт {verdict.profile.packsLimit} паків на сьогодні вичерпано — завтра паки знову падатимуть.</p>
+                )}
               </div>
             )}
             {verdict && !start.ranked && <p className="muted">Тренування: кубки й паки не нараховуються.</p>}
@@ -468,6 +526,8 @@ export function Game({ start, playerName, trophies, onFinish, onExit, onRematch 
     </section>
   );
 }
+
+const PROMO_NAMES: Partial<Record<PieceType, string>> = { queen: 'Ферзь', rook: 'Тура', bishop: 'Слон', knight: 'Кінь' };
 
 const START_COUNT: Record<PieceType, number> = { pawn: 8, knight: 2, bishop: 2, rook: 2, queen: 1, king: 1 };
 

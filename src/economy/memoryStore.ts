@@ -16,11 +16,26 @@ export const emptyData = (): MemoryData => ({ users: [], sessions: [], cards: []
 
 const clone = <T,>(x: T): T => JSON.parse(JSON.stringify(x));
 
+/** Fill fields added after the demo data was first saved. */
+export function withUserDefaults(u: UserRow): UserRow {
+  return {
+    ...u,
+    gold: u.gold ?? 0,
+    shards: u.shards ?? 0,
+    themes: u.themes ?? '[]',
+    boardTheme: u.boardTheme ?? 'classic',
+    packsToday: u.packsToday ?? 0,
+    packsDay: u.packsDay ?? '',
+  };
+}
+
 export class MemoryStore implements Store {
   constructor(
     public data: MemoryData = emptyData(),
     private onChange: (data: MemoryData) => void = () => {},
-  ) {}
+  ) {
+    this.data.users = this.data.users.map(withUserDefaults);
+  }
 
   private save(): void {
     this.onChange(this.data);

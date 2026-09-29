@@ -5,7 +5,18 @@ import { classicDeck } from '../../engine/deck';
 import { legalMoves } from '../../engine/legal';
 import { type Action, createMatch, performAction } from '../../engine/match';
 import { MemoryStore } from '../memoryStore';
-import { PACKS, RARITIES, maxOfRarity, rollPack, rollRarity, rollStarter } from '../packs';
+import {
+  DAILY_PACK_LIMIT,
+  PACKS,
+  PACK_SHARD_PRICE,
+  RARITIES,
+  SHARDS_PER_DUPE,
+  WIN_GOLD,
+  maxOfRarity,
+  rollPack,
+  rollRarity,
+  rollStarter,
+} from '../packs';
 import { GameService } from '../service';
 import type { Hasher } from '../store';
 
@@ -101,9 +112,11 @@ describe('service', () => {
     await expect(svc.adminUsers(token)).rejects.toThrow();
     const packs = await svc.packs(token);
     expect(packs).toHaveLength(1);
-    expect(packs[0]).toMatchObject({ type: 'starter', status: 'ready' });
+    expect(packs[0]).toMatchObject({ type: 'starter' });
     const opened = await svc.openPack(token, packs[0].id);
     expect(opened.cards).toHaveLength(6);
+    expect(opened.gold).toBe(100);
+    expect((await svc.me(token)).gold).toBe(100);
     await expect(svc.openPack(token, packs[0].id)).rejects.toThrow();
     const decks = await svc.decks(token);
     expect(decks).toHaveLength(1);
@@ -113,15 +126,41 @@ describe('service', () => {
     await expect(svc.saveDeck(token, classicDeck('x', 'Класика'))).rejects.toThrow(/колекції|немає/);
   });
 
-  it('duplicates trade for a pack', async () => {
+  it('duplicates turn into shards, and shards buy packs', async () => {
     const { svc, store } = await setup();
     const { token, profile } = await svc.register('d@d.com', 'secret1', 'D');
-    await store.addCard(profile.id, 'pawn-classic');
-    await store.setDupes(profile.id, 'pawn-classic', 10);
-    const pack = await svc.exchange(token, 'pawn-classic');
-    expect(pack).toMatchObject({ type: 'common', status: 'ready' });
-    expect((await svc.collection(token)).owned['pawn-classic'].dupes).toBe(0);
-    await expect(svc.exchange(token, 'pawn-classic')).rejects.toThrow();
+    await store.addCard(profile.id, 'bishop-piercer'); // epic
+    await store.setDupes(profile.id, 'bishop-piercer', 4);
+    expect((await svc.collection(token)).owned['bishop-piercer'].dupes).toBe(0);
+    let me = await svc.me(token);
+    expect(me.shards).toBe(4 * SHARDS_PER_DUPE.epic);
+    // Four epic duplicates are a good part of an epic pack, but not all of it.
+    expect(me.shards).toBeLessThan(PACK_SHARD_PRICE.epic);
+    await expect(svc.buyPack(token, 'epic')).rejects.toThrow(/осколків/);
+    const bought = await svc.buyPack(token, 'common');
+    expect(bought.pack.type).toBe('common');
+    expect(bought.profile.shards).toBe(4 * SHARDS_PER_DUPE.epic - PACK_SHARD_PRICE.common);
+    // A duplicate from a pack is reported with its shards.
+    const res = await svc.openPack(token, bought.pack.id);
+    me = await svc.me(token);
+    const fromDupes = res.cards.reduce((n, c) => n + c.shards, 0);
+    expect(res.shards).toBe(fromDupes);
+    expect(me.shards).toBe(bought.profile.shards + fromDupes);
+  });
+
+  it('board themes are bought with gold', async () => {
+    const { svc } = await setup();
+    const { token, profile } = await svc.register('g@g.com', 'secret1', 'G');
+    expect(profile.themes).toEqual(['classic']);
+    await expect(svc.buyTheme(token, 'emerald')).rejects.toThrow(/золота/);
+    await expect(svc.setBoardTheme(token, 'emerald')).rejects.toThrow();
+    const admin = await svc.register('koldmiand@gmail.com', 'secret1', 'A');
+    await svc.adminGrantCurrency(admin.token, profile.id, 500, 0);
+    const p = await svc.buyTheme(token, 'emerald');
+    expect(p).toMatchObject({ gold: 200, boardTheme: 'emerald' });
+    expect(p.themes).toContain('emerald');
+    expect((await svc.setBoardTheme(token, 'classic')).boardTheme).toBe('classic');
+    await expect(svc.buyTheme(token, 'emerald')).rejects.toThrow();
   });
 
   it('ranked win is verified by replay and rewards trophies and a pack', async () => {
@@ -163,19 +202,44 @@ describe('service', () => {
     await expect(svc.finishMatch(token, 'm2', bad, false)).rejects.toThrow();
   });
 
-  it('a won pack sits in a slot and unlocks with a timer', async () => {
-    let now = 1_000_000;
+  it('wins give packs right away, at most 10 a day', async () => {
+    let now = Date.UTC(2026, 0, 1, 12);
     const store = new MemoryStore();
     const svc = new GameService(store, plainHasher, () => now, seeded(9));
     await svc.init();
     const { token, profile } = await svc.register('t@t.com', 'secret1', 'T');
-    await store.insertPack({ id: 'p1', userId: profile.id, type: 'rare', slot: true, status: 'locked', unlockAt: null, source: 'test', createdAt: now, openedAt: null, result: null });
-    await expect(svc.openPack(token, 'p1')).rejects.toThrow();
-    await svc.startUnlock(token, 'p1');
-    now += PACKS.rare.unlockMinutes * 6e4 - 1000;
-    await expect(svc.openPack(token, 'p1')).rejects.toThrow();
-    now += 2000;
-    const opened = await svc.openPack(token, 'p1');
-    expect(opened.cards).toHaveLength(PACKS.rare.cards);
+    const mate = scholarsMate();
+    const win = async (id: string) => {
+      await store.insertMatch({ id, userId: profile.id, ranked: true, color: 'w', botLevel: 1, playerDeck: classicDeck(), botDeck: classicDeck(), status: 'active', result: null, createdAt: now });
+      return svc.finishMatch(token, id, mate, false);
+    };
+    for (let i = 0; i < DAILY_PACK_LIMIT; i++) {
+      const r = await win(`w${i}`);
+      expect(r.reward).not.toBeNull();
+      expect(r.goldDelta).toBe(WIN_GOLD);
+    }
+    const capped = await win('capped');
+    expect(capped).toMatchObject({ reward: null, rewardSkipped: true, goldDelta: WIN_GOLD });
+    expect(capped.profile.packsToday).toBe(DAILY_PACK_LIMIT);
+    // Packs are ready to open at once: no timers.
+    const packs = await svc.packs(token);
+    expect(packs.filter((p) => p.source.startsWith('Перемога'))).toHaveLength(DAILY_PACK_LIMIT);
+    await svc.openPack(token, packs[packs.length - 1].id);
+    // Next day the limit resets.
+    now += 864e5;
+    expect((await svc.me(token)).packsToday).toBe(0);
+    expect((await win('tomorrow')).reward).not.toBeNull();
   });
 });
+
+function scholarsMate(): Action[] {
+  const line = ['e2e4', 'e7e5', 'f1c4', 'b8c6', 'd1h5', 'g8f6', 'h5f7'];
+  let m = createMatch(classicDeck(), classicDeck());
+  const actions: Action[] = [];
+  for (const uci of line) {
+    const mv = legalMoves(m).find((x) => x.from === parseSquare(uci.slice(0, 2)) && x.target === parseSquare(uci.slice(2)))!;
+    actions.push({ type: 'move', move: mv });
+    m = performAction(m, actions[actions.length - 1]);
+  }
+  return actions;
+}

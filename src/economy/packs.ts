@@ -20,8 +20,8 @@ export interface PackDef {
    * would break a cap drops to the next lower rarity.
    */
   limits: Partial<Record<Rarity, number>>;
-  /** Time to unlock a pack won in a match, in minutes. */
-  unlockMinutes: number;
+  /** Gold found inside the pack. */
+  gold: number;
   description: string;
 }
 
@@ -34,7 +34,7 @@ export const PACKS: Record<Exclude<PackType, 'starter'>, PackDef> = {
     cards: 4,
     odds: { common: 64.5, rare: 25, epic: 8, legendary: 2, mythological: 0.5 },
     limits: { epic: 1 },
-    unlockMinutes: 3,
+    gold: 15,
     description: 'Найчастіша нагорода за перемогу.',
   },
   rare: {
@@ -44,7 +44,7 @@ export const PACKS: Record<Exclude<PackType, 'starter'>, PackDef> = {
     odds: { common: 45, rare: 38, epic: 12.5, legendary: 3.5, mythological: 1 },
     guarantee: 'rare',
     limits: { epic: 1 },
-    unlockMinutes: 15,
+    gold: 40,
     description: 'Щонайменше одна рідкісна картка.',
   },
   epic: {
@@ -54,7 +54,7 @@ export const PACKS: Record<Exclude<PackType, 'starter'>, PackDef> = {
     odds: { common: 25, rare: 40, epic: 27, legendary: 6.5, mythological: 1.5 },
     guarantee: 'epic',
     limits: { epic: 2, legendary: 1 },
-    unlockMinutes: 60,
+    gold: 100,
     description: 'Щонайменше одна епічна картка.',
   },
   legendary: {
@@ -64,7 +64,7 @@ export const PACKS: Record<Exclude<PackType, 'starter'>, PackDef> = {
     odds: { common: 15, rare: 35, epic: 33, legendary: 14, mythological: 3 },
     guarantee: 'legendary',
     limits: { epic: 3, legendary: 1 },
-    unlockMinutes: 180,
+    gold: 250,
     description: 'Щонайменше одна легендарна картка.',
   },
   mythic: {
@@ -74,7 +74,7 @@ export const PACKS: Record<Exclude<PackType, 'starter'>, PackDef> = {
     odds: { common: 0, rare: 30, epic: 40, legendary: 22, mythological: 8 },
     guarantee: 'mythological',
     limits: { epic: 3, legendary: 2, mythological: 1 },
-    unlockMinutes: 480,
+    gold: 500,
     description: 'Гарантована міфологічна картка.',
   },
 };
@@ -83,20 +83,43 @@ export const STARTER_PACK = {
   type: 'starter' as const,
   name: 'Стартовий пак',
   description: 'По одній картці кожної фігури: 1 рідкісна, 1 епічна, решта звичайні.',
+  gold: 100,
 };
 
 export function packName(type: PackType): string {
   return type === 'starter' ? STARTER_PACK.name : PACKS[type].name;
 }
 
-/** Duplicates needed to trade for a pack, per rarity. */
-export const EXCHANGE: Record<Rarity, { need: number; pack: Exclude<PackType, 'starter'> }> = {
-  common: { need: 10, pack: 'common' },
-  rare: { need: 6, pack: 'rare' },
-  epic: { need: 4, pack: 'epic' },
-  legendary: { need: 2, pack: 'legendary' },
-  mythological: { need: 2, pack: 'mythic' },
+export function packGold(type: PackType): number {
+  return type === 'starter' ? STARTER_PACK.gold : PACKS[type].gold;
+}
+
+/**
+ * Cards can't be levelled, so every duplicate turns into shards. Shards buy
+ * packs in the shop; a few duplicates of a rarity are a good part of that
+ * rarity's pack but never the whole price.
+ */
+export const SHARDS_PER_DUPE: Record<Rarity, number> = {
+  common: 3,
+  rare: 10,
+  epic: 40,
+  legendary: 120,
+  mythological: 350,
 };
+
+export const PACK_SHARD_PRICE: Record<Exclude<PackType, 'starter'>, number> = {
+  common: 60,
+  rare: 150,
+  epic: 400,
+  legendary: 1000,
+  mythic: 2500,
+};
+
+/** Gold for every ranked win (on top of the gold inside packs). */
+export const WIN_GOLD = 20;
+
+/** Packs a player can win in ranked matches per day (UTC). */
+export const DAILY_PACK_LIMIT = 10;
 
 const pick = <T,>(xs: T[], rng: Rng): T => xs[Math.min(xs.length - 1, Math.floor(rng() * xs.length))];
 
@@ -211,8 +234,6 @@ export const REWARD_CYCLE: Exclude<PackType, 'starter'>[] = [
   'rare',
   'legendary',
 ];
-
-export const PACK_SLOTS = 4;
 
 export function rewardFor(winNumber: number): Exclude<PackType, 'starter'> {
   return REWARD_CYCLE[winNumber % REWARD_CYCLE.length];

@@ -17,7 +17,13 @@ CREATE TABLE IF NOT EXISTS users (
   cycle INTEGER NOT NULL DEFAULT 0,
   starter_given INTEGER NOT NULL DEFAULT 0,
   active_deck_id TEXT,
-  created_at INTEGER NOT NULL
+  created_at INTEGER NOT NULL,
+  gold INTEGER NOT NULL DEFAULT 0,
+  shards INTEGER NOT NULL DEFAULT 0,
+  themes TEXT NOT NULL DEFAULT '[]',
+  board_theme TEXT NOT NULL DEFAULT 'classic',
+  packs_today INTEGER NOT NULL DEFAULT 0,
+  packs_day TEXT NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS sessions (
   token TEXT PRIMARY KEY,
@@ -80,7 +86,23 @@ const USER_COLS: Record<keyof UserRow, string> = {
   starterGiven: 'starter_given',
   activeDeckId: 'active_deck_id',
   createdAt: 'created_at',
+  gold: 'gold',
+  shards: 'shards',
+  themes: 'themes',
+  boardTheme: 'board_theme',
+  packsToday: 'packs_today',
+  packsDay: 'packs_day',
 };
+
+/** Columns added after the first release, for databases created before them. */
+const USER_MIGRATIONS: [string, string][] = [
+  ['gold', "INTEGER NOT NULL DEFAULT 0"],
+  ['shards', "INTEGER NOT NULL DEFAULT 0"],
+  ['themes', "TEXT NOT NULL DEFAULT '[]'"],
+  ['board_theme', "TEXT NOT NULL DEFAULT 'classic'"],
+  ['packs_today', "INTEGER NOT NULL DEFAULT 0"],
+  ['packs_day', "TEXT NOT NULL DEFAULT ''"],
+];
 
 const PACK_COLS: Record<keyof PackRow, string> = {
   id: 'id',
@@ -113,6 +135,12 @@ function user(r: Row | undefined): UserRow | null {
     starterGiven: !!r.starter_given,
     activeDeckId: (r.active_deck_id as string | null) ?? null,
     createdAt: Number(r.created_at),
+    gold: Number(r.gold ?? 0),
+    shards: Number(r.shards ?? 0),
+    themes: (r.themes as string | null) ?? '[]',
+    boardTheme: (r.board_theme as string | null) ?? 'classic',
+    packsToday: Number(r.packs_today ?? 0),
+    packsDay: (r.packs_day as string | null) ?? '',
   };
 }
 
@@ -162,6 +190,8 @@ export class SqliteStore implements Store {
     this.db = new DatabaseSync(file);
     this.db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
     this.db.exec(SCHEMA);
+    const have = new Set((this.db.prepare('PRAGMA table_info(users)').all() as Row[]).map((r) => r.name as string));
+    for (const [col, def] of USER_MIGRATIONS) if (!have.has(col)) this.db.exec(`ALTER TABLE users ADD COLUMN ${col} ${def}`);
   }
 
   async getUser(id: string) {

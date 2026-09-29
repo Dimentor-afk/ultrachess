@@ -1,19 +1,22 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { type CSSProperties, useCallback, useEffect, useRef, useState } from 'react';
 import { type Api, type Profile, createApi } from '../api/client';
 import { AdminPage } from './AdminPage';
 import { AuthPage } from './AuthPage';
 import { DeckPage } from './DeckPage';
 import { HomePage } from './HomePage';
 import { LeaderboardPage } from './LeaderboardPage';
+import { ShopPage } from './ShopPage';
+import { themeById } from '../economy/themes';
 import { cardArt } from './cardArt';
 import { Icon } from './icons';
 import { type Loaded, SessionProvider, type Toast, errorText, loadAll, useSession } from './state';
 
-type Route = 'play' | 'deck' | 'top' | 'admin';
+type Route = 'play' | 'deck' | 'shop' | 'top' | 'admin';
 
 const ROUTES: { id: Route; label: string; icon: string; admin?: boolean }[] = [
   { id: 'play', label: 'Грати', icon: 'play' },
   { id: 'deck', label: 'Колода', icon: 'cards' },
+  { id: 'shop', label: 'Магазин', icon: 'shop' },
   { id: 'top', label: 'Рейтинг', icon: 'trophy' },
   { id: 'admin', label: 'Адмін', icon: 'shield', admin: true },
 ];
@@ -87,10 +90,11 @@ function Shell() {
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
   const routes = ROUTES.filter((r) => !r.admin || s.profile.role === 'admin');
-  const readyPacks = s.packs.filter((p) => p.status === 'ready' || (p.status === 'unlocking' && (p.unlockAt ?? 0) <= Date.now())).length;
+  const readyPacks = s.packs.length;
+  const theme = themeById(s.profile.boardTheme);
 
   return (
-    <div className="shell">
+    <div className="shell" style={{ '--light-sq': theme.light, '--dark-sq': theme.dark } as CSSProperties}>
       <aside className="sidebar">
         <a className="brand" href="#/play">
           <img src={cardArt('knight-galloper')!} alt="" className="pixel brand-art" />
@@ -119,8 +123,17 @@ function Shell() {
         </div>
       </aside>
       <main className="content">
+        <div className="wallet" aria-label="Гаманець">
+          <a href="#/shop" className="wallet-item gold" title="Золото: купує дошки в магазині">
+            🪙 <b>{s.profile.gold}</b>
+          </a>
+          <a href="#/shop" className="wallet-item shards" title="Осколки: з повторок, купують паки">
+            💎 <b>{s.profile.shards}</b>
+          </a>
+        </div>
         {route === 'play' && <HomePage />}
         {route === 'deck' && <DeckPage />}
+        {route === 'shop' && <ShopPage />}
         {route === 'top' && <LeaderboardPage />}
         {route === 'admin' && s.profile.role === 'admin' && <AdminPage />}
       </main>
