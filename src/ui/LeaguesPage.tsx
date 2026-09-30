@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { LADDER_NAMES, LADDER_PACK_LIMIT, LADDER_TROPHIES, LADDER_WIN_GOLD, LEAGUES, type Ladder } from '../economy/leagues';
 import { packName } from '../economy/packs';
 import { botLevel } from '../engine/bot/levels';
@@ -20,6 +20,12 @@ export function LeaguesPage() {
   }, []);
   const lv = profile.ladders[ladder];
   const leagues = LEAGUES[ladder];
+  // The road starts at the top league; open it where the player is, like a trophy road.
+  const here = useRef<HTMLLIElement>(null);
+  useEffect(() => {
+    const t = setTimeout(() => here.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 250);
+    return () => clearTimeout(t);
+  }, [ladder]);
 
   return (
     <section className="page leagues">
@@ -71,7 +77,7 @@ export function LeaguesPage() {
             const bot = l.botLevel !== undefined ? botLevel(l.botLevel) : null;
             const inLeague = state === 'current' && next ? Math.min(1, (lv.trophies - l.minTrophies) / (next.minTrophies - l.minTrophies)) : 0;
             return (
-              <li key={l.name} className={`league-step ${state}`}>
+              <li key={l.name} ref={state === 'current' ? here : undefined} className={`league-step ${state}`}>
                 <img className="league-art" src={packArt(l.art)} alt="" />
                 <div className="league-body">
                   <span className="eyebrow">
@@ -106,7 +112,17 @@ export function LeaguesPage() {
           })}
       </ol>
       <p className="center">
-        <a className="btn btn-primary" href="#/play" onClick={() => localStorage.setItem('uc.ladder', ladder)}>
+        <a
+          className="btn btn-primary"
+          href="#/play"
+          onClick={() => {
+            try {
+              localStorage.setItem('uc.ladder', ladder);
+            } catch {
+              // not remembered
+            }
+          }}
+        >
           Грати в «{LADDER_NAMES[ladder]}»
         </a>
       </p>

@@ -12,23 +12,27 @@ type Phase = 'idle' | 'opening' | 'burst' | 'reveal' | 'summary';
 
 /**
  * How a card is revealed. Common and rare: `in` (face down) then `shown`.
- * Epic and up climb a rarity ladder first: `hush` (the room dims, the card
- * floats), `tease` (one pip of the ladder lights per step), `charge` (a held
- * breath before the flip), `spin`, `shown`.
+ * Epic and up climb a rarity ladder first, starting as the card lands:
+ * `tease` (one pip of the ladder lights per step; the room dims, the card
+ * floats), `charge` (a held breath before the flip), `spin`, `shown`.
  */
-type Stage = 'in' | 'hush' | 'tease' | 'charge' | 'spin' | 'shown';
+type Stage = 'in' | 'tease' | 'charge' | 'spin' | 'shown';
 
 const TEASE_LADDER: Rarity[] = ['rare', 'epic', 'legendary', 'mythological'];
 const TEASE_STEPS: Partial<Record<Rarity, number>> = { epic: 2, legendary: 3, mythological: 4 };
 const TEASE_TEXT = ['Щось незвичайне…', 'Епічна?..', 'Легендарна?!', 'МІФОЛОГІЧНА?!'];
 // Timeline of a teased card, ms. The gap after a pip is the same whether
 // another pip follows or the flip does, so you never know until it happens.
-const LAND_MS = 450;
-const HUSH_MS = 800;
-const STEP_MS = 1100;
+// The first pip lights as the card lands: a quiet start made players think
+// nothing was happening and tap past the whole thing.
+const LAND_MS = 300;
+const STEP_MS = 1050;
 const CHARGE_MS = 850;
 /** The flip turns 540° in 900 ms (see .flip.spun); the reveal flash fires as the card turns edge-on (~470 ms) and the face comes round under it. */
 const FACE_MS = 470;
+
+/** Taps this soon after a teased card appears are ignored (the tap that turned the last card). */
+const SKIP_GUARD_MS = 900;
 
 /** Sparks around a teased card: fixed pseudo-random spread, so renders are stable. */
 const EMBERS = Array.from({ length: 14 }, (_, i) => ({
@@ -65,6 +69,7 @@ export function PackOpening({
   const flipped = stage === 'shown';
   const [error, setError] = useState<string | null>(null);
   const timeline = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const cardShownAt = useRef(0);
 
   const start = async () => {
     if (phase !== 'idle') return;
@@ -91,6 +96,7 @@ export function PackOpening({
   // breath, one flip and the reveal.
   useEffect(() => {
     if (phase !== 'reveal') return;
+    cardShownAt.current = Date.now();
     const card = index;
     const set = (stage: Stage, step?: number) =>
       setStaged((p) => ({ index: card, stage, step: step ?? (p.index === card ? p.step : -1) }));
@@ -100,8 +106,7 @@ export function PackOpening({
       // Lands face down (0.35 s), then turns over.
       at(420, () => set('shown'));
     } else {
-      at(LAND_MS, () => set('hush'));
-      let t = LAND_MS + HUSH_MS;
+      let t = LAND_MS;
       for (let i = 0; i < teaseSteps; i++) {
         at(t, () => {
           set('tease', i);
@@ -126,6 +131,7 @@ export function PackOpening({
 
   const next = () => {
     if (!result) return;
+    if (!flipped && teaseSteps && Date.now() - cardShownAt.current < SKIP_GUARD_MS) return;
     if (!flipped) {
       // Skip: drop the rest of the timeline, or it would pull the card back into the tease.
       timeline.current.forEach(clearTimeout);
@@ -208,7 +214,7 @@ export function PackOpening({
             } r-${card.rarity}`}
             style={{ '--tease': tone(teaseRarity), '--amp': `${amp}px`, '--glow': `${glow}px` } as React.CSSProperties}
           >
-            {((teasing && stage !== 'hush') || big) && (
+            {(teasing || big) && (
               <span className={`reveal-rays ${big ? 'big' : ''}`} style={{ '--c': tone(big ? card.rarity : teaseRarity) } as React.CSSProperties} />
             )}
             {teasing && stage !== 'spin' && (
@@ -278,7 +284,7 @@ export function PackOpening({
               </p>
             ) : null}
           </div>
-          <p className="muted small">{teasing ? 'Натисніть, щоб одразу відкрити' : 'Натисніть, щоб продовжити'}</p>
+          <p className="muted small">{teasing ? 'Щось особливе! Натисніть ще раз, щоб одразу відкрити' : 'Натисніть, щоб продовжити'}</p>
         </div>
       )}
 

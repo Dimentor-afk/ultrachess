@@ -5445,7 +5445,7 @@ html.no-anim .fx {
 @keyframes intro-fade { from { opacity: 0; } }
 
 /* ---------- Pack reveal: the rarity ladder for epic and up ----------
-   hush → one pip per step (thump, shock ring, sparks) → charge → one flip → reveal. */
+   one pip per step from the moment the card lands (thump, shock ring, sparks) → charge → one flip → reveal. */
 .flip {
   position: relative;
 }
@@ -5467,14 +5467,12 @@ html.no-anim .fx {
   opacity: 0;
   transition: opacity 0.9s ease;
 }
-.opening-vignette.v-hush { opacity: 0.5; }
 .opening-vignette.v-tease { opacity: 0.6; }
 .opening-vignette.v-charge,
 .opening-vignette.v-spin { opacity: 0.95; }
 
-/* Hush and tease: the card floats; each pip lands with a thump, then a tremble
-   that grows with the ladder. */
-.flip.stage-hush,
+/* Tease: the card floats; each pip lands with a thump, then a tremble that
+   grows with the ladder. */
 .flip.stage-tease {
   animation: card-float 2.6s ease-in-out infinite;
 }
@@ -5547,7 +5545,6 @@ html.no-anim .fx {
   opacity: 0.5;
   animation: glow-breathe 2.6s ease-in-out infinite;
 }
-.flip.stage-hush .flip-glow { opacity: 0.3; }
 .flip.stage-tease .flip-glow { animation-duration: 1.8s; }
 .flip.stage-charge .flip-glow,
 .flip.stage-spin .flip-glow {
@@ -6865,4 +6862,726 @@ a.btn {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+}
+
+/* ── Home: the battle screen (Clash Royale style) ──
+   Phones: mode switch, arena with side buttons, pack slots, deck, and the
+   battle button docked above the tab bar. Wide screens: two columns, the
+   daily quests on the right. */
+
+.hb {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  --stage-a: #1d3a78;
+  --stage-b: #0f1a36;
+}
+
+.hb.ladder-pvp {
+  --stage-a: #6a2233;
+  --stage-b: #1f0f1c;
+}
+
+.hb-banner {
+  margin: 0;
+}
+
+.hb-mode {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+  padding: 0.3rem;
+  border-radius: 16px;
+  background: rgba(7, 11, 22, 0.7);
+  border: 1px solid var(--line);
+}
+
+.hb-mode-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+  padding: 0.35rem 0.6rem;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  text-align: left;
+}
+
+.hb-mode-tab.on {
+  color: var(--text);
+  border-color: var(--gold);
+  background: linear-gradient(180deg, #2b3a66, #1a2447);
+  box-shadow: 0 3px 0 #6b4d10;
+}
+
+.hb-mode-icon {
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+.hb-mode-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.15;
+}
+
+.hb-mode-text b {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.92rem;
+}
+
+.hb-mode-text small {
+  font-size: 0.75rem;
+  color: var(--gold);
+  font-weight: 800;
+}
+
+/* Arena in the middle, round action buttons on both sides. */
+.hb-stage {
+  display: grid;
+  grid-template-columns: 4.7rem minmax(0, 1fr) 4.7rem;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 0.3rem;
+  border-radius: 22px;
+  border: 1px solid color-mix(in srgb, var(--stage-a) 70%, var(--line));
+  background:
+    radial-gradient(90% 70% at 50% 35%, color-mix(in srgb, var(--stage-a) 85%, transparent), transparent 75%),
+    linear-gradient(180deg, var(--stage-b), #0a0f1f);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 10px 30px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+.hb-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.hb-rail-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.hb-rail-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 3.1rem;
+  height: 3.1rem;
+  border-radius: 15px;
+  color: #fff;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.45), inset 0 2px 0 rgba(255, 255, 255, 0.25);
+  transition: transform 0.1s;
+}
+
+.hb-rail-btn:active .hb-rail-icon {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.45), inset 0 2px 0 rgba(255, 255, 255, 0.25);
+}
+
+.hb-rail-icon .icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  stroke-width: 2.4;
+}
+
+.rail-quests { background: linear-gradient(180deg, #4fd49a, #1f8a5c); }
+.rail-trials { background: linear-gradient(180deg, #c08bff, #6c3cc4); }
+.rail-leagues { background: linear-gradient(180deg, #6fb2ff, #2a5ec7); }
+.rail-training { background: linear-gradient(180deg, #ffb45e, #c9661a); }
+.rail-odds { background: linear-gradient(180deg, #ff8fb1, #c43c6a); }
+
+.hb-stage .bar {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.hb-rail-icon .nav-badge {
+  position: absolute;
+  top: -0.45rem;
+  right: -0.45rem;
+  margin: 0;
+}
+
+.hb-rail-dot {
+  position: absolute;
+  top: -0.25rem;
+  right: -0.25rem;
+  width: 0.8rem;
+  height: 0.8rem;
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 0 2px #0b1020;
+}
+
+.hb-rail-label {
+  font-size: 0.6rem;
+  font-weight: 800;
+  line-height: 1.1;
+  text-align: center;
+  color: #dbe3ff;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.6);
+  white-space: nowrap;
+}
+
+.hb-arena {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+  padding-block: 0.3rem;
+  text-align: center;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.hb-arena-rays {
+  position: absolute;
+  top: 3.6rem;
+  left: 50%;
+  width: 15rem;
+  height: 15rem;
+  margin: -7.5rem 0 0 -7.5rem;
+  z-index: -1;
+  border-radius: 50%;
+  background: repeating-conic-gradient(rgba(245, 196, 81, 0.16) 0 9deg, transparent 9deg 20deg);
+  mask: radial-gradient(circle, #000 18%, transparent 68%);
+  animation: spin 40s linear infinite;
+  pointer-events: none;
+}
+
+.hb-arena-art {
+  width: 3.8rem;
+  height: 6.9rem;
+  object-fit: contain;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 12px 14px rgba(0, 0, 0, 0.55));
+  animation: bob 3s ease-in-out infinite;
+}
+
+.hb-arena h1 {
+  margin: 0;
+  font-size: clamp(1.25rem, 5.5vw, 1.8rem);
+  line-height: 1.1;
+}
+
+.hb-arena .eyebrow {
+  color: #c6d2f5;
+}
+
+.hb-trophies {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.2rem 0.6rem;
+}
+
+.hb-trophies .trophies {
+  font-size: 1.35rem;
+}
+
+.hb-arena .bar {
+  width: min(100%, 15rem);
+}
+
+.hb-foe {
+  font-size: 0.75rem;
+}
+
+/* Pack slots: four like chest slots; the first empty one says how to fill it. */
+.hb-slots-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin-bottom: 0.45rem;
+}
+
+.hb-slots-head b {
+  font-family: var(--font-display);
+  font-weight: 400;
+  color: var(--gold);
+}
+
+.hb-slots-head .linklike {
+  margin-left: auto;
+}
+
+.linklike {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--gold);
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.hb-slots {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.hb-slot {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 6 / 5;
+  padding: 0.3rem;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, #1a2548, #10182f);
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.35);
+  color: var(--text);
+  cursor: pointer;
+  overflow: hidden;
+}
+
+button.hb-slot {
+  border-color: rgba(245, 196, 81, 0.55);
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.35), 0 0 14px rgba(245, 196, 81, 0.18);
+}
+
+.hb-slot img {
+  height: 68%;
+  width: auto;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 6px 6px rgba(0, 0, 0, 0.5));
+  animation: bob 2.6s ease-in-out infinite;
+}
+
+.hb-slot-open {
+  position: absolute;
+  left: 50%;
+  bottom: 0.35rem;
+  translate: -50% 0;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffe08a, #f5b52e);
+  color: #3a2303;
+  font-size: 0.62rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.hb-slot-more {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.3rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.hb-slot.empty {
+  cursor: default;
+  border-style: dashed;
+  background: rgba(7, 11, 22, 0.45);
+  box-shadow: none;
+}
+
+.hb-slot.empty span {
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.2;
+}
+
+/* The deck going into battle. */
+.hb-deck {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.hb-deck .mini-board {
+  border-radius: 6px;
+  overflow: hidden;
+  border: 2px solid var(--frame);
+}
+
+.hb-deck-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.hb-deck-info select {
+  width: 100%;
+  min-width: 0;
+  text-overflow: ellipsis;
+  padding: 0.35rem 0.5rem;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+  font-weight: 800;
+}
+
+.hb-deck-row {
+  display: flex;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.hb-deck-row select {
+  flex: 1;
+}
+
+.hb-deck-edit {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  padding: 0.3rem 0.55rem;
+}
+
+.hb-dock-extra {
+  display: none;
+}
+
+/* Battle button with what a win pays under it. */
+.hb-dock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.hb-battle {
+  width: 100%;
+  min-height: 4rem;
+  font-size: 1.9rem;
+  border-radius: 18px;
+}
+
+.hb-battle .icon {
+  width: 1.9rem;
+  height: 1.9rem;
+}
+
+.hb-searching {
+  min-height: 4rem;
+}
+
+.hb-reward {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+.hb-reward b {
+  color: var(--gold);
+}
+
+.hb-reward img {
+  height: 1.3em;
+  width: auto;
+  image-rendering: pixelated;
+}
+
+.hb-side {
+  display: none;
+}
+
+.training-levels {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+  margin: 0.6rem 0 1rem;
+}
+
+.training-levels .chip {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+  padding: 0.45rem 0.8rem;
+  border-radius: 12px;
+  text-align: left;
+}
+
+.training-levels .chip small {
+  opacity: 0.8;
+}
+
+/* ── Sheets: slide up on phones, a dialog on wide screens ── */
+
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(3, 6, 14, 0.78);
+  animation: intro-fade 0.2s ease-out;
+}
+
+.sheet {
+  display: flex;
+  flex-direction: column;
+  width: min(480px, 100%);
+  max-height: min(85dvh, 760px);
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, var(--panel-2), var(--panel));
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+  animation: sheet-in 0.25s cubic-bezier(0.2, 1.2, 0.4, 1);
+}
+
+.sheet-wide {
+  width: min(980px, 100%);
+}
+
+@keyframes sheet-in {
+  from { transform: translateY(24px); opacity: 0; }
+}
+
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1rem 0.6rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.sheet-head h2 {
+  margin: 0;
+}
+
+.sheet-close {
+  width: 2.2rem;
+  height: 2.2rem;
+  flex: none;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.sheet-body {
+  padding: 0.9rem 1rem 1.2rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.sheet-body .odds {
+  border: 0;
+  padding: 0;
+  background: none;
+}
+
+@media (max-width: 860px) {
+  /* The screen is filled: the arena takes the spare height, the battle
+     button sits just above the tab bar. */
+  .hb {
+    min-height: calc(100dvh - 3.6rem - 0.9rem - 6rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  }
+
+  .hb-stage {
+    flex: 1 0 auto;
+  }
+
+  /* The battle button stays in reach, just above the tab bar. */
+  .hb-dock {
+    position: sticky;
+    bottom: calc(5.6rem + env(safe-area-inset-bottom, 0px));
+    z-index: 20;
+    padding-top: 0.5rem;
+    margin-top: auto;
+    background: linear-gradient(180deg, transparent, var(--bg) 35%);
+  }
+
+  .sheet-backdrop {
+    place-items: end stretch;
+    padding: 0;
+  }
+
+  .sheet {
+    width: 100%;
+    max-height: 85dvh;
+    border-radius: 22px 22px 0 0;
+    border-bottom: 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    animation: sheet-up 0.28s cubic-bezier(0.2, 1, 0.4, 1);
+  }
+
+  .sheet::before {
+    content: '';
+    align-self: center;
+    width: 2.6rem;
+    height: 0.3rem;
+    margin-top: 0.5rem;
+    border-radius: 999px;
+    background: var(--line);
+  }
+}
+
+@keyframes sheet-up {
+  from { transform: translateY(100%); }
+}
+
+@media (max-width: 380px) {
+  .hb-stage {
+    grid-template-columns: 4.3rem minmax(0, 1fr) 4.3rem;
+  }
+
+  .hb-rail-icon {
+    width: 2.7rem;
+    height: 2.7rem;
+  }
+
+  .hb-rail-label {
+    font-size: 0.6rem;
+  }
+}
+
+@media (min-width: 861px) {
+  .hb {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+    grid-template-areas:
+      'banner banner'
+      'mode deck'
+      'stage dock'
+      'stage side'
+      'slots side';
+    grid-template-rows: auto auto auto 1fr auto;
+    gap: 1rem 1.5rem;
+    align-items: start;
+  }
+
+  .hb-banner { grid-area: banner; }
+  .hb-mode { grid-area: mode; align-self: end; }
+  /* The sidebar already links leagues and trials: no side buttons here. */
+  .hb-stage { grid-area: stage; display: flex; justify-content: center; padding: 1.6rem 1rem; }
+  .hb-rail { display: none; }
+  .hb-slots-wrap { grid-area: slots; }
+  .hb-deck { grid-area: deck; }
+  .hb-dock { grid-area: dock; }
+
+  .hb-dock-extra {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+
+  .hb-dock-extra .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+  }
+
+  .hb-side {
+    grid-area: side;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  .hb-side .section-head {
+    margin: 0;
+  }
+
+  .hb-side .trial-teaser {
+    margin: 0;
+  }
+
+  .hb-arena-art {
+    width: 5.6rem;
+    height: 10.2rem;
+  }
+
+  .hb-arena-rays {
+    top: 4.8rem;
+    width: 20rem;
+    height: 20rem;
+    margin: -10rem 0 0 -10rem;
+  }
+
+  .hb-slots {
+    gap: 0.8rem;
+  }
+
+  .hb-slot {
+    aspect-ratio: 4 / 3;
+  }
+}
+
+/* Short phones: a smaller arena so the slots and deck stay above the battle button. */
+@media (max-width: 860px) and (max-height: 720px) {
+  .hb {
+    gap: 0.55rem;
+  }
+
+  .hb-stage {
+    padding-block: 0.4rem;
+  }
+
+  .hb-arena-art {
+    width: 2.9rem;
+    height: 5.3rem;
+  }
+
+  .hb-arena-rays {
+    top: 2.8rem;
+  }
+
+  .hb-rail {
+    gap: 0.5rem;
+  }
+
+  .hb-rail-icon {
+    width: 2.6rem;
+    height: 2.6rem;
+    border-radius: 13px;
+  }
+
+  .hb-slot {
+    aspect-ratio: 3 / 2;
+  }
+
+  .hb-battle {
+    min-height: 3.4rem;
+    font-size: 1.6rem;
+  }
 }

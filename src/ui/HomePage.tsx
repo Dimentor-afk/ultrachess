@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MatchStart, PackView, PvpState } from '../api/client';
 import { PACKS, PACK_SHARD_PRICE, RARITIES, STARTER_PACK, packName } from '../economy/packs';
 import { LADDER_NAMES, LADDER_PACK_LIMIT, LADDER_TROPHIES, LADDER_WIN_GOLD, LEAGUES, type Ladder } from '../economy/leagues';
@@ -7,6 +7,7 @@ import { RARITY_NAMES } from '../engine/cards';
 import type { Rarity } from '../engine/types';
 import { Game } from './MatchPage';
 import { PackOpening } from './PackOpening';
+import { Sheet } from './Sheet';
 import { MiniBoard } from './DeckPage';
 import { packArt } from './cardArt';
 import { Icon } from './icons';
@@ -14,6 +15,7 @@ import { BOT_LEVELS, botLevel } from '../engine/bot/levels';
 import { play } from './settings';
 import { captureFxById } from '../economy/captureFx';
 import type { FxName } from './fxSprites';
+import type { QuestView } from '../economy/quests';
 import { errorText, useSession } from './state';
 
 
@@ -35,7 +37,8 @@ export function HomePage() {
   const [opening, setOpening] = useState<PackView | null>(null);
   const [level, setLevel] = useState(2);
   const [busy, setBusy] = useState(false);
-  const [showOdds, setShowOdds] = useState(false);
+  const [sheet, setSheet] = useState<'quests' | 'training' | 'odds' | null>(null);
+  const closeSheet = useCallback(() => setSheet(null), []);
   const [ladder, setLadderState] = useState<Ladder>(savedLadder);
   const setLadder = (l: Ladder) => {
     setLadderState(l);
@@ -159,118 +162,257 @@ export function HomePage() {
   }
 
   const bot = botLevel(profile.rankedBot);
+  const claimable = profile.quests.filter((q) => q.progress >= q.target && !q.claimed).length;
+  const trialActive = Object.values(profile.trials).some((t) => t.status === 'active');
+  const slots = [0, 1, 2, 3].map((i) => packs[i] ?? null);
+  const packToday = lv.packsToday < lv.packsLimit;
+
+  const claim = async (id: string) => {
+    try {
+      const before = profile.quests.find((q) => q.id === id);
+      s.setProfile(await api.claimQuest(id));
+      play('rare');
+      if (before) s.toast(`Нагорода: ${before.reward.gold ? `🪙 ${before.reward.gold}` : ''}${before.reward.shards ? `💎 ${before.reward.shards}` : ''}`);
+    } catch (e) {
+      s.toast(errorText(e), 'error');
+    }
+  };
+
+  const battle =
+    ladder === 'bot' ? (
+      <button className="btn btn-battle hb-battle" disabled={busy || !activeDeck} onClick={() => startMatch(true)}>
+        <Icon name="sword" /> Бій
+      </button>
+    ) : s.inbox.rankedGame ? (
+      <button className="btn btn-battle hb-battle" onClick={resumeRanked}>
+        <Icon name="sword" /> До гри
+      </button>
+    ) : searching ? (
+      <div className="searching hb-searching">
+        <span className="spinner" aria-hidden="true" />
+        <span>
+          <b>Шукаємо суперника…</b>
+          <small className="muted">
+            {Math.floor((Date.now() - searching.since) / 1000)} с · шукають ще: {searching.others}
+          </small>
+        </span>
+        <button className="btn btn-sm" onClick={cancelSearch}>
+          Скасувати
+        </button>
+      </div>
+    ) : (
+      <button className="btn btn-battle hb-battle" disabled={!activeDeck} onClick={() => setSearching({ since: Date.now(), others: 0 })}>
+        <Icon name="sword" /> Бій
+      </button>
+    );
+
   return (
-    <section className="page home">
-      <div className="ladder-switch" role="tablist" aria-label="Ліга">
+    <section className={`page hb ladder-${ladder}`}>
+      {s.inbox.yourTurn + s.inbox.challenges > 0 && (
+        <a className="friend-turn hb-banner" href="#/friends">
+          <span className="friend-turn-icon">⚔</span>
+          <span>
+            <b>
+              {s.inbox.yourTurn > 0 ? `Ваш хід у ${s.inbox.yourTurn} ${s.inbox.yourTurn === 1 ? 'грі' : 'іграх'} з друзями` : 'Вас викликали на гру'}
+            </b>
+            <small className="muted">
+              {s.inbox.challenges > 0 ? `Викликів: ${s.inbox.challenges} · ` : ''}відкрити «Друзі»
+            </small>
+          </span>
+          <span className="friend-turn-go">›</span>
+        </a>
+      )}
+
+      <div className="hb-mode" role="tablist" aria-label="Ліга">
         {(['bot', 'pvp'] as Ladder[]).map((l) => (
-          <button key={l} role="tab" aria-selected={ladder === l} className={`ladder-tab ${ladder === l ? 'on' : ''}`} onClick={() => setLadder(l)}>
-            <span className="ladder-icon">{l === 'bot' ? '🤖' : '⚔'}</span>
-            <span>
+          <button key={l} role="tab" aria-selected={ladder === l} className={`hb-mode-tab ${ladder === l ? 'on' : ''}`} onClick={() => setLadder(l)}>
+            <span className="hb-mode-icon" aria-hidden="true">
+              {l === 'bot' ? '🤖' : '⚔'}
+            </span>
+            <span className="hb-mode-text">
               <b>{LADDER_NAMES[l]}</b>
-              <small>
-                🏆 {profile.ladders[l].trophies} · {profile.ladders[l].leagueName}
-              </small>
+              <small>🏆 {profile.ladders[l].trophies}</small>
             </span>
           </button>
         ))}
-        <a className="btn btn-ghost btn-sm ladder-all" href="#/leagues">
-          Усі ліги ›
-        </a>
       </div>
 
-      <div className="home-top">
-        <a className={`arena-card ladder-${ladder}`} href={`#/leagues/${ladder}`} title="Переглянути всі ліги">
-          <div className="arena-art" aria-hidden="true">
-            <img src={packArt(league.art)} alt="" />
-          </div>
-          <div className="arena-info">
-            <span className="eyebrow">
-              {LADDER_NAMES[ladder]} · ліга {lv.league + 1} з {LEAGUES[ladder].length}
+      <div className="hb-stage">
+        <nav className="hb-rail" aria-label="Швидкі дії">
+          <button className="hb-rail-btn hb-quests-btn" onClick={() => setSheet('quests')}>
+            <span className="hb-rail-icon rail-quests">
+              <Icon name="list" />
+              {claimable > 0 && <span className="nav-badge">{claimable}</span>}
             </span>
-            <h1>{lv.leagueName}</h1>
-            <div className="trophy-row">
-              <span className="trophies">🏆 {lv.trophies}</span>
-              {lv.next && (
-                <span className="muted small">
-                  до «{lv.next.name}»: {lv.next.minTrophies - lv.trophies}
-                </span>
-              )}
-            </div>
-            <div className="bar">
-              <span style={{ width: `${Math.min(100, Math.max(0, progress * 100))}%` }} />
-            </div>
-            {lv.next && (lv.next.reward.gold > 0 || lv.next.reward.pack) && (
-              <span className="muted small">
-                За вихід у нову лігу: {lv.next.reward.gold > 0 && `🪙 ${lv.next.reward.gold}`}
-                {lv.next.reward.pack && ` + ${packName(lv.next.reward.pack)}`}
-              </span>
-            )}
-            {ladder === 'bot' && (
-              <span className="muted small">
-                Бот ліги: <b>{bot.name}</b> (~{bot.elo} Elo)
+            <span className="hb-rail-label">Завдання</span>
+          </button>
+          <a className="hb-rail-btn" href="#/trials">
+            <span className="hb-rail-icon rail-trials">
+              <Icon name="medal" />
+              {trialActive && <span className="hb-rail-dot" />}
+            </span>
+            <span className="hb-rail-label">Випробування</span>
+          </a>
+        </nav>
+
+        <a className="hb-arena" href={`#/leagues/${ladder}`} title="Усі ліги й нагороди">
+          <span className="hb-arena-rays" aria-hidden="true" />
+          <img className="hb-arena-art" src={packArt(league.art)} alt="" />
+          <span className="eyebrow">
+            Ліга {lv.league + 1} із {LEAGUES[ladder].length}
+          </span>
+          <h1>{lv.leagueName}</h1>
+          <div className="hb-trophies">
+            <span className="trophies">🏆 {lv.trophies}</span>
+            {lv.next && (
+              <span className="muted small" title={`Наступна ліга: ${lv.next.name}`}>
+                ще {lv.next.minTrophies - lv.trophies} до наступної
               </span>
             )}
           </div>
-        </a>
-
-        <div className="battle-card">
-          <div className="battle-deck">
-            <div>
-              <span className="eyebrow">Колода в бій</span>
-              <select
-                id="active-deck"
-                value={activeDeck?.id ?? ''}
-                onChange={async (e) => s.setProfile(await api.setActiveDeck(e.target.value))}
-              >
-                {decks.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {activeDeck && <MiniBoard deck={activeDeck} />}
+          <div className="bar small-bar" aria-hidden="true">
+            <span style={{ width: `${Math.min(100, Math.max(0, progress * 100))}%` }} />
           </div>
           {ladder === 'bot' ? (
-            <button className="btn btn-battle" disabled={busy || !activeDeck} onClick={() => startMatch(true)}>
-              <Icon name="sword" /> Бій з ботом
-            </button>
-          ) : s.inbox.rankedGame ? (
-            <button className="btn btn-battle" onClick={resumeRanked}>
-              <Icon name="sword" /> Повернутися до гри
-            </button>
-          ) : searching ? (
-            <div className="searching">
-              <span className="spinner" aria-hidden="true" />
-              <span>
-                <b>Шукаємо суперника…</b>
-                <small className="muted">
-                  {Math.floor((Date.now() - searching.since) / 1000)} с · зараз шукають ще: {searching.others}
-                </small>
-              </span>
-              <button className="btn btn-sm" onClick={cancelSearch}>
-                Скасувати
-              </button>
-            </div>
+            <span className="muted small hb-foe">
+              Бот <b>{bot.name}</b> · ~{bot.elo} Elo
+            </span>
           ) : (
-            <button
-              className="btn btn-battle"
-              disabled={!activeDeck}
-              onClick={() => setSearching({ since: Date.now(), others: 0 })}
-            >
-              <Icon name="sword" /> Знайти суперника
-            </button>
+            <span className="muted small hb-foe">Живі суперники</span>
           )}
-          {!activeDeck && <p className="muted small center">Відкрийте стартовий пак — з нього збереться перша колода.</p>}
-          {ladder === 'pvp' && (
-            <p className="muted small">
-              Гра з живим гравцем за кубки. Якщо суперник не ходить 1,5 хвилини, перемогу можна забрати.
-              {api.mode === 'local' && ' У демо без сервера суперником може бути лише інший акаунт у цьому браузері.'}
-            </p>
+        </a>
+
+        <nav className="hb-rail" aria-label="Ще">
+          <button className="hb-rail-btn" onClick={() => setSheet('training')}>
+            <span className="hb-rail-icon rail-training">
+              <Icon name="target" />
+            </span>
+            <span className="hb-rail-label">Тренування</span>
+          </button>
+          <button className="hb-rail-btn" onClick={() => setSheet('odds')}>
+            <span className="hb-rail-icon rail-odds">
+              <Icon name="dice" />
+            </span>
+            <span className="hb-rail-label">Шанси</span>
+          </button>
+        </nav>
+      </div>
+
+      <div className="hb-slots-wrap">
+        <div className="hb-slots-head">
+          <b>Паки</b>
+          <span className="muted small">
+            за перемоги сьогодні {lv.packsToday}/{lv.packsLimit}
+          </span>
+        </div>
+        <div className="hb-slots">
+          {slots.map((p, i) =>
+            p ? (
+              <button key={p.id} className={`hb-slot pack-${p.type}`} onClick={() => setOpening(p)} title={`${p.name} · ${p.source}`}>
+                <img src={packArt(p.type)} alt="" />
+                <span className="hb-slot-open">Відкрити</span>
+                {i === 3 && packs.length > 4 && <span className="hb-slot-more">+{packs.length - 3}</span>}
+              </button>
+            ) : (
+              <div key={`empty-${i}`} className="hb-slot empty" title="Кожна перемога в лізі дає пак">
+                <span>{i === 0 ? 'Перемога → пак' : ''}</span>
+              </div>
+            ),
           )}
-          {ladder === 'bot' && profile.role === 'admin' && (
+        </div>
+      </div>
+
+      <div className="hb-deck">
+        {activeDeck ? <MiniBoard deck={activeDeck} /> : <span className="muted small">Колоди ще немає</span>}
+        <div className="hb-deck-info">
+          <label className="eyebrow" htmlFor="active-deck">
+            Колода в бій
+          </label>
+          <div className="hb-deck-row">
+            <select id="active-deck" value={activeDeck?.id ?? ''} onChange={async (e) => s.setProfile(await api.setActiveDeck(e.target.value))}>
+              {decks.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+            <a className="btn btn-sm hb-deck-edit" href="#/deck" aria-label="Змінити колоду" title="Змінити колоду">
+              <Icon name="edit" />
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div className="hb-dock">
+        {battle}
+        <div className="hb-dock-extra">
+          <button className="btn btn-sm" onClick={() => setSheet('training')}>
+            <Icon name="target" /> Тренування
+          </button>
+          <button className="btn btn-sm" onClick={() => setSheet('odds')}>
+            <Icon name="dice" /> Шанси паків
+          </button>
+        </div>
+        <span className="hb-reward">
+          {!activeDeck ? (
+            'Відкрийте стартовий пак — з нього збереться перша колода'
+          ) : (
+            <>
+              За перемогу: <b>+{lv.win} 🏆</b> · 🪙 {lv.winGold}
+              {packToday ? (
+                <>
+                  {' '}
+                  · <img src={packArt(lv.nextPack)} alt="" /> {packName(lv.nextPack)}
+                </>
+              ) : (
+                ' · ліміт паків на сьогодні вичерпано'
+              )}
+            </>
+          )}
+        </span>
+      </div>
+
+      <aside className="hb-side">
+        <div className="section-head">
+          <h2>Щоденні завдання</h2>
+          <span className="muted small">оновлюються щодня</span>
+        </div>
+        <QuestList quests={profile.quests} onClaim={claim} />
+        <a className="trial-teaser" href="#/trials">
+          🏅 <b>Випробування</b> <span className="muted small">три перемоги поспіль — легендарний пак</span> ›
+        </a>
+      </aside>
+
+      {sheet === 'quests' && (
+        <Sheet title="Щоденні завдання" onClose={closeSheet}>
+          <QuestList quests={profile.quests} onClaim={claim} />
+        </Sheet>
+      )}
+      {sheet === 'training' && (
+        <Sheet title="Тренування" onClose={closeSheet}>
+          <p className="muted small">Гра з ботом без кубків і нагород: спробувати колоду чи нові картки. Оберіть силу бота:</p>
+          <div className="training-levels">
+            {BOT_LEVELS.map((l) => (
+              <button key={l.level} className={`chip ${level === l.level ? 'on' : ''}`} onClick={() => setLevel(l.level)}>
+                <b>{l.name}</b>
+                <small>~{l.elo}</small>
+              </button>
+            ))}
+          </div>
+          <button
+            className="btn btn-primary btn-lg btn-block-c"
+            disabled={busy || !activeDeck}
+            onClick={() => {
+              closeSheet();
+              void startMatch(false);
+            }}
+          >
+            Грати тренування
+          </button>
+          {profile.role === 'admin' && (
             <label className="admin-bot">
               <span className="pill">адмін</span>
+              <span className="muted small">бот ліги:</span>
               <select
                 value={profile.botOverride ?? -1}
                 aria-label="Сила бота в лізі"
@@ -292,134 +434,13 @@ export function HomePage() {
               </select>
             </label>
           )}
-          <div className="next-reward">
-            <img src={packArt(lv.nextPack)} alt="" />
-            <span>
-              {lv.packsToday < lv.packsLimit ? (
-                <>
-                  За перемогу: <b>{packName(lv.nextPack)}</b>, 🪙 {lv.winGold} і +{lv.win} 🏆 · паків сьогодні {lv.packsToday}/{lv.packsLimit}
-                </>
-              ) : (
-                <>
-                  Ліміт {lv.packsLimit} паків на сьогодні в цій лізі вичерпано — за перемогу 🪙 {lv.winGold} і кубки
-                </>
-              )}
-            </span>
-          </div>
-          <div className="training">
-            <span className="muted small">Тренування без кубків:</span>
-            <div className="chip-row">
-              {BOT_LEVELS.map((l) => (
-                <button
-                  key={l.level}
-                  className={`chip ${level === l.level ? 'on' : ''}`}
-                  onClick={() => setLevel(l.level)}
-                  title={`Приблизно ${l.elo} Elo`}
-                >
-                  {l.elo}
-                </button>
-              ))}
-              <button className="btn btn-sm" disabled={busy || !activeDeck} onClick={() => startMatch(false)}>
-                Грати
-              </button>
-            </div>
-          </div>
-          <a className="trial-teaser" href="#/trials">
-            🏅 <b>Випробування</b> <span className="muted small">три перемоги поспіль — легендарний пак</span> ›
-          </a>
-        </div>
-      </div>
-
-      {s.inbox.yourTurn + s.inbox.challenges > 0 && (
-        <a className="friend-turn" href="#/friends">
-          <span className="friend-turn-icon">⚔</span>
-          <span>
-            <b>
-              {s.inbox.yourTurn > 0 ? `Ваш хід у ${s.inbox.yourTurn} ${s.inbox.yourTurn === 1 ? 'грі' : 'іграх'} з друзями` : 'Вас викликали на гру'}
-            </b>
-            <small className="muted">
-              {s.inbox.challenges > 0 ? `Викликів: ${s.inbox.challenges} · ` : ''}відкрити «Друзі»
-            </small>
-          </span>
-          <span className="friend-turn-go">›</span>
-        </a>
+        </Sheet>
       )}
-
-      <div className="section-head">
-        <h2>Щоденні завдання</h2>
-        <span className="muted small">оновлюються щодня</span>
-      </div>
-      <div className="quests">
-        {profile.quests.map((q) => {
-          const done = q.progress >= q.target;
-          return (
-            <div key={q.id} className={`quest ${done ? 'done' : ''} ${q.claimed ? 'claimed' : ''}`}>
-              <div className="quest-text">
-                <b>{q.text}</b>
-                <div className="bar small-bar">
-                  <span style={{ width: `${(q.progress / q.target) * 100}%` }} />
-                </div>
-                <small className="muted">
-                  {q.progress}/{q.target}
-                </small>
-              </div>
-              {q.claimed ? (
-                <span className="pill pill-ok">отримано</span>
-              ) : (
-                <button
-                  className="btn btn-sm btn-primary btn-price"
-                  disabled={!done}
-                  onClick={async () => {
-                    try {
-                      s.setProfile(await api.claimQuest(q.id));
-                      play('rare');
-                      s.toast(`Нагорода: ${q.reward.gold ? `🪙 ${q.reward.gold}` : ''}${q.reward.shards ? `💎 ${q.reward.shards}` : ''}`);
-                    } catch (e) {
-                      s.toast(errorText(e), 'error');
-                    }
-                  }}
-                >
-                  {q.reward.gold ? `🪙 ${q.reward.gold}` : `💎 ${q.reward.shards}`}
-                </button>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="section-head">
-        <h2>
-          Ваші паки <span className="muted small">{packs.length}</span>
-        </h2>
-        <span className="daily" title="Ліміти паків за перемоги в лігах оновлюються щодня">
-          Паки за перемоги сьогодні: 🤖 <b>{profile.ladders.bot.packsToday}</b>/{profile.ladders.bot.packsLimit} · ⚔{' '}
-          <b>{profile.ladders.pvp.packsToday}</b>/{profile.ladders.pvp.packsLimit}
-        </span>
-        <button className="btn btn-ghost btn-sm" onClick={() => setShowOdds(!showOdds)}>
-          <Icon name="info" /> Шанси
-        </button>
-      </div>
-      {packs.length === 0 ? (
-        <div className="panel empty-packs">
-          <p className="muted">
-            Паків немає. Перемагайте в лігах — кожна перемога одразу дає пак (у лізі ботів до {profile.ladders.bot.packsLimit}, у лізі
-            гравців до {profile.ladders.pvp.packsLimit} на день). Паки також
-            купуються за осколки в <a href="#/shop">магазині</a>.
-          </p>
-        </div>
-      ) : (
-        <div className="pack-shelf">
-          {packs.map((p) => (
-            <button key={p.id} className={`shelf-pack pack-${p.type}`} onClick={() => setOpening(p)} title={p.source}>
-              <img src={packArt(p.type)} alt="" />
-              <b>{p.name}</b>
-              <span className="slot-state ready">Відкрити</span>
-            </button>
-          ))}
-        </div>
+      {sheet === 'odds' && (
+        <Sheet title="Шанси паків" onClose={closeSheet} wide>
+          <OddsTable />
+        </Sheet>
       )}
-
-      {showOdds && <OddsTable />}
 
       {opening && (
         <PackOpening
@@ -432,6 +453,37 @@ export function HomePage() {
         />
       )}
     </section>
+  );
+}
+
+/** Daily quests with their claim buttons. */
+function QuestList({ quests, onClaim }: { quests: QuestView[]; onClaim: (id: string) => void }) {
+  return (
+    <div className="quests">
+      {quests.map((q) => {
+        const done = q.progress >= q.target;
+        return (
+          <div key={q.id} className={`quest ${done ? 'done' : ''} ${q.claimed ? 'claimed' : ''}`}>
+            <div className="quest-text">
+              <b>{q.text}</b>
+              <div className="bar small-bar">
+                <span style={{ width: `${(q.progress / q.target) * 100}%` }} />
+              </div>
+              <small className="muted">
+                {q.progress}/{q.target}
+              </small>
+            </div>
+            {q.claimed ? (
+              <span className="pill pill-ok">отримано</span>
+            ) : (
+              <button className="btn btn-sm btn-primary btn-price" disabled={!done} onClick={() => onClaim(q.id)}>
+                {q.reward.gold ? `🪙 ${q.reward.gold}` : `💎 ${q.reward.shards}`}
+              </button>
+            )}
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
