@@ -1,7 +1,7 @@
 // In-app navigation. Links keep their "#/..." hrefs, but a click is handled
-// here: the page switches first, and the address bar follows when the host
-// allows it. Some embeds (the claude.ai demo frame) block "#/..." navigation,
-// and the app has to keep working there.
+// here: the page switches first, and the address bar follows when the app
+// runs on its own. Inside a frame (the claude.ai demo) the address is left
+// alone: such hosts block "#/..." navigation or react to URL changes.
 
 import { useEffect, useState } from 'react';
 
@@ -9,6 +9,15 @@ type Listener = () => void;
 
 const listeners = new Set<Listener>();
 let path = readHash();
+
+/** Inside someone else's frame the address bar is not ours: routes stay in memory. */
+const embedded = (() => {
+  try {
+    return window.top !== window.self;
+  } catch {
+    return true;
+  }
+})();
 
 function readHash(): string {
   try {
@@ -31,10 +40,12 @@ export function navigate(to: string): void {
   const next = to.replace(/^#/, '');
   if (next === path) return;
   path = next;
-  try {
-    history.pushState(null, '', `#${next}`);
-  } catch {
-    // Embedded without history access: the route lives in memory only.
+  if (!embedded) {
+    try {
+      history.pushState(null, '', `#${next}`);
+    } catch {
+      // No history access: the route lives in memory only.
+    }
   }
   notify();
 }

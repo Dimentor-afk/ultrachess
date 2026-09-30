@@ -12,6 +12,7 @@ import { HelpPage } from './HelpPage';
 import { Avatar } from './common';
 import { themeById } from '../economy/themes';
 import { cardArt } from './cardArt';
+import { ErrorBoundary } from './ErrorBoundary';
 import { Icon } from './icons';
 import { currentPath, onNavigate } from './router';
 import { LeaguesPage } from './LeaguesPage';
@@ -209,16 +210,19 @@ function Shell() {
             ))}
           </nav>
         )}
-        {route === 'play' && <HomePage />}
-        {route === 'leagues' && <LeaguesPage />}
-        {route === 'trials' && <TrialsPage />}
-        {route === 'deck' && <DeckPage />}
-        {route === 'shop' && <ShopPage />}
-        {route === 'friends' && <FriendsPage />}
-        {route === 'profile' && <ProfilePage />}
-        {route === 'help' && <HelpPage />}
-        {route === 'top' && <LeaderboardPage />}
-        {route === 'admin' && s.profile.role === 'admin' && <AdminPage />}
+        {/* A page that crashes shows its error; the menu stays and another tab starts clean. */}
+        <ErrorBoundary key={route}>
+          {route === 'play' && <HomePage />}
+          {route === 'leagues' && <LeaguesPage />}
+          {route === 'trials' && <TrialsPage />}
+          {route === 'deck' && <DeckPage />}
+          {route === 'shop' && <ShopPage />}
+          {route === 'friends' && <FriendsPage />}
+          {route === 'profile' && <ProfilePage />}
+          {route === 'help' && <HelpPage />}
+          {route === 'top' && <LeaderboardPage />}
+          {route === 'admin' && s.profile.role === 'admin' && <AdminPage />}
+        </ErrorBoundary>
       </main>
     </div>
   );
