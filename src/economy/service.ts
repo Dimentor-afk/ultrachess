@@ -22,6 +22,7 @@ import {
 } from './leagues';
 import { BOARD_THEMES, DEFAULT_THEME, themeById } from './themes';
 import { CAPTURE_FX, DEFAULT_CAPTURE_FX, captureFxById } from './captureFx';
+import { type ShopOffer, shopOffer } from './dailyShop';
 import { BOT_LEVELS, botLevel } from '../engine/bot/levels';
 import { type QuestEvent, type QuestView, addProgress, parseQuests, questViews } from './quests';
 import { type Hasher, type MatchRow, type PackRow, type PvpRow, type Role, type Store, type UserRow, randomId } from './store';
@@ -443,6 +444,7 @@ export class GameService {
     if (!fx) throw new ApiError(404, 'Такого ефекту немає.');
     const owned = this.fxOf(u);
     if (owned.includes(id)) throw new ApiError(409, 'Цей ефект уже ваш.');
+    if (!shopOffer(this.now()).fx.includes(id)) throw new ApiError(400, 'Цього ефекту сьогодні немає в магазині — він повернеться в інший день.');
     if (u.gold < fx.price) throw new ApiError(400, `Потрібно ${fx.price} золота, у вас ${u.gold}.`);
     const bought = owned.filter((f) => captureFxById(f).price > 0).concat(id);
     await this.store.updateUser(u.id, { gold: u.gold - fx.price, ownedFx: JSON.stringify(bought), captureFx: id });
@@ -696,6 +698,12 @@ export class GameService {
 
   // ── Shop ──
 
+  /** Today's boards and capture effects (the same for everyone, new every UTC day). */
+  async shop(token: string): Promise<ShopOffer> {
+    await this.auth(token);
+    return shopOffer(this.now());
+  }
+
   /** Buy a pack for shards; it lands with the other ready packs. */
   async buyPack(token: string, type: PackType): Promise<{ pack: PackView; profile: Profile }> {
     const u = await this.auth(token);
@@ -714,6 +722,7 @@ export class GameService {
     if (!theme) throw new ApiError(404, 'Такої дошки немає.');
     const owned = this.themesOf(u);
     if (owned.includes(id)) throw new ApiError(409, 'Ця дошка вже ваша.');
+    if (!shopOffer(this.now()).themes.includes(id)) throw new ApiError(400, 'Цієї дошки сьогодні немає в магазині — вона повернеться в інший день.');
     if (u.gold < theme.price) throw new ApiError(400, `Потрібно ${theme.price} золота, у вас ${u.gold}.`);
     const bought = owned.filter((t) => themeById(t).price > 0).concat(id);
     await this.store.updateUser(u.id, { gold: u.gold - theme.price, themes: JSON.stringify(bought), boardTheme: id });

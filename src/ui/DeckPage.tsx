@@ -6,23 +6,57 @@ import { Emblem } from './art';
 import { CardModal } from './CardModal';
 import { CardArt, RarityTag } from './common';
 import { Icon } from './icons';
+import { StylePanel } from './StylePanel';
 import { errorText, useSession } from './state';
 
 const MAX_DECKS = 10;
 const FILES = 'abcdefgh';
 const newDeckId = () => `deck-${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
 
+type HubTab = 'cards' | 'style';
+const tabFromHash = (): HubTab => (window.location.hash.split('/')[2] === 'style' ? 'style' : 'cards');
+
+/** Two tabs: the deck itself and its looks (board colours, capture effect). */
+function HubSwitch({ tab }: { tab: HubTab }) {
+  return (
+    <nav className="hub-switch" role="tablist" aria-label="Розділ колоди">
+      <a role="tab" aria-selected={tab === 'cards'} className={tab === 'cards' ? 'on' : ''} href="#/deck">
+        <Icon name="cards" /> Колода
+      </a>
+      <a role="tab" aria-selected={tab === 'style'} className={tab === 'style' ? 'on' : ''} href="#/deck/style">
+        <Icon name="brush" /> Стиль
+      </a>
+    </nav>
+  );
+}
+
 /**
  * Clash Royale style: deck tabs on top, the deck board under them, then the
  * cards you own (drag them onto the board), the duplicates chest and, at the
- * bottom, the cards still locked.
+ * bottom, the cards still locked. The "Стиль" tab holds the board colours and
+ * capture effects.
  */
 export function DeckPage() {
   const s = useSession();
+  const [tab, setTab] = useState<HubTab>(tabFromHash);
+  useEffect(() => {
+    const on = () => setTab(tabFromHash());
+    window.addEventListener('hashchange', on);
+    return () => window.removeEventListener('hashchange', on);
+  }, []);
   const active = s.decks.find((d) => d.id === s.profile.activeDeckId) ?? s.decks[0];
+  if (tab === 'style') {
+    return (
+      <section className="page deckhub">
+        <HubSwitch tab="style" />
+        <StylePanel />
+      </section>
+    );
+  }
   if (!active) {
     return (
-      <section className="page">
+      <section className="page deckhub">
+        <HubSwitch tab="cards" />
         <div className="panel empty-state">
           <h1>Колода</h1>
           <p className="muted">Відкрийте стартовий пак на головній — з нього збереться перша колода.</p>
@@ -272,6 +306,7 @@ function DeckHub({ deck }: { deck: Deck }) {
 
   return (
     <section className="page deckhub">
+      <HubSwitch tab="cards" />
       <div className="deck-tabs" role="tablist" aria-label="Колоди">
         {s.decks.map((d, i) => (
           <button

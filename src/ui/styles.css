@@ -5805,3 +5805,763 @@ a.arena-card:hover { transform: translateY(-2px); }
   will-change: opacity;
   pointer-events: none;
 }
+
+/* Link buttons never look like links. */
+a.btn {
+  text-decoration: none;
+}
+
+.style-summary .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* ── Shop: daily showcase ── */
+
+.showcase {
+  border-color: rgba(245, 196, 81, 0.45);
+  background:
+    radial-gradient(600px 220px at 15% -60px, rgba(245, 196, 81, 0.14), transparent 70%),
+    linear-gradient(180deg, #19264a, #121b35);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+
+.showcase-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.6rem 1rem;
+  flex-wrap: wrap;
+}
+
+.showcase-head h2 {
+  margin: 0.1rem 0 0;
+  font-size: 1.3rem;
+}
+
+.showcase-timer {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(7, 11, 22, 0.7);
+  border: 1px solid var(--line);
+  font-weight: 800;
+  font-size: 0.85rem;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.showcase-sub {
+  margin: 1.1rem 0 0.55rem;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+.offer-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.offer-card {
+  --r: var(--r-common);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.8rem 0.6rem 0.75rem;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--r) 45%, var(--line));
+  background:
+    radial-gradient(120% 60% at 50% 0%, color-mix(in srgb, var(--r) 18%, transparent), transparent 70%),
+    var(--panel);
+  text-align: center;
+  min-width: 0;
+}
+
+.offer-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 18% auto;
+  height: 3px;
+  border-radius: 0 0 4px 4px;
+  background: var(--r);
+}
+
+.offer-card b {
+  font-size: 0.95rem;
+  line-height: 1.2;
+}
+
+.offer-card .theme-swatch,
+.offer-card .fx-preview {
+  max-width: 150px;
+}
+
+.offer-card .btn-price {
+  min-width: 0;
+  width: 100%;
+  max-width: 150px;
+}
+
+.offer-card.owned {
+  border-color: color-mix(in srgb, var(--ok) 55%, var(--line));
+}
+
+.offer-card.skeleton {
+  min-height: 200px;
+  background: linear-gradient(100deg, var(--panel) 30%, var(--panel-2) 50%, var(--panel) 70%) 0 0 / 300% 100%;
+  animation: skeleton 1.3s linear infinite;
+}
+
+@keyframes skeleton {
+  to {
+    background-position: -150% 0;
+  }
+}
+
+.btn-price small {
+  display: block;
+  font-family: var(--font-body);
+  font-size: 0.66rem;
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+.btn-price.confirming {
+  animation: pulse 1s ease-in-out infinite;
+  font-size: 0.8rem;
+}
+
+.owned-tag {
+  margin-top: auto;
+  padding: 0.3rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  color: var(--ok);
+  font-weight: 800;
+  font-size: 0.8rem;
+  text-decoration: none;
+}
+
+.owned-tag:hover {
+  background: rgba(67, 209, 154, 0.1);
+}
+
+.showcase-foot {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 1rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: 12px;
+  background: rgba(7, 11, 22, 0.45);
+  color: var(--muted);
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+
+.showcase-foot b {
+  color: var(--text);
+}
+
+.showcase-foot:hover {
+  color: var(--text);
+}
+
+.showcase-foot .icon {
+  color: var(--gold);
+}
+
+.shop-pack-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+/* Board and effect previews */
+
+.theme-swatch {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  width: 100%;
+  max-width: 130px;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 3px solid var(--frame);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+}
+
+.theme-swatch span {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+}
+
+.theme-swatch img {
+  width: 92%;
+  height: 92%;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 1px rgba(0, 0, 0, 0.35));
+}
+
+.fx-victim {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  transform: translate(-50%, -50%);
+  image-rendering: pixelated;
+}
+
+/* ── Deck page: Колода / Стиль switch and the style tab ── */
+
+.hub-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.3rem;
+  max-width: 420px;
+  padding: 0.3rem;
+  margin-bottom: 0.9rem;
+  border-radius: 14px;
+  background: rgba(7, 11, 22, 0.6);
+  border: 1px solid var(--line);
+}
+
+.hub-switch a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.8rem;
+  border-radius: 10px;
+  color: var(--muted);
+  text-decoration: none;
+  font-weight: 800;
+}
+
+.hub-switch a:hover {
+  color: var(--text);
+}
+
+.hub-switch a.on {
+  color: #2a1a02;
+  background: linear-gradient(180deg, #ffe08a, #f5b52e);
+  box-shadow: 0 2px 0 #8a5f10;
+}
+
+.style-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(250px, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.style-board {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  border: 5px solid var(--frame);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+  transition: outline-color 0.2s;
+  outline: 2px dashed transparent;
+  outline-offset: 4px;
+}
+
+.style-board.trying {
+  outline-color: var(--gold);
+}
+
+.style-sq {
+  position: relative;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  transition: background-color 0.25s;
+}
+
+.style-sq > img {
+  position: absolute;
+  inset: 5%;
+  width: 90%;
+  height: 90%;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 1px rgba(0, 0, 0, 0.35));
+}
+
+.style-sq .fx {
+  width: 170% !important;
+}
+
+.style-summary {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+
+.style-summary dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 0.8rem;
+  margin: 0;
+}
+
+.style-summary dt {
+  color: var(--muted);
+}
+
+.style-summary dd {
+  margin: 0;
+  font-weight: 800;
+}
+
+.style-summary p {
+  margin: 0;
+}
+
+.style-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+  gap: 0.7rem;
+}
+
+.style-item {
+  --r: var(--r-common);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.7rem 0.5rem 0.65rem;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+  min-width: 0;
+  transition: transform 0.1s, border-color 0.15s;
+}
+
+.style-item:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--r) 60%, var(--line));
+}
+
+.style-item b {
+  font-size: 0.88rem;
+  line-height: 1.2;
+}
+
+.style-item.on {
+  border-color: var(--ok);
+  box-shadow: 0 0 0 1px var(--ok) inset, 0 0 18px rgba(67, 209, 154, 0.15);
+}
+
+.style-item.locked .theme-swatch,
+.style-item.locked .fx-preview {
+  filter: saturate(0.35) brightness(0.7);
+}
+
+.style-item.trying {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 1px var(--gold) inset;
+}
+
+.style-item.trying .theme-swatch,
+.style-item.trying .fx-preview {
+  filter: none;
+}
+
+.style-item .fx-preview {
+  height: 80px;
+}
+
+.pill-shop {
+  color: var(--gold);
+  border-color: currentColor;
+}
+
+.pill-locked {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.pill .icon {
+  width: 1em;
+  height: 1em;
+}
+
+/* ── Phone shell: header on top, five tabs at the bottom ── */
+
+.m-header,
+.tabbar,
+.m-subnav {
+  display: none;
+}
+
+@media (max-width: 860px) {
+  .shell {
+    grid-template-rows: auto 1fr;
+  }
+
+  .sidebar,
+  .content > .wallet {
+    display: none;
+  }
+
+  .m-header {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 16px;
+    padding-top: calc(0.45rem + env(safe-area-inset-top, 0px));
+    background: rgba(7, 11, 22, 0.92);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .m-me {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1;
+    min-width: 0;
+    color: var(--text);
+    text-decoration: none;
+  }
+
+  .m-me .avatar {
+    width: 2.1rem;
+    height: 2.1rem;
+  }
+
+  .m-me.active .avatar {
+    border-color: var(--gold);
+  }
+
+  .m-me-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: 1.15;
+  }
+
+  .m-me-info b {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.92rem;
+  }
+
+  .m-me-info small {
+    color: var(--muted);
+    font-size: 0.75rem;
+  }
+
+  .m-header .wallet-item {
+    padding: 0.2rem 0.6rem 0.2rem 0.45rem;
+    font-size: 0.88rem;
+  }
+
+  .m-help {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    flex: none;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--muted);
+    font-weight: 800;
+    text-decoration: none;
+  }
+
+  .m-help.active {
+    color: var(--gold);
+    border-color: var(--gold);
+  }
+
+  .tabbar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    align-items: end;
+    padding: 0.25rem 0.25rem calc(0.3rem + env(safe-area-inset-bottom, 0px));
+    background: rgba(7, 11, 22, 0.96);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-top: 1px solid var(--line);
+  }
+
+  .tab {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.1rem;
+    padding: 0.3rem 0.1rem 0.15rem;
+    border-radius: 12px;
+    color: var(--muted);
+    text-decoration: none;
+    font-weight: 800;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .tab-icon {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 2.6rem;
+    height: 1.9rem;
+    border-radius: 999px;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  .tab-icon .icon {
+    width: 1.35rem;
+    height: 1.35rem;
+  }
+
+  .tab-label {
+    font-size: 0.68rem;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+  }
+
+  .tab.on {
+    color: var(--gold);
+  }
+
+  .tab.on .tab-icon {
+    background: rgba(245, 196, 81, 0.16);
+  }
+
+  .tab .nav-badge {
+    position: absolute;
+    top: -0.3rem;
+    right: -0.1rem;
+    margin: 0;
+    min-width: 1.15rem;
+    height: 1.15rem;
+    font-size: 0.66rem;
+  }
+
+  /* "Грати" is the big gold button in the middle. */
+  .tab-play .tab-icon {
+    width: 3.4rem;
+    height: 3.4rem;
+    margin-top: -1.3rem;
+    border-radius: 50%;
+    color: #2a1a02;
+    background: linear-gradient(180deg, #ffe08a, #f5b52e 55%, #d9901a);
+    border: 3px solid #0b1020;
+    box-shadow: 0 3px 0 #7a5410, 0 6px 16px rgba(245, 181, 46, 0.35);
+  }
+
+  .tab-play .tab-icon .icon {
+    width: 1.55rem;
+    height: 1.55rem;
+    fill: currentColor;
+  }
+
+  .tab-play.on .tab-icon {
+    background: linear-gradient(180deg, #fff0b8, #ffc94a 55%, #e6a126);
+  }
+
+  .m-subnav {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.25rem;
+    padding: 0.25rem;
+    margin-bottom: 0.9rem;
+    border-radius: 12px;
+    background: rgba(7, 11, 22, 0.6);
+    border: 1px solid var(--line);
+  }
+
+  .m-subnav a {
+    padding: 0.45rem 0.3rem;
+    border-radius: 9px;
+    text-align: center;
+    color: var(--muted);
+    text-decoration: none;
+    font-weight: 800;
+    font-size: 0.84rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .m-subnav a.on {
+    color: var(--text);
+    background: var(--panel-2);
+    box-shadow: inset 0 -2px 0 var(--gold);
+  }
+
+  .content {
+    padding-top: 0.9rem;
+    padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* In a match the board gets the screen. */
+  .shell:has(.game) .m-header,
+  .content:has(.game) .m-subnav {
+    display: none;
+  }
+
+  .toasts {
+    bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .intro-skip {
+    bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .style-top {
+    grid-template-columns: 1fr;
+  }
+
+  .hub-switch {
+    max-width: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .offer-row {
+    gap: 0.5rem;
+  }
+
+  .offer-card {
+    padding: 0.65rem 0.4rem 0.6rem;
+    border-radius: 14px;
+  }
+
+  .offer-card b {
+    font-size: 0.82rem;
+  }
+
+  .offer-card .fx-preview {
+    height: 76px;
+  }
+
+  .offer-card .btn-price {
+    padding-inline: 0.3rem;
+    font-size: 0.85rem;
+  }
+
+  .shop-packs {
+    grid-template-columns: 1fr;
+    gap: 0.55rem;
+  }
+
+  .shop-pack {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.8rem;
+    padding: 0.6rem 0.8rem;
+    text-align: left;
+    border-radius: 14px;
+  }
+
+  .shop-pack img {
+    width: 44px;
+    height: 80px;
+  }
+
+  .shop-pack-info {
+    align-items: flex-start;
+    gap: 0.2rem;
+  }
+
+  .shop-pack .btn-price {
+    min-width: 5.5rem;
+    margin: 0;
+  }
+
+  .style-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+
+  .style-item {
+    padding: 0.55rem 0.35rem;
+  }
+
+  .style-item b {
+    font-size: 0.78rem;
+  }
+
+  .style-item .pill {
+    font-size: 0.66rem;
+    padding-inline: 0.4rem;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .style-item .fx-preview {
+    height: 64px;
+  }
+
+  /* Card filters scroll sideways instead of taking two rows. */
+  .deckhub .chip-row {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin-inline: -16px;
+    padding-inline: 16px;
+  }
+
+  .deckhub .chip-row::-webkit-scrollbar {
+    display: none;
+  }
+
+  .deckhub .chip {
+    flex: none;
+  }
+
+  .deck-tab {
+    max-width: 240px;
+  }
+
+  .stat-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+
+  .stat {
+    padding: 0.6rem 0.7rem;
+  }
+
+  .stat b {
+    font-size: 1.2rem;
+  }
+
+  .stat span {
+    font-size: 0.72rem;
+    line-height: 1.25;
+  }
+}

@@ -30,6 +30,22 @@ const ROUTES: { id: Route; label: string; icon: string; admin?: boolean }[] = [
   { id: 'admin', label: 'Адмін', icon: 'shield', admin: true },
 ];
 
+/** Phone tab bar: five tabs, "Грати" in the middle. Ліги also covers trials and the leaderboard. */
+const TABS: { id: Route; label: string; icon: string; covers?: Route[] }[] = [
+  { id: 'shop', label: 'Магазин', icon: 'shop' },
+  { id: 'deck', label: 'Колода', icon: 'cards' },
+  { id: 'play', label: 'Грати', icon: 'play' },
+  { id: 'friends', label: 'Друзі', icon: 'users' },
+  { id: 'leagues', label: 'Ліги', icon: 'trophy', covers: ['trials', 'top'] },
+];
+
+/** On phones the Ліги tab holds three pages; this strip switches between them. */
+const ARENA: { id: Route; label: string }[] = [
+  { id: 'leagues', label: 'Ліги' },
+  { id: 'trials', label: 'Випробування' },
+  { id: 'top', label: 'Рейтинг' },
+];
+
 function readRoute(): Route {
   const h = window.location.hash.replace(/^#\/?/, '').split('/')[0];
   if (h === 'cards') return 'deck'; // the old collection page lives on the deck page now
@@ -99,10 +115,15 @@ function Shell() {
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
+  // A new section opens at its top, not wherever the last one was scrolled to.
+  useEffect(() => window.scrollTo(0, 0), [route]);
   const routes = ROUTES.filter((r) => !r.admin || s.profile.role === 'admin');
   const readyPacks = s.packs.length;
   const social = s.inbox.friendRequests + s.inbox.challenges + s.inbox.yourTurn;
   const theme = themeById(s.profile.boardTheme);
+
+  const badge = (id: Route) =>
+    id === 'play' && readyPacks > 0 ? readyPacks : id === 'friends' && social > 0 ? social : 0;
 
   return (
     <div className="shell" style={{ '--light-sq': theme.light, '--dark-sq': theme.dark } as CSSProperties}>
@@ -118,8 +139,7 @@ function Shell() {
             <a key={r.id} href={`#/${r.id}`} className={route === r.id ? 'active' : ''}>
               <Icon name={r.icon} />
               <span>{r.label}</span>
-              {r.id === 'play' && readyPacks > 0 && <span className="nav-badge">{readyPacks}</span>}
-              {r.id === 'friends' && social > 0 && <span className="nav-badge">{social}</span>}
+              {badge(r.id) > 0 && <span className="nav-badge">{badge(r.id)}</span>}
             </a>
           ))}
         </nav>
@@ -137,15 +157,59 @@ function Shell() {
           </span>
         </a>
       </aside>
+
+      {/* Phones: profile, wallet and help on top; five tabs at the bottom. */}
+      <header className="m-header">
+        <a className={`m-me ${route === 'profile' ? 'active' : ''}`} href="#/profile" aria-label="Профіль">
+          <Avatar card={s.profile.avatar} size="sm" />
+          <span className="m-me-info">
+            <b>{s.profile.name}</b>
+            <small>🏆 {s.profile.trophies}</small>
+          </span>
+        </a>
+        <a href="#/shop" className="wallet-item gold" aria-label={`Золото: ${s.profile.gold}`}>
+          🪙 <b>{s.profile.gold}</b>
+        </a>
+        <a href="#/shop" className="wallet-item shards" aria-label={`Осколки: ${s.profile.shards}`}>
+          💎 <b>{s.profile.shards}</b>
+        </a>
+        <a className={`m-help ${route === 'help' ? 'active' : ''}`} href="#/help" aria-label="Як грати">
+          ?
+        </a>
+      </header>
+      <nav className="tabbar" aria-label="Розділи">
+        {TABS.map((t) => {
+          const on = route === t.id || !!t.covers?.includes(route);
+          return (
+            <a key={t.id} href={`#/${t.id}`} className={`tab tab-${t.id} ${on ? 'on' : ''}`} aria-current={on ? 'page' : undefined}>
+              <span className="tab-icon">
+                <Icon name={t.icon} />
+                {badge(t.id) > 0 && <span className="nav-badge">{badge(t.id)}</span>}
+              </span>
+              <span className="tab-label">{t.label}</span>
+            </a>
+          );
+        })}
+      </nav>
+
       <main className="content">
         <div className="wallet" aria-label="Гаманець">
-          <a href="#/shop" className="wallet-item gold" title="Золото: купує дошки в магазині">
+          <a href="#/shop" className="wallet-item gold" title="Золото: купує дошки й ефекти в магазині">
             🪙 <b>{s.profile.gold}</b>
           </a>
           <a href="#/shop" className="wallet-item shards" title="Осколки: з повторок, купують паки">
             💎 <b>{s.profile.shards}</b>
           </a>
         </div>
+        {ARENA.some((a) => a.id === route) && (
+          <nav className="m-subnav" aria-label="Змагання">
+            {ARENA.map((a) => (
+              <a key={a.id} href={`#/${a.id}`} className={route === a.id ? 'on' : ''}>
+                {a.label}
+              </a>
+            ))}
+          </nav>
+        )}
         {route === 'play' && <HomePage />}
         {route === 'leagues' && <LeaguesPage />}
         {route === 'trials' && <TrialsPage />}

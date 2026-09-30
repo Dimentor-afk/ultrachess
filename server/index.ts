@@ -105,6 +105,7 @@ const routes: [string, RegExp, Handler][] = [
   ['GET', /^collection$/, ({ token }) => svc.collection(token)],
   ['GET', /^packs$/, ({ token }) => svc.packs(token)],
   ['POST', /^packs\/(\w+)\/open$/, ({ token, params }) => svc.openPack(token, params[0])],
+  ['GET', /^shop$/, ({ token }) => svc.shop(token)],
   ['POST', /^shop\/pack$/, ({ token, body }) => svc.buyPack(token, String(body.type) as never)],
   ['POST', /^shop\/theme$/, ({ token, body }) => svc.buyTheme(token, String(body.id ?? ''))],
   ['POST', /^profile\/theme$/, ({ token, body }) => svc.setBoardTheme(token, String(body.id ?? ''))],

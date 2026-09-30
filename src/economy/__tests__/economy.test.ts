@@ -17,6 +17,8 @@ import {
 } from '../packs';
 import { LADDER_PACK_LIMIT, LADDER_WIN_GOLD } from '../leagues';
 import { GameService } from '../service';
+import { BOARD_THEMES } from '../themes';
+import { CAPTURE_FX } from '../captureFx';
 import type { Hasher } from '../store';
 
 function seeded(seed: number) {
@@ -147,19 +149,41 @@ describe('service', () => {
     expect(me.shards).toBe(bought.profile.shards + fromDupes);
   });
 
-  it('board themes are bought with gold', async () => {
+  it('board themes are bought with gold, only from the daily offer', async () => {
     const { svc } = await setup();
     const { token, profile } = await svc.register('g@g.com', 'secret1', 'G');
     expect(profile.themes).toEqual(['classic']);
-    await expect(svc.buyTheme(token, 'emerald')).rejects.toThrow(/золота/);
-    await expect(svc.setBoardTheme(token, 'emerald')).rejects.toThrow();
+    const offer = await svc.shop(token);
+    expect(offer.themes).toHaveLength(3);
+    const id = offer.themes[0];
+    const price = BOARD_THEMES.find((t) => t.id === id)!.price;
+    const notToday = BOARD_THEMES.find((t) => t.price > 0 && !offer.themes.includes(t.id))!.id;
+    await expect(svc.buyTheme(token, id)).rejects.toThrow(/золота/);
+    await expect(svc.setBoardTheme(token, id)).rejects.toThrow();
     const admin = await svc.register('koldmiand@gmail.com', 'secret1', 'A');
-    await svc.adminGrantCurrency(admin.token, profile.id, 500, 0);
-    const p = await svc.buyTheme(token, 'emerald');
-    expect(p).toMatchObject({ gold: 200, boardTheme: 'emerald' });
-    expect(p.themes).toContain('emerald');
+    await svc.adminGrantCurrency(admin.token, profile.id, 5000, 0);
+    await expect(svc.buyTheme(token, notToday)).rejects.toThrow(/сьогодні немає/);
+    const p = await svc.buyTheme(token, id);
+    expect(p).toMatchObject({ gold: 5000 - price, boardTheme: id });
+    expect(p.themes).toContain(id);
     expect((await svc.setBoardTheme(token, 'classic')).boardTheme).toBe('classic');
-    await expect(svc.buyTheme(token, 'emerald')).rejects.toThrow();
+    await expect(svc.buyTheme(token, id)).rejects.toThrow();
+  });
+
+  it('capture effects are bought only from the daily offer', async () => {
+    const { svc } = await setup();
+    const { token, profile } = await svc.register('f@f.com', 'secret1', 'F');
+    const offer = await svc.shop(token);
+    const admin = await svc.register('koldmiand@gmail.com', 'secret1', 'A');
+    await svc.adminGrantCurrency(admin.token, profile.id, 5000, 0);
+    const notToday = CAPTURE_FX.find((f) => f.price > 0 && !offer.fx.includes(f.id))!.id;
+    await expect(svc.buyCaptureFx(token, notToday)).rejects.toThrow(/сьогодні немає/);
+    const p = await svc.buyCaptureFx(token, offer.fx[0]);
+    expect(p.captureFx).toBe(offer.fx[0]);
+    expect(p.ownedFx).toContain(offer.fx[0]);
+    // Owned items stay usable after they leave the shop.
+    expect((await svc.setCaptureFx(token, 'impact')).captureFx).toBe('impact');
+    expect((await svc.setCaptureFx(token, offer.fx[0])).captureFx).toBe(offer.fx[0]);
   });
 
   it('ranked win is verified by replay and rewards trophies and a pack', async () => {

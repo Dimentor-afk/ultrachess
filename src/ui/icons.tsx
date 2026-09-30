@@ -18,6 +18,7 @@ const PATHS: Record<string, string> = {
   medal: 'M8 3l4 6 4-6M12 21a6 6 0 1 0 0-12 6 6 0 0 0 0 12zM12 13l1 2h2l-1.5 1.5.5 2-2-1-2 1 .5-2L9 15h2z',
   ladder: 'M7 3v18M17 3v18M7 7h10M7 12h10M7 17h10',
   sword: 'M14.5 17.5L3 6V3h3l11.5 11.5M13 19l6-6M16 16l4 4M19 21l2-2',
+  brush: 'M19 3l2 2-9 9-2-2zM10 12a3 3 0 0 0-3 3c0 1.5-1 3-4 3 2 2 5 3 7 1.5a3.5 3.5 0 0 0 2-3.5z',
 };
 
 export function Icon({ name, className = '' }: { name: keyof typeof PATHS | string; className?: string }) {

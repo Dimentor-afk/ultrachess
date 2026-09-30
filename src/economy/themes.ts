@@ -1,4 +1,4 @@
-// Board colour themes sold for gold in the shop.
+// Board colour themes sold for gold in the shop (three of them a day, see dailyShop.ts).
 
 export interface BoardTheme {
   id: string;
@@ -14,11 +14,17 @@ export const BOARD_THEMES: BoardTheme[] = [
   { id: 'emerald', name: 'Смарагдова', light: '#eeeed2', dark: '#769656', price: 300 },
   { id: 'ocean', name: 'Океан', light: '#dee3e6', dark: '#7d9bb0', price: 500 },
   { id: 'sand', name: 'Пустеля', light: '#f4e4bc', dark: '#c79a5b', price: 500 },
+  { id: 'marble', name: 'Мармур', light: '#eceae4', dark: '#8d8f99', price: 600 },
+  { id: 'mint', name: "М'ята", light: '#e3f6ec', dark: '#5fae8b', price: 600 },
   { id: 'sakura', name: 'Сакура', light: '#fbe4ea', dark: '#d58ca3', price: 800 },
   { id: 'ice', name: 'Крига', light: '#e8f5fb', dark: '#86b6d3', price: 800 },
+  { id: 'coffee', name: 'Кава', light: '#efd9bd', dark: '#6e4b36', price: 900 },
+  { id: 'lilac', name: 'Бузок', light: '#efe4fb', dark: '#8e6cc2', price: 1000 },
+  { id: 'coral', name: 'Корал', light: '#ffe3d8', dark: '#dd7259', price: 1000 },
   { id: 'night', name: 'Ніч', light: '#a9b3d6', dark: '#4a5584', price: 1200 },
   { id: 'lava', name: 'Лава', light: '#f7c894', dark: '#b2472e', price: 1500 },
   { id: 'toxic', name: 'Отрута', light: '#d9f2a6', dark: '#5f8f3a', price: 1500 },
+  { id: 'graphite', name: 'Графіт', light: '#b9bcc6', dark: '#454955', price: 1800 },
   { id: 'royal', name: 'Королівська', light: '#f3d98b', dark: '#6b3fa0', price: 2500 },
 ];
 
