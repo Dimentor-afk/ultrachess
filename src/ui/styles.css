@@ -6475,13 +6475,12 @@ a.btn {
 
   .m-header {
     position: sticky;
-    top: 0;
+    top: env(safe-area-inset-top, 0px);
     z-index: 40;
     display: flex;
     align-items: center;
     gap: 0.4rem;
     padding: 0.45rem 16px;
-    padding-top: calc(0.45rem + env(safe-area-inset-top, 0px));
     background: rgba(7, 11, 22, 0.92);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
