@@ -49,18 +49,19 @@ export function PackOpening({
   pack,
   open,
   onClose,
-  autoStart = false,
 }: {
   pack: PackView;
-  autoStart?: boolean;
   open: () => Promise<OpenResult>;
   onClose: (result: OpenResult | null) => void;
 }) {
   const [phase, setPhase] = useState<Phase>('idle');
   const [result, setResult] = useState<OpenResult | null>(null);
   const [index, setIndex] = useState(0);
-  const [stage, setStage] = useState<Stage>('in');
-  const [step, setStep] = useState(-1);
+  // Stage and step belong to one card: a new card never starts with the last
+  // one's "shown" (it would pop up face-up for a frame or flip backwards).
+  const [staged, setStaged] = useState<{ index: number; stage: Stage; step: number }>({ index: 0, stage: 'in', step: -1 });
+  const stage: Stage = staged.index === index ? staged.stage : 'in';
+  const step = staged.index === index ? staged.step : -1;
   const flipped = stage === 'shown';
   const [error, setError] = useState<string | null>(null);
   const timeline = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -81,14 +82,6 @@ export function PackOpening({
     }
   };
 
-  // The starter pack opens on its own, after a short look at it.
-  useEffect(() => {
-    if (!autoStart) return;
-    const t = setTimeout(() => void start(), 700);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const current = result?.cards[index];
   const card = current ? CARD_BY_ID[current.cardId] : null;
   const motion = getSettings().animations && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -98,33 +91,34 @@ export function PackOpening({
   // breath, one flip and the reveal.
   useEffect(() => {
     if (phase !== 'reveal') return;
-    setStage('in');
-    setStep(-1);
+    const card = index;
+    const set = (stage: Stage, step?: number) =>
+      setStaged((p) => ({ index: card, stage, step: step ?? (p.index === card ? p.step : -1) }));
     const timers: ReturnType<typeof setTimeout>[] = (timeline.current = []);
     const at = (ms: number, fn: () => void) => timers.push(setTimeout(fn, ms));
     if (!teaseSteps) {
-      at(350, () => setStage('shown'));
+      // Lands face down (0.35 s), then turns over.
+      at(420, () => set('shown'));
     } else {
-      at(LAND_MS, () => setStage('hush'));
+      at(LAND_MS, () => set('hush'));
       let t = LAND_MS + HUSH_MS;
       for (let i = 0; i < teaseSteps; i++) {
         at(t, () => {
-          setStage('tease');
-          setStep(i);
+          set('tease', i);
           play(`tease${i}` as Sound);
         });
         t += STEP_MS;
       }
       at(t, () => {
-        setStage('charge');
+        set('charge');
         play('riser');
       });
       t += CHARGE_MS;
       at(t, () => {
-        setStage('spin');
+        set('spin');
         play('whoosh');
       });
-      at(t + FACE_MS, () => setStage('shown'));
+      at(t + FACE_MS, () => set('shown'));
     }
     return () => timers.forEach(clearTimeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -135,7 +129,7 @@ export function PackOpening({
     if (!flipped) {
       // Skip: drop the rest of the timeline, or it would pull the card back into the tease.
       timeline.current.forEach(clearTimeout);
-      return setStage('shown');
+      return setStaged({ index, stage: 'shown', step });
     }
     if (index + 1 < result.cards.length) setIndex(index + 1);
     else setPhase('summary');

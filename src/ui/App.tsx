@@ -116,7 +116,16 @@ function Shell() {
     return onNavigate(() => setRoute(readRoute()));
   }, []);
   // A new section opens at its top, not wherever the last one was scrolled to.
-  useEffect(() => window.scrollTo(0, 0), [route]);
+  // Braces matter: an effect must not return scrollTo's result. Some hosts (the
+  // claude.ai frame) wrap scrollTo so it returns a value, and React would call
+  // that value as a cleanup function on the next route change and crash.
+  useEffect(() => {
+    try {
+      window.scrollTo(0, 0);
+    } catch {
+      // Scrolling is a nicety.
+    }
+  }, [route]);
   const routes = ROUTES.filter((r) => !r.admin || s.profile.role === 'admin');
   const readyPacks = s.packs.length;
   const social = s.inbox.friendRequests + s.inbox.challenges + s.inbox.yourTurn;

@@ -51,7 +51,7 @@ export function HomePage() {
   const league = LEAGUES[ladder][lv.league];
   const progress = lv.next ? (lv.trophies - league.minTrophies) / (lv.next.minTrophies - league.minTrophies) : 1;
 
-  // The starter pack opens by itself on the first visit.
+  // The starter pack comes up by itself on the first visit; a tap opens it.
   const autoOpened = useRef(false);
   useEffect(() => {
     const starter = packs.find((p) => p.type === 'starter');
@@ -424,7 +424,6 @@ export function HomePage() {
       {opening && (
         <PackOpening
           pack={opening}
-          autoStart={opening.type === 'starter'}
           open={() => api.openPack(opening.id)}
           onClose={async (res) => {
             setOpening(null);
