@@ -76,6 +76,7 @@ export type Sound =
   | 'tease1'
   | 'tease2'
   | 'tease3'
+  | 'riser'
   | 'whoosh'
   | 'click';
 
@@ -120,11 +121,14 @@ const NOTES: Record<Sound, [number, number, number, OscillatorType, number][]> =
     [990, 0.1, 0.22, 'triangle', 0.1],
   ],
   legendary: [
+    [82, 0, 0.6, 'sine', 0.3],
     [523, 0, 0.12, 'triangle', 0.12],
     [784, 0.1, 0.12, 'triangle', 0.12],
     [1046, 0.2, 0.35, 'triangle', 0.14],
   ],
   mythic: [
+    [65, 0, 0.8, 'sine', 0.34],
+    [98, 0.05, 0.6, 'sine', 0.2],
     [392, 0, 0.18, 'sawtooth', 0.05],
     [523, 0.08, 0.18, 'triangle', 0.12],
     [784, 0.18, 0.18, 'triangle', 0.12],
@@ -136,6 +140,10 @@ const NOTES: Record<Sound, [number, number, number, OscillatorType, number][]> =
   tease1: [[262, 0, 0.12, 'sine', 0.18], [262, 0.16, 0.1, 'sine', 0.12]],
   tease2: [[349, 0, 0.12, 'sine', 0.2], [349, 0.16, 0.1, 'sine', 0.14]],
   tease3: [[466, 0, 0.12, 'sine', 0.22], [466, 0.16, 0.1, 'sine', 0.16]],
+  // The held breath before a strong card flips: a quick rising run.
+  riser: [330, 370, 415, 466, 523, 587, 659, 740, 831, 932].map(
+    (f, i) => [f, i * 0.075, 0.12, 'sine', 0.03 + i * 0.008] as [number, number, number, OscillatorType, number],
+  ),
   whoosh: [
     [300, 0, 0.3, 'sawtooth', 0.03],
     [600, 0.15, 0.3, 'sawtooth', 0.03],
