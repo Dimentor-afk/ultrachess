@@ -7474,29 +7474,88 @@ button.hb-slot {
   }
 }
 
+/* Phones keep one column in this order; the wrappers only matter on wide screens. */
+.hb-main,
+.hb-aside {
+  display: contents;
+}
+.hb-banner { order: 0; }
+.hb-mode { order: 1; }
+.hb-stage { order: 2; }
+.hb-slots-wrap { order: 3; }
+.hb-deck { order: 4; }
+.hb-dock { order: 5; }
+.hb-side { order: 6; }
+
+/* Wide screens: the deck and the battle button are the centre of the screen;
+   league, packs and quests sit in a narrower column on the right. */
 @media (min-width: 861px) {
   .hb {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
-    grid-template-areas:
-      'banner banner'
-      'mode deck'
-      'stage dock'
-      'stage side'
-      'slots side';
-    grid-template-rows: auto auto auto 1fr auto;
-    gap: 1rem 1.5rem;
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+    gap: 1.5rem;
     align-items: start;
   }
 
-  .hb-banner { grid-area: banner; }
-  .hb-mode { grid-area: mode; align-self: end; }
-  /* The sidebar already links leagues and trials: no side buttons here. */
-  .hb-stage { grid-area: stage; display: flex; justify-content: center; padding: 1.6rem 1rem; }
-  .hb-rail { display: none; }
-  .hb-slots-wrap { grid-area: slots; }
-  .hb-deck { grid-area: deck; }
-  .hb-dock { grid-area: dock; }
+  .hb-banner {
+    grid-column: 1 / -1;
+  }
+
+  .hb-main {
+    position: sticky;
+    top: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .hb-aside {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  /* Deck hero: the whole back rank and pawns, large, with the picker above. */
+  .hb-deck {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1.2rem;
+    border-radius: 22px;
+    background:
+      radial-gradient(80% 60% at 50% 0%, color-mix(in srgb, var(--stage-a) 55%, transparent), transparent 75%),
+      var(--panel);
+  }
+
+  .hb-deck .mini-board {
+    order: 2;
+    width: 100%;
+    border-width: 5px;
+    border-radius: 12px;
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45);
+  }
+
+  .hb-deck-info {
+    order: 1;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0.8rem;
+  }
+
+  .hb-deck-info .eyebrow {
+    font-size: 0.8rem;
+  }
+
+  .hb-deck-row select {
+    font-size: 1.05rem;
+    padding: 0.5rem 0.7rem;
+  }
+
+  .hb-battle {
+    min-height: 5rem;
+    font-size: 2.4rem;
+  }
 
   .hb-dock-extra {
     display: grid;
@@ -7511,39 +7570,50 @@ button.hb-slot {
     gap: 0.35rem;
   }
 
+  .hb-reward {
+    font-size: 0.9rem;
+  }
+
+  /* The league is a compact card here; the sidebar links leagues and trials. */
+  .hb-stage {
+    display: flex;
+    justify-content: center;
+    padding: 0.9rem 0.8rem;
+  }
+
+  .hb-rail {
+    display: none;
+  }
+
+  .hb-arena-art {
+    width: 3rem;
+    height: 5.5rem;
+  }
+
+  .hb-arena h1 {
+    font-size: 1.3rem;
+  }
+
+  .hb-arena-rays {
+    top: 2.9rem;
+    width: 12rem;
+    height: 12rem;
+    margin: -6rem 0 0 -6rem;
+  }
+
+  .hb-slots {
+    gap: 0.5rem;
+  }
+
   .hb-side {
-    grid-area: side;
     display: flex;
     flex-direction: column;
     gap: 0.6rem;
   }
 
-  .hb-side .section-head {
-    margin: 0;
-  }
-
+  .hb-side .section-head,
   .hb-side .trial-teaser {
     margin: 0;
-  }
-
-  .hb-arena-art {
-    width: 5.6rem;
-    height: 10.2rem;
-  }
-
-  .hb-arena-rays {
-    top: 4.8rem;
-    width: 20rem;
-    height: 20rem;
-    margin: -10rem 0 0 -10rem;
-  }
-
-  .hb-slots {
-    gap: 0.8rem;
-  }
-
-  .hb-slot {
-    aspect-ratio: 4 / 3;
   }
 }
 

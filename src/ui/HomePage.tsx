@@ -223,165 +223,171 @@ export function HomePage() {
         </a>
       )}
 
-      <div className="hb-mode" role="tablist" aria-label="Ліга">
-        {(['bot', 'pvp'] as Ladder[]).map((l) => (
-          <button key={l} role="tab" aria-selected={ladder === l} className={`hb-mode-tab ${ladder === l ? 'on' : ''}`} onClick={() => setLadder(l)}>
-            <span className="hb-mode-icon" aria-hidden="true">
-              {l === 'bot' ? '🤖' : '⚔'}
-            </span>
-            <span className="hb-mode-text">
-              <b>{LADDER_NAMES[l]}</b>
-              <small>🏆 {profile.ladders[l].trophies}</small>
-            </span>
-          </button>
-        ))}
+      {/* The deck and the battle button come first: they are what this screen is for. */}
+      <div className="hb-main">
+        <div className="hb-deck">
+          {activeDeck ? <MiniBoard deck={activeDeck} /> : <span className="muted small">Колоди ще немає</span>}
+          <div className="hb-deck-info">
+            <label className="eyebrow" htmlFor="active-deck">
+              Колода в бій
+            </label>
+            <div className="hb-deck-row">
+              <select id="active-deck" value={activeDeck?.id ?? ''} onChange={async (e) => s.setProfile(await api.setActiveDeck(e.target.value))}>
+                {decks.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+              <a className="btn btn-sm hb-deck-edit" href="#/deck" aria-label="Змінити колоду" title="Змінити колоду">
+                <Icon name="edit" />
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <div className="hb-dock">
+          {battle}
+          <div className="hb-dock-extra">
+            <button className="btn btn-sm" onClick={() => setSheet('training')}>
+              <Icon name="target" /> Тренування
+            </button>
+            <button className="btn btn-sm" onClick={() => setSheet('odds')}>
+              <Icon name="dice" /> Шанси паків
+            </button>
+          </div>
+          <span className="hb-reward">
+            {!activeDeck ? (
+              'Відкрийте стартовий пак — з нього збереться перша колода'
+            ) : (
+              <>
+                За перемогу: <b>+{lv.win} 🏆</b> · 🪙 {lv.winGold}
+                {packToday ? (
+                  <>
+                    {' '}
+                    · <img src={packArt(lv.nextPack)} alt="" /> {packName(lv.nextPack)}
+                  </>
+                ) : (
+                  ' · ліміт паків на сьогодні вичерпано'
+                )}
+              </>
+            )}
+          </span>
+        </div>
+
       </div>
 
-      <div className="hb-stage">
-        <nav className="hb-rail" aria-label="Швидкі дії">
-          <button className="hb-rail-btn hb-quests-btn" onClick={() => setSheet('quests')}>
-            <span className="hb-rail-icon rail-quests">
-              <Icon name="list" />
-              {claimable > 0 && <span className="nav-badge">{claimable}</span>}
-            </span>
-            <span className="hb-rail-label">Завдання</span>
-          </button>
-          <a className="hb-rail-btn" href="#/trials">
-            <span className="hb-rail-icon rail-trials">
-              <Icon name="medal" />
-              {trialActive && <span className="hb-rail-dot" />}
-            </span>
-            <span className="hb-rail-label">Випробування</span>
-          </a>
-        </nav>
-
-        <a className="hb-arena" href={`#/leagues/${ladder}`} title="Усі ліги й нагороди">
-          <span className="hb-arena-rays" aria-hidden="true" />
-          <img className="hb-arena-art" src={packArt(league.art)} alt="" />
-          <span className="eyebrow">
-            Ліга {lv.league + 1} із {LEAGUES[ladder].length}
-          </span>
-          <h1>{lv.leagueName}</h1>
-          <div className="hb-trophies">
-            <span className="trophies">🏆 {lv.trophies}</span>
-            {lv.next && (
-              <span className="muted small" title={`Наступна ліга: ${lv.next.name}`}>
-                ще {lv.next.minTrophies - lv.trophies} до наступної
+      <div className="hb-aside">
+        <div className="hb-mode" role="tablist" aria-label="Ліга">
+          {(['bot', 'pvp'] as Ladder[]).map((l) => (
+            <button key={l} role="tab" aria-selected={ladder === l} className={`hb-mode-tab ${ladder === l ? 'on' : ''}`} onClick={() => setLadder(l)}>
+              <span className="hb-mode-icon" aria-hidden="true">
+                {l === 'bot' ? '🤖' : '⚔'}
               </span>
+              <span className="hb-mode-text">
+                <b>{LADDER_NAMES[l]}</b>
+                <small>🏆 {profile.ladders[l].trophies}</small>
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <div className="hb-stage">
+          <nav className="hb-rail" aria-label="Швидкі дії">
+            <button className="hb-rail-btn hb-quests-btn" onClick={() => setSheet('quests')}>
+              <span className="hb-rail-icon rail-quests">
+                <Icon name="list" />
+                {claimable > 0 && <span className="nav-badge">{claimable}</span>}
+              </span>
+              <span className="hb-rail-label">Завдання</span>
+            </button>
+            <a className="hb-rail-btn" href="#/trials">
+              <span className="hb-rail-icon rail-trials">
+                <Icon name="medal" />
+                {trialActive && <span className="hb-rail-dot" />}
+              </span>
+              <span className="hb-rail-label">Випробування</span>
+            </a>
+          </nav>
+
+          <a className="hb-arena" href={`#/leagues/${ladder}`} title="Усі ліги й нагороди">
+            <span className="hb-arena-rays" aria-hidden="true" />
+            <img className="hb-arena-art" src={packArt(league.art)} alt="" />
+            <span className="eyebrow">
+              Ліга {lv.league + 1} із {LEAGUES[ladder].length}
+            </span>
+            <h1>{lv.leagueName}</h1>
+            <div className="hb-trophies">
+              <span className="trophies">🏆 {lv.trophies}</span>
+              {lv.next && (
+                <span className="muted small" title={`Наступна ліга: ${lv.next.name}`}>
+                  ще {lv.next.minTrophies - lv.trophies} до наступної
+                </span>
+              )}
+            </div>
+            <div className="bar small-bar" aria-hidden="true">
+              <span style={{ width: `${Math.min(100, Math.max(0, progress * 100))}%` }} />
+            </div>
+            {ladder === 'bot' ? (
+              <span className="muted small hb-foe">
+                Бот <b>{bot.name}</b> · ~{bot.elo} Elo
+              </span>
+            ) : (
+              <span className="muted small hb-foe">Живі суперники</span>
+            )}
+          </a>
+
+          <nav className="hb-rail" aria-label="Ще">
+            <button className="hb-rail-btn" onClick={() => setSheet('training')}>
+              <span className="hb-rail-icon rail-training">
+                <Icon name="target" />
+              </span>
+              <span className="hb-rail-label">Тренування</span>
+            </button>
+            <button className="hb-rail-btn" onClick={() => setSheet('odds')}>
+              <span className="hb-rail-icon rail-odds">
+                <Icon name="dice" />
+              </span>
+              <span className="hb-rail-label">Шанси</span>
+            </button>
+          </nav>
+        </div>
+
+        <div className="hb-slots-wrap">
+          <div className="hb-slots-head">
+            <b>Паки</b>
+            <span className="muted small">
+              за перемоги сьогодні {lv.packsToday}/{lv.packsLimit}
+            </span>
+          </div>
+          <div className="hb-slots">
+            {slots.map((p, i) =>
+              p ? (
+                <button key={p.id} className={`hb-slot pack-${p.type}`} onClick={() => setOpening(p)} title={`${p.name} · ${p.source}`}>
+                  <img src={packArt(p.type)} alt="" />
+                  <span className="hb-slot-open">Відкрити</span>
+                  {i === 3 && packs.length > 4 && <span className="hb-slot-more">+{packs.length - 3}</span>}
+                </button>
+              ) : (
+                <div key={`empty-${i}`} className="hb-slot empty" title="Кожна перемога в лізі дає пак">
+                  <span>{i === 0 ? 'Перемога → пак' : ''}</span>
+                </div>
+              ),
             )}
           </div>
-          <div className="bar small-bar" aria-hidden="true">
-            <span style={{ width: `${Math.min(100, Math.max(0, progress * 100))}%` }} />
+        </div>
+
+        <aside className="hb-side">
+          <div className="section-head">
+            <h2>Щоденні завдання</h2>
+            <span className="muted small">оновлюються щодня</span>
           </div>
-          {ladder === 'bot' ? (
-            <span className="muted small hb-foe">
-              Бот <b>{bot.name}</b> · ~{bot.elo} Elo
-            </span>
-          ) : (
-            <span className="muted small hb-foe">Живі суперники</span>
-          )}
-        </a>
-
-        <nav className="hb-rail" aria-label="Ще">
-          <button className="hb-rail-btn" onClick={() => setSheet('training')}>
-            <span className="hb-rail-icon rail-training">
-              <Icon name="target" />
-            </span>
-            <span className="hb-rail-label">Тренування</span>
-          </button>
-          <button className="hb-rail-btn" onClick={() => setSheet('odds')}>
-            <span className="hb-rail-icon rail-odds">
-              <Icon name="dice" />
-            </span>
-            <span className="hb-rail-label">Шанси</span>
-          </button>
-        </nav>
+          <QuestList quests={profile.quests} onClaim={claim} />
+          <a className="trial-teaser" href="#/trials">
+            🏅 <b>Випробування</b> <span className="muted small">три перемоги поспіль — легендарний пак</span> ›
+          </a>
+        </aside>
       </div>
-
-      <div className="hb-slots-wrap">
-        <div className="hb-slots-head">
-          <b>Паки</b>
-          <span className="muted small">
-            за перемоги сьогодні {lv.packsToday}/{lv.packsLimit}
-          </span>
-        </div>
-        <div className="hb-slots">
-          {slots.map((p, i) =>
-            p ? (
-              <button key={p.id} className={`hb-slot pack-${p.type}`} onClick={() => setOpening(p)} title={`${p.name} · ${p.source}`}>
-                <img src={packArt(p.type)} alt="" />
-                <span className="hb-slot-open">Відкрити</span>
-                {i === 3 && packs.length > 4 && <span className="hb-slot-more">+{packs.length - 3}</span>}
-              </button>
-            ) : (
-              <div key={`empty-${i}`} className="hb-slot empty" title="Кожна перемога в лізі дає пак">
-                <span>{i === 0 ? 'Перемога → пак' : ''}</span>
-              </div>
-            ),
-          )}
-        </div>
-      </div>
-
-      <div className="hb-deck">
-        {activeDeck ? <MiniBoard deck={activeDeck} /> : <span className="muted small">Колоди ще немає</span>}
-        <div className="hb-deck-info">
-          <label className="eyebrow" htmlFor="active-deck">
-            Колода в бій
-          </label>
-          <div className="hb-deck-row">
-            <select id="active-deck" value={activeDeck?.id ?? ''} onChange={async (e) => s.setProfile(await api.setActiveDeck(e.target.value))}>
-              {decks.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
-            <a className="btn btn-sm hb-deck-edit" href="#/deck" aria-label="Змінити колоду" title="Змінити колоду">
-              <Icon name="edit" />
-            </a>
-          </div>
-        </div>
-      </div>
-
-      <div className="hb-dock">
-        {battle}
-        <div className="hb-dock-extra">
-          <button className="btn btn-sm" onClick={() => setSheet('training')}>
-            <Icon name="target" /> Тренування
-          </button>
-          <button className="btn btn-sm" onClick={() => setSheet('odds')}>
-            <Icon name="dice" /> Шанси паків
-          </button>
-        </div>
-        <span className="hb-reward">
-          {!activeDeck ? (
-            'Відкрийте стартовий пак — з нього збереться перша колода'
-          ) : (
-            <>
-              За перемогу: <b>+{lv.win} 🏆</b> · 🪙 {lv.winGold}
-              {packToday ? (
-                <>
-                  {' '}
-                  · <img src={packArt(lv.nextPack)} alt="" /> {packName(lv.nextPack)}
-                </>
-              ) : (
-                ' · ліміт паків на сьогодні вичерпано'
-              )}
-            </>
-          )}
-        </span>
-      </div>
-
-      <aside className="hb-side">
-        <div className="section-head">
-          <h2>Щоденні завдання</h2>
-          <span className="muted small">оновлюються щодня</span>
-        </div>
-        <QuestList quests={profile.quests} onClaim={claim} />
-        <a className="trial-teaser" href="#/trials">
-          🏅 <b>Випробування</b> <span className="muted small">три перемоги поспіль — легендарний пак</span> ›
-        </a>
-      </aside>
 
       {sheet === 'quests' && (
         <Sheet title="Щоденні завдання" onClose={closeSheet}>
