@@ -275,6 +275,30 @@ export function HomePage() {
           </span>
         </div>
 
+        <div className="hb-slots-wrap">
+          <div className="hb-slots-head">
+            <b>Паки</b>
+            <span className="muted small">
+              за перемоги сьогодні {lv.packsToday}/{lv.packsLimit}
+            </span>
+          </div>
+          <div className="hb-slots">
+            {slots.map((p, i) =>
+              p ? (
+                <button key={p.id} className={`hb-slot pack-${p.type}`} onClick={() => setOpening(p)} title={`${p.name} · ${p.source}`}>
+                  <img src={packArt(p.type)} alt="" />
+                  <span className="hb-slot-open">Відкрити</span>
+                  {i === 3 && packs.length > 4 && <span className="hb-slot-more">+{packs.length - 3}</span>}
+                </button>
+              ) : (
+                <div key={`empty-${i}`} className="hb-slot empty" title="Кожна перемога в лізі дає пак">
+                  <span>{i === 0 ? 'Перемога → пак' : ''}</span>
+                </div>
+              ),
+            )}
+          </div>
+        </div>
+
       </div>
 
       <div className="hb-aside">
@@ -351,30 +375,6 @@ export function HomePage() {
               <span className="hb-rail-label">Шанси</span>
             </button>
           </nav>
-        </div>
-
-        <div className="hb-slots-wrap">
-          <div className="hb-slots-head">
-            <b>Паки</b>
-            <span className="muted small">
-              за перемоги сьогодні {lv.packsToday}/{lv.packsLimit}
-            </span>
-          </div>
-          <div className="hb-slots">
-            {slots.map((p, i) =>
-              p ? (
-                <button key={p.id} className={`hb-slot pack-${p.type}`} onClick={() => setOpening(p)} title={`${p.name} · ${p.source}`}>
-                  <img src={packArt(p.type)} alt="" />
-                  <span className="hb-slot-open">Відкрити</span>
-                  {i === 3 && packs.length > 4 && <span className="hb-slot-more">+{packs.length - 3}</span>}
-                </button>
-              ) : (
-                <div key={`empty-${i}`} className="hb-slot empty" title="Кожна перемога в лізі дає пак">
-                  <span>{i === 0 ? 'Перемога → пак' : ''}</span>
-                </div>
-              ),
-            )}
-          </div>
         </div>
 
         <aside className="hb-side">

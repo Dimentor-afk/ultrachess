@@ -7515,6 +7515,12 @@ button.hb-slot {
     gap: 1rem;
   }
 
+  /* Source order here: deck, battle button, packs. */
+  .hb-main > *,
+  .hb-aside > * {
+    order: 0;
+  }
+
   /* Deck hero: the whole back rank and pawns, large, with the picker above. */
   .hb-deck {
     display: flex;
@@ -7601,8 +7607,25 @@ button.hb-slot {
     margin: -6rem 0 0 -6rem;
   }
 
+  /* Packs fill the space under the battle button. */
+  .hb-slots-wrap {
+    padding: 1rem 1.2rem 1.2rem;
+    border-radius: 22px;
+    border: 1px solid var(--line);
+    background: var(--panel);
+  }
+
   .hb-slots {
-    gap: 0.5rem;
+    gap: 0.9rem;
+  }
+
+  .hb-slot {
+    aspect-ratio: 4 / 3;
+  }
+
+  .hb-slot-open {
+    font-size: 0.75rem;
+    padding: 0.15rem 0.6rem;
   }
 
   .hb-side {
