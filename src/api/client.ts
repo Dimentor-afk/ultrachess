@@ -112,6 +112,8 @@ export interface Api {
   seek(deckId?: string): Promise<{ pvpId: string | null; searching: number }>;
   cancelSeek(): Promise<void>;
   enterTrial(id: string): Promise<Profile>;
+  /** Browser demo only: delete every demo account stored in this browser. */
+  resetDemo?(): Promise<void>;
 }
 
 // ── Server ──
@@ -334,6 +336,13 @@ class LocalApi implements Api {
   seek = async (deckId?: string) => this.svc.seek(await this.t(), deckId);
   cancelSeek = async () => this.svc.cancelSeek(await this.t());
   enterTrial = async (id: string) => this.svc.enterTrial(await this.t(), id);
+  async resetDemo() {
+    await this.ready;
+    this.store.reload({} as MemoryData);
+    write(DB_KEY, null);
+    this.remember(null);
+    await this.svc.init();
+  }
 }
 
 /** Use the server when it answers, otherwise the in-browser demo. */

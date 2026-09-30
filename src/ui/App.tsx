@@ -13,6 +13,7 @@ import { Avatar } from './common';
 import { themeById } from '../economy/themes';
 import { cardArt } from './cardArt';
 import { Icon } from './icons';
+import { currentPath, onNavigate } from './router';
 import { LeaguesPage } from './LeaguesPage';
 import { TrialsPage } from './TrialsPage';
 import { type Loaded, SessionProvider, type Toast, errorText, loadAll, useSession } from './state';
@@ -47,7 +48,7 @@ const ARENA: { id: Route; label: string }[] = [
 ];
 
 function readRoute(): Route {
-  const h = window.location.hash.replace(/^#\/?/, '').split('/')[0];
+  const h = currentPath().replace(/^\/?/, '').split('/')[0];
   if (h === 'cards') return 'deck'; // the old collection page lives on the deck page now
   if (h === 'profile' || h === 'help') return h;
   return ROUTES.find((r) => r.id === h)?.id ?? 'play';
@@ -111,9 +112,7 @@ function Shell() {
   // An unopened starter pack takes the player home, where it opens by itself.
   const [route, setRoute] = useState<Route>(() => (s.packs.some((p) => p.type === 'starter') ? 'play' : readRoute()));
   useEffect(() => {
-    const onHash = () => setRoute(readRoute());
-    window.addEventListener('hashchange', onHash);
-    return () => window.removeEventListener('hashchange', onHash);
+    return onNavigate(() => setRoute(readRoute()));
   }, []);
   // A new section opens at its top, not wherever the last one was scrolled to.
   useEffect(() => window.scrollTo(0, 0), [route]);

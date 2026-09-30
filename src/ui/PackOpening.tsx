@@ -31,7 +31,7 @@ const CHARGE_MS = 850;
 const FACE_MS = 470;
 
 /** Sparks around a teased card: fixed pseudo-random spread, so renders are stable. */
-const EMBERS = Array.from({ length: 20 }, (_, i) => ({
+const EMBERS = Array.from({ length: 14 }, (_, i) => ({
   '--x': `${((i * 37) % 100) - 50}%`,
   '--drift': `${((i * 53) % 60) - 30}px`,
   '--d': `${((i * 0.37) % 2.4).toFixed(2)}s`,
@@ -166,10 +166,12 @@ export function PackOpening({
       aria-label={`Відкриття: ${pack.name}`}
     >
       <div className="opening-bg" />
-      <div
-        className="opening-glow"
-        style={{ backgroundColor: tint ? `var(--r-${tint})` : 'transparent', opacity: big ? 0.7 : teasing ? 0.35 + Math.max(step, 0) * 0.08 : 0.45 }}
-      />
+      {/* One glow layer per rarity, cross-faded by opacity (cheap for the GPU). */}
+      <div className="opening-glows" aria-hidden="true">
+        {TEASE_LADDER.map((r) => (
+          <span key={r} className={`r-${r}`} style={{ opacity: tint === r ? (big ? 0.75 : teasing ? 0.4 + Math.max(step, 0) * 0.08 : 0.45) : 0 }} />
+        ))}
+      </div>
       <div className={`opening-vignette ${teasing ? `v-${stage}` : ''}`} />
       {(phase === 'idle' || phase === 'opening' || phase === 'burst') && (
         <button className={`opening-pack ${phase}`} onClick={start} aria-label="Відкрити пак">
@@ -192,6 +194,16 @@ export function PackOpening({
 
       {phase === 'reveal' && result && card && (
         <div className="reveal" onClick={next}>
+          <button
+            className="btn btn-ghost btn-sm reveal-skip-all"
+            onClick={(e) => {
+              e.stopPropagation();
+              timeline.current.forEach(clearTimeout);
+              setPhase('summary');
+            }}
+          >
+            Усі картки ⏭
+          </button>
           <p className="reveal-count">
             {index + 1} / {result.cards.length}
           </p>
@@ -213,6 +225,9 @@ export function PackOpening({
               </span>
             )}
             {stage === 'tease' && <span key={`shock-${step}`} className="shock" style={{ '--c': tone(teaseRarity) } as React.CSSProperties} />}
+            {(teasing || (flipped && card.rarity !== 'common')) && (
+              <span className="flip-glow" style={{ '--c': tone(flipped ? card.rarity : teaseRarity) } as React.CSSProperties} />
+            )}
             <div className="flip-inner">
               <div className="flip-back">
                 <span>♞</span>

@@ -16,6 +16,7 @@ export function ProfilePage() {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(p.name);
   const [picker, setPicker] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
 
   useEffect(() => {
     s.api.history().then(setHistory, (e) => s.toast(errorText(e), 'error'));
@@ -111,6 +112,20 @@ export function ProfilePage() {
           <button className="btn btn-ghost btn-sm" onClick={() => s.logout()}>
             <Icon name="logout" /> Вийти
           </button>
+          {s.api.resetDemo && (
+            <button
+              className="btn btn-danger btn-sm"
+              title="Видаляє всі демо-акаунти в цьому браузері: можна зареєструватись і відкрити стартовий пак знову"
+              onClick={async () => {
+                if (!confirmReset) return setConfirmReset(true);
+                await s.api.resetDemo!();
+                await s.logout().catch(() => undefined);
+              }}
+              onBlur={() => setConfirmReset(false)}
+            >
+              {confirmReset ? 'Точно видалити все?' : 'Почати демо з нуля'}
+            </button>
+          )}
         </div>
       </div>
 

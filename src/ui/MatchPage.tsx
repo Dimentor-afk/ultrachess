@@ -57,6 +57,11 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
   const human = start.color;
   const bot = opposite(human);
   const botOpts = botLevel(start.botLevel).opts;
+  // Lets the shell make room for the board (a class is much cheaper than :has(.game)).
+  useEffect(() => {
+    document.documentElement.classList.add('in-game');
+    return () => document.documentElement.classList.remove('in-game');
+  }, []);
   const fresh = () => (human === 'w' ? createMatch(start.playerDeck, start.botDeck) : createMatch(start.botDeck, start.playerDeck));
   const replay = (actions: Action[], resignedBy: Color | null) => {
     let m = fresh();

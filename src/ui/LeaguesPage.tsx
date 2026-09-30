@@ -4,10 +4,11 @@ import { packName } from '../economy/packs';
 import { botLevel } from '../engine/bot/levels';
 import { RARITY_NAMES } from '../engine/cards';
 import { packArt } from './cardArt';
+import { currentPath, onNavigate } from './router';
 import { useSession } from './state';
 
 function ladderFromHash(): Ladder {
-  return window.location.hash.includes('/pvp') ? 'pvp' : 'bot';
+  return currentPath().includes('/pvp') ? 'pvp' : 'bot';
 }
 
 /** Both ladders, league by league: what each costs to reach and what it pays. */
@@ -15,9 +16,7 @@ export function LeaguesPage() {
   const { profile } = useSession();
   const [ladder, setLadder] = useState<Ladder>(ladderFromHash);
   useEffect(() => {
-    const on = () => setLadder(ladderFromHash());
-    window.addEventListener('hashchange', on);
-    return () => window.removeEventListener('hashchange', on);
+    return onNavigate(() => setLadder(ladderFromHash()));
   }, []);
   const lv = profile.ladders[ladder];
   const leagues = LEAGUES[ladder];

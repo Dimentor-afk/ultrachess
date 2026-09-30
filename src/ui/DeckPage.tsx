@@ -6,6 +6,7 @@ import { Emblem } from './art';
 import { CardModal } from './CardModal';
 import { CardArt, RarityTag } from './common';
 import { Icon } from './icons';
+import { currentPath, onNavigate } from './router';
 import { StylePanel } from './StylePanel';
 import { errorText, useSession } from './state';
 
@@ -14,7 +15,7 @@ const FILES = 'abcdefgh';
 const newDeckId = () => `deck-${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
 
 type HubTab = 'cards' | 'style';
-const tabFromHash = (): HubTab => (window.location.hash.split('/')[2] === 'style' ? 'style' : 'cards');
+const tabFromHash = (): HubTab => (currentPath().split('/')[2] === 'style' ? 'style' : 'cards');
 
 /** Two tabs: the deck itself and its looks (board colours, capture effect). */
 function HubSwitch({ tab }: { tab: HubTab }) {
@@ -40,9 +41,7 @@ export function DeckPage() {
   const s = useSession();
   const [tab, setTab] = useState<HubTab>(tabFromHash);
   useEffect(() => {
-    const on = () => setTab(tabFromHash());
-    window.addEventListener('hashchange', on);
-    return () => window.removeEventListener('hashchange', on);
+    return onNavigate(() => setTab(tabFromHash()));
   }, []);
   const active = s.decks.find((d) => d.id === s.profile.activeDeckId) ?? s.decks[0];
   if (tab === 'style') {
