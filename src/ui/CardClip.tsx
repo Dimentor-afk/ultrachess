@@ -1,121 +1,100 @@
-import { useEffect, useMemo, useState, type CSSProperties, type JSX } from 'react';
-import { CARD_BY_ID } from '../engine/cards';
-import { fileOf, isBoardSquare, rankOf } from '../engine/coords';
-import type { Position, Square } from '../engine/types';
-import { cardArt, pieceSprite } from './cardArt';
-import { buildDemo } from './cardDemo';
-import { stopsOf } from './stage';
-
-type Phase = 'idle' | 'marks' | 'play' | 'done';
-
-/** Clip timing, ms. */
-const IDLE = 700;
-const MARKS = 1500;
-const STEP = 320;
-const DONE = 1500;
-
-const pct = (s: Square) => ({ left: `${fileOf(s) * 12.5}%`, top: `${(7 - rankOf(s)) * 12.5}%` });
+import { useEffect, useMemo, useState } from 'react';
+import { fileOf, rankOf } from '../engine/coords';
+import type { Square } from '../engine/types';
+import { pieceSprite } from './cardArt';
+import { buildClip, type ClipItem } from './cardDemo';
 
 /**
- * A looping clip like the card videos in Clash Royale: the piece on a small
- * board, every move it has (ends of moves with stops in violet), then its
- * most telling move played step by step, then the result.
+ * The card's clip, like the card videos in Clash Royale: a short scene on a
+ * small board that shows the card's trick, with subtitles. Tap to replay.
  */
 export function CardClip({ cardId }: { cardId: string }) {
-  const demo = useMemo(() => buildDemo(cardId), [cardId]);
-  const [phase, setPhase] = useState<Phase>('idle');
-  const [step, setStep] = useState(0);
+  const clip = useMemo(() => buildClip(cardId), [cardId]);
+  const [i, setI] = useState(0);
   const [round, setRound] = useState(0);
 
-  // The squares the piece walks through, on the board only (a portal jumps).
-  const walk = useMemo(() => (demo ? demo.move.path.filter((s) => isBoardSquare(s)) : []), [demo]);
-
   useEffect(() => {
-    if (!demo) return;
-    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    if (reduced) {
-      setPhase('marks');
-      return;
-    }
-    const timers: ReturnType<typeof setTimeout>[] = [];
-    const at = (ms: number, fn: () => void) => timers.push(setTimeout(fn, ms));
-    setPhase('idle');
-    setStep(0);
-    let t = IDLE;
-    at(t, () => setPhase('marks'));
-    t += MARKS;
-    at(t, () => setPhase('play'));
-    for (let i = 1; i <= walk.length; i++) at(t + i * STEP, () => setStep(i));
-    t += (walk.length + 1) * STEP;
-    at(t, () => setPhase('done'));
-    t += DONE;
-    at(t, () => setRound((r) => r + 1));
-    return () => timers.forEach(clearTimeout);
-  }, [demo, walk, round]);
-
-  if (!demo) return null;
-  const { before, after, move, moves, pieceId } = demo;
-  const shown: Position = phase === 'done' ? after : before;
-  const moverAt = phase === 'play' ? (walk[step - 1] ?? move.from) : phase === 'done' ? null : move.from;
-  const reached = new Set(phase === 'play' ? walk.slice(0, step) : []);
-
-  // Marks like on the game board: first stops, and violet ends of moves with stops.
-  const marks = new Map<Square, string>();
-  if (phase === 'marks') {
-    for (const m of moves) {
-      const first = stopsOf(m)[0];
-      marks.set(first, m.captures.includes(first) || marks.get(first) === 'capture' ? 'capture' : 'move');
-    }
-    for (const m of moves) {
-      const st = stopsOf(m);
-      const end = st[st.length - 1];
-      if (st.length > 1 && !marks.has(end)) marks.set(end, m.captures.includes(end) ? 'far-capture' : 'far');
-    }
-  }
-
-  const squares = [];
-  for (let r = 7; r >= 0; r--) {
-    for (let f = 0; f < 8; f++) squares.push(<span key={`${f}${r}`} className={(f + r) % 2 ? 'clip-sq light' : 'clip-sq dark'} />);
-  }
-
-  const pieces: JSX.Element[] = [];
-  shown.board.forEach((p, s) => {
-    if (!p || !isBoardSquare(s)) return;
-    const mover = phase !== 'done' && p.id === pieceId;
-    if (mover) return;
-    const taken = move.captures.includes(s) && reached.has(s);
-    pieces.push(
-      <img
-        key={`${p.id}-${phase === 'done' ? 'a' : 'b'}`}
-        className={`clip-piece pixel ${taken ? 'taken' : ''} ${p.id === pieceId ? 'clip-hero' : ''}`}
-        src={pieceSprite(p.cardId, p.type, p.color, 'dark').src}
-        alt=""
-        style={pct(s)}
-      />,
+    if (!clip) return;
+    const scene = clip.scenes[i];
+    const last = i === clip.scenes.length - 1;
+    const t = setTimeout(
+      () => {
+        if (last) {
+          setI(0);
+          setRound((r) => r + 1);
+        } else setI(i + 1);
+      },
+      scene.ms + (last ? 500 : 0),
     );
+    return () => clearTimeout(t);
+  }, [clip, i, round]);
+
+  if (!clip) return null;
+  const scene = clip.scenes[i];
+  const n = clip.ring ? 10 : 8;
+  const cell = 100 / n;
+  const at = (s: Square) => ({
+    left: `${(fileOf(s) + (clip.ring ? 1 : 0)) * cell}%`,
+    top: `${(n - 1 - rankOf(s) - (clip.ring ? 1 : 0)) * cell}%`,
+    width: `${cell}%`,
+    height: `${cell}%`,
   });
+  // Subtitles change per step, not per frame: progress counts captions.
+  const captions = clip.scenes.map((s) => s.caption).filter((c, k, all) => c !== all[k - 1]);
+  const stepNo = clip.scenes.slice(0, i + 1).filter((s, k, all) => k === 0 || s.caption !== all[k - 1].caption).length;
+
+  const piece = (it: ClipItem) => (
+    <span
+      key={it.key}
+      className={`clip-piece ${it.state} ${it.hero ? 'hero' : ''} ${scene.moving === it.key ? 'moving' : ''} ${it.warp ? 'warp' : ''}`}
+      style={at(it.square)}
+    >
+      <img className="pixel" src={pieceSprite(it.cardId, it.type, it.color, 'dark').src} alt="" draggable={false} />
+      {it.frozen && <span className="clip-badge frozen">❄</span>}
+      {it.rider && <span className="clip-badge rider">♟</span>}
+      {it.state === 'illusion' && <span className="clip-badge ghost">?</span>}
+    </span>
+  );
 
   return (
-    <figure className="clip" aria-label={`Як ходить ${CARD_BY_ID[cardId].name}: ${move.label}`}>
-      <div className="clip-board">
-        {squares}
-        {[...marks].map(([s, kind]) => (
-          <span key={`m${s}`} className={`clip-cell clip-${kind}`} style={pct(s)}>
+    <figure
+      className={`clip ${clip.ring ? 'ring' : ''}`}
+      onClick={() => {
+        setI(0);
+        setRound((r) => r + 1);
+      }}
+      title="Натисніть, щоб переглянути ще раз"
+    >
+      <div className="clip-steps" aria-hidden>
+        {captions.map((_, k) => (
+          <span key={k} className={k < stepNo ? 'on' : ''} />
+        ))}
+      </div>
+      <div className="clip-board" key={round}>
+        <div className="clip-squares" style={clip.ring ? { inset: `${cell}%` } : undefined} />
+        {scene.platforms.map((s) => (
+          <span key={`p${s}`} className="clip-cell platform" style={at(s)} />
+        ))}
+        {scene.barrier.map((s) => (
+          <span key={`b${s}`} className="clip-cell barrier" style={at(s)} />
+        ))}
+        {scene.aim.map((s, k) => (
+          <span key={`a${s}-${k}`} className={`clip-cell aim ${s === scene.target ? 'target' : ''}`} style={at(s)}>
             <span />
           </span>
         ))}
-        {pieces}
-        {moverAt !== null && (
-          <img className="clip-piece clip-hero clip-mover pixel" src={cardArt(cardId) ?? ''} alt="" style={pct(moverAt)} />
-        )}
-        {phase === 'play' && step > 0 && <span className="clip-cell clip-trail" style={pct(walk[step - 1])} />}
-        <span className="clip-rec">▶ ПОВТОР</span>
+        {scene.marks.map(([s, kind]) => (
+          <span key={`m${s}`} className={`clip-cell mark ${kind}`} style={at(s)}>
+            <span />
+          </span>
+        ))}
+        {scene.items.map(piece)}
+        {scene.flash.map((s) => (
+          <span key={`f${s}-${i}`} className="clip-cell flash" style={at(s)} />
+        ))}
       </div>
-      <figcaption>
-        <span className="clip-label">{move.label}</span>
-        <span className="clip-progress">
-          <span key={round} style={{ '--clip-ms': `${IDLE + MARKS + (walk.length + 1) * STEP + DONE}ms` } as CSSProperties} />
-        </span>
+      <figcaption className={`clip-caption ${scene.who}`} key={scene.caption} aria-live="polite">
+        {scene.caption}
       </figcaption>
     </figure>
   );
