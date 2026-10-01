@@ -19,6 +19,7 @@ import type { Move, Piece, Square } from '../types';
 import type { Generator } from './registry';
 
 export const MIRAGE_COOLDOWN = 5;
+export const COMET_COOLDOWN = 6;
 
 const knight: Generator = (ctx, p, from) => leapMoves(ctx, p, from, KNIGHT_LEAPS);
 
@@ -337,10 +338,45 @@ function swapperMoves(ctx: GenCtx, p: Piece, from: Square): Move[] {
   return out;
 }
 
+/**
+ * Комета: besides its king steps, when the ability is charged the king can
+ * dash 2–5 squares in a straight line in any of the 8 directions. The path
+ * must be empty; the last square may hold an enemy, which is taken.
+ */
+function cometMoves(ctx: GenCtx, p: Piece, from: Square): Move[] {
+  const out = classicKing(ctx, p, from);
+  if (ctx.attack || (ctx.pos.cooldowns[p.id] ?? 0) > 0 || !isBoardSquare(from)) return out;
+  for (const [df, dr] of ALL_DIRS) {
+    const path: Square[] = [];
+    let s = from;
+    for (let n = 1; n <= 5; n++) {
+      s = offset(s, df, dr);
+      if (s === NO_SQUARE || !isBoardSquare(s)) break;
+      const q = seen(ctx, s);
+      if (q && q.color !== ctx.enemy) break;
+      path.push(s);
+      if (n >= 2) {
+        out.push(
+          mk(p, from, s, {
+            kind: 'dash',
+            captures: q ? [s] : [],
+            path: [...path],
+            cooldown: COMET_COOLDOWN,
+            label: q ? 'Ривок Комети зі взяттям' : 'Ривок Комети',
+          }),
+        );
+      }
+      if (q) break;
+    }
+  }
+  return out;
+}
+
 export const kingGenerators: Record<string, Generator> = {
   'king-classic': classicKing,
   'king-wanderer': wandererMoves,
   'king-swapper': swapperMoves,
   'king-barricade': classicKing,
   'king-hint': classicKing,
+  'king-comet': cometMoves,
 };

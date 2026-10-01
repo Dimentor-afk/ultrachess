@@ -81,24 +81,69 @@ export interface Trial {
   id: string;
   name: string;
   description: string;
-  /** Bot level of each match in order; all must be won in a row. */
+  /** bot: a series against bots; pvp: wins in the player ladder count, in a row. */
+  kind: 'bot' | 'pvp';
+  /** Bot level of each match in order (for pvp only the count matters); all must be won in a row. */
   opponents: number[];
-  /** Both sides play the classic deck. */
+  /** Both sides play the classic deck. Otherwise your deck against a random bot deck up to `botMaxRarity`. */
   classic: boolean;
+  botMaxRarity?: Rarity;
+  /** Pack for winning (also given instead of `rewardCard` when the player already owns it). */
   reward: Exclude<PackType, 'starter'>;
-  /** Entry fee in shards: half the reward pack's shop price. */
+  /** A card that exists only as this trial's prize. */
+  rewardCard?: string;
+  /** Entry fee in shards. */
   cost: number;
+  difficulty: 1 | 2 | 3;
 }
 
 export const TRIALS: Trial[] = [
   {
+    id: 'arsenal',
+    name: 'Випробування арсеналу',
+    description: 'Ваша колода проти трьох ботів із випадковими колодами аж до легендарних карток. Три перемоги поспіль.',
+    kind: 'bot',
+    opponents: [2, 3, 4],
+    classic: false,
+    botMaxRarity: 'legendary',
+    reward: 'epic',
+    cost: 200,
+    difficulty: 1,
+  },
+  {
     id: 'classic',
     name: 'Випробування класики',
     description: 'Звичайні шахи без карток: у вас і в суперника класичні колоди. Виграйте три партії поспіль — жодної поразки чи нічиї.',
+    kind: 'bot',
     opponents: [1, 2, 3],
     classic: true,
     reward: 'legendary',
     cost: PACK_SHARD_PRICE.legendary / 2,
+    difficulty: 2,
+  },
+  {
+    id: 'arena',
+    name: 'Арена гравців',
+    description: 'Три перемоги поспіль у лізі гравців — над живими суперниками. Поразка чи нічия завершує спробу. Кубки й паки ліги нараховуються як завжди.',
+    kind: 'pvp',
+    opponents: [0, 0, 0],
+    classic: false,
+    reward: 'legendary',
+    cost: 400,
+    difficulty: 2,
+  },
+  {
+    id: 'comet',
+    name: 'Шлях Комети',
+    description: 'Найважче випробування: ваша колода проти чотирьох найсильніших ботів, у яких можуть бути навіть міфологічні картки. Нагорода — Комета, король, якого немає в жодному паку.',
+    kind: 'bot',
+    opponents: [4, 5, 6, 7],
+    classic: false,
+    botMaxRarity: 'mythological',
+    reward: 'mythic',
+    rewardCard: 'king-comet',
+    cost: 1200,
+    difficulty: 3,
   },
 ];
 

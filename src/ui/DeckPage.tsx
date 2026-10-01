@@ -459,7 +459,9 @@ function DeckHub({ deck }: { deck: Deck }) {
           locked={!owned[detailCard.id]}
           note={
             !owned[detailCard.id]
-              ? 'Цієї картки у вас ще немає — вона випадає з паків.'
+              ? detailCard.trialOnly
+                ? 'Не випадає з паків — це нагорода за випробування «Шлях Комети».'
+                : 'Цієї картки у вас ще немає — вона випадає з паків.'
               : inDeck.has(detailCard.id)
                 ? 'Уже стоїть у цій колоді.'
                 : undefined

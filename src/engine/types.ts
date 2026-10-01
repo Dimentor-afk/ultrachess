@@ -18,6 +18,8 @@ export interface Card {
   /** Key of the move generator in the engine (`modifiers/index.ts`). */
   moveModifierId: string;
   effects: EffectType[];
+  /** Never in packs or bot decks: the reward of this trial only. */
+  trialOnly?: string;
 }
 
 /**

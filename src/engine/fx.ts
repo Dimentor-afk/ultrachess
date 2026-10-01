@@ -21,7 +21,9 @@ export type FxKind =
   | 'promote'
   | 'barricade'
   | 'portal'
-  | 'levitate';
+  | 'levitate'
+  | 'dust'
+  | 'sparkle';
 
 export interface FxSprite {
   kind: FxKind;
@@ -116,6 +118,9 @@ export function computeFx(
     if (m.to === null) sprites.push({ kind: 'explode', square: m.from });
     if (m.levitate && m.to !== null) sprites.push({ kind: 'levitate', square: m.to });
     if (m.to !== null && (m.kind === 'teleport' || /портал/i.test(m.label))) sprites.push({ kind: 'portal', square: m.to });
+    if (m.kind === 'dash' && m.to !== null) {
+      sprites.push({ kind: 'dust', square: m.from }, { kind: 'sparkle', square: m.to });
+    }
     if (m.kind === 'mirage' && color) {
       for (const s of m.mirage ?? []) sprites.push({ kind: 'mirage', square: s, owner: color });
     }

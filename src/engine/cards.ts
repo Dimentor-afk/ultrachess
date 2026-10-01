@@ -1,6 +1,6 @@
 import type { Card, EffectType, PieceType, Rarity } from './types';
 
-// Full catalog from docs/spec.md §5 (69 cards). `moveModifierId` is the key
+// Full catalog from docs/spec.md §5 (69 cards) plus trial-only rewards (Комета). `moveModifierId` is the key
 // of the move generator in `modifiers/index.ts`.
 
 function card(
@@ -95,6 +95,10 @@ export const CARDS: Card[] = [
   card('king-swapper', 'king', 'epic', 'Обмінник', 'Раз за гру, якщо король на своєму 1-му ряду, міняється місцями з будь-якою своєю фігурою на цьому ряду; втрачає право рокіровки.', ['once']),
   card('king-barricade', 'king', 'legendary', 'Барикада', 'Раз за гру, автоматично: коли королю ставлять мат по лінії, впритул до короля на цій лінії з\'являється свій пішак. Не працює проти коня, пішака, подвійного шаху й фігури впритул.', ['once', 'auto']),
   card('king-hint', 'king', 'mythological', 'Підказка', 'Здібність кнопкою, хід не витрачає: показує вам найкращий хід за оцінкою рушія. Потім перезаряджається 5 ваших ходів.', ['button']),
+  {
+    ...card('king-comet', 'king', 'mythological', 'Комета', 'Здібність кнопкою замість ходу: ривок на 2–5 клітинок по прямій у будь-якому з 8 напрямків; шлях має бути вільний, у кінці можна бити. Потім перезаряджається 6 ваших ходів. Не випадає з паків — лише нагорода за випробування «Шлях Комети».', ['button']),
+    trialOnly: 'comet',
+  },
 ];
 
 export const CARD_BY_ID: Record<string, Card> = Object.fromEntries(CARDS.map((c) => [c.id, c]));

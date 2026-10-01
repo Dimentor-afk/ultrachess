@@ -4,10 +4,24 @@ import { captureFxById } from '../economy/captureFx';
 import { TRIALS, type Trial } from '../economy/leagues';
 import { packName } from '../economy/packs';
 import { botLevel } from '../engine/bot/levels';
-import { packArt } from './cardArt';
+import { CARD_BY_ID, PIECE_NAMES, RARITY_NAMES } from '../engine/cards';
+import { cardArt, packArt } from './cardArt';
+import { navigate } from './router';
 import type { FxName } from './fxSprites';
 import { Game } from './MatchPage';
 import { errorText, useSession } from './state';
+
+const DIFFICULTY: Record<1 | 2 | 3, string> = { 1: 'Легке', 2: 'Середнє', 3: 'Дуже складне' };
+
+/** Opens the battle screen on the player ladder, where the arena trial is played. */
+function findOpponent() {
+  try {
+    localStorage.setItem('uc.ladder', 'pvp');
+  } catch {
+    // not remembered
+  }
+  navigate('/play');
+}
 
 /** Trials: pay shards to enter, win every game in a row, take the prize. */
 export function TrialsPage() {
@@ -53,6 +67,7 @@ export function TrialsPage() {
           const v = await api.finishMatch(game.start.matchId, actions, resigned);
           s.setProfile(v.profile);
           s.setPacks(await api.packs());
+          if (v.trial?.card) await s.refresh();
           return v;
         }}
         onExit={() => setGame(null)}
@@ -74,8 +89,8 @@ export function TrialsPage() {
       <div className="page-head">
         <h1>Випробування</h1>
         <p className="muted">
-          Серія партій проти ботів, які сильнішають з кожним раундом. Потрібно виграти всі поспіль: одна поразка чи нічия — і спробу завершено.
-          Вхід платний, але нагорода варта того.
+          Серії перемог поспіль — проти ботів або живих гравців. Одна поразка чи нічия завершує спробу. Вхід коштує осколки, а за найважче
+          випробування дається картка, якої немає в жодному паку.
         </p>
       </div>
 
@@ -83,16 +98,32 @@ export function TrialsPage() {
         {TRIALS.map((t) => {
           const r = profile.trials[t.id];
           const active = r?.status === 'active';
+          const prizeCard = t.rewardCard && !s.collection.owned[t.rewardCard] ? CARD_BY_ID[t.rewardCard] : null;
+          const prizeName = prizeCard ? `Картка «${prizeCard.name}»` : packName(t.reward);
+          const prizeArt = prizeCard ? cardArt(prizeCard.id)! : packArt(t.reward);
           return (
-            <article key={t.id} className={`trial-card ${active ? 'active' : ''}`}>
+            <article key={t.id} className={`trial-card trial-${t.id} ${active ? 'active' : ''} ${prizeCard ? 'has-card' : ''}`}>
               <div className="trial-head">
-                <img src={packArt(t.reward)} alt="" />
+                <span className={`trial-prize ${prizeCard ? `r-${prizeCard.rarity}` : ''}`}>
+                  <img className="pixel" src={prizeArt} alt="" />
+                </span>
                 <div>
+                  <div className="trial-tags">
+                    <span className={`pill trial-diff d${t.difficulty}`}>{DIFFICULTY[t.difficulty]}</span>
+                    <span className="pill">{t.kind === 'pvp' ? '⚔ з гравцями' : '🤖 з ботами'}</span>
+                  </div>
                   <h2>{t.name}</h2>
                   <p className="muted">{t.description}</p>
-                  <span className="pill">Нагорода: {packName(t.reward)}</span>
+                  <span className="pill pill-shop">Нагорода: {prizeName}</span>
                 </div>
               </div>
+
+              {prizeCard && (
+                <p className="trial-card-rules small">
+                  <b>{prizeCard.name}</b> · {RARITY_NAMES[prizeCard.rarity].toLowerCase()} {PIECE_NAMES[prizeCard.pieceType].toLowerCase()}:{' '}
+                  {prizeCard.rulesText}
+                </p>
+              )}
 
               <ol className="trial-rounds">
                 {t.opponents.map((lvl, i) => {
@@ -104,28 +135,37 @@ export function TrialsPage() {
                     <li key={i} className={`trial-round ${done ? 'done' : ''} ${current ? 'current' : ''} ${failed ? 'failed' : ''}`}>
                       <span className="trial-round-n">{done ? '✓' : failed ? '✗' : i + 1}</span>
                       <span>
-                        <b>{b.name}</b>
-                        <small className="muted">~{b.elo} Elo</small>
+                        <b>{t.kind === 'pvp' ? `Перемога ${i + 1}` : b.name}</b>
+                        <small className="muted">{t.kind === 'pvp' ? 'живий суперник' : `~${b.elo} Elo`}</small>
                       </span>
                     </li>
                   );
                 })}
                 <li className={`trial-round prize ${r?.status === 'won' ? 'done' : ''}`}>
-                  <img src={packArt(t.reward)} alt="" />
+                  <img className="pixel" src={prizeArt} alt="" />
                   <span>
-                    <b>{packName(t.reward)}</b>
+                    <b>{prizeName}</b>
                   </span>
                 </li>
               </ol>
 
               <div className="trial-actions">
                 {active ? (
-                  <>
-                    <button className="btn btn-battle" disabled={busy === t.id} onClick={() => play(t)}>
-                      Раунд {r.wins + 1} з {t.opponents.length}: грати
-                    </button>
-                    <span className="muted small">Не залишайте партію: незавершена гра зараховується як поразка.</span>
-                  </>
+                  t.kind === 'pvp' ? (
+                    <>
+                      <button className="btn btn-battle" onClick={() => findOpponent()}>
+                        Перемога {r.wins + 1} з {t.opponents.length}: шукати суперника
+                      </button>
+                      <span className="muted small">Рахуються ігри в лізі гравців: поразка чи нічия завершує спробу.</span>
+                    </>
+                  ) : (
+                    <>
+                      <button className="btn btn-battle" disabled={busy === t.id} onClick={() => play(t)}>
+                        Раунд {r.wins + 1} з {t.opponents.length}: грати
+                      </button>
+                      <span className="muted small">Не залишайте партію: незавершена гра зараховується як поразка.</span>
+                    </>
+                  )
                 ) : (
                   <>
                     {r?.status === 'won' && <span className="pill pill-ok">Минулого разу пройдено!</span>}
@@ -145,7 +185,6 @@ export function TrialsPage() {
           );
         })}
       </div>
-      <p className="muted small">Нові випробування з’являтимуться згодом.</p>
     </section>
   );
 }

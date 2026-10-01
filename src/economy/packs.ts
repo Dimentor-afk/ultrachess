@@ -118,7 +118,7 @@ export const PACK_SHARD_PRICE: Record<Exclude<PackType, 'starter'>, number> = {
 const pick = <T,>(xs: T[], rng: Rng): T => xs[Math.min(xs.length - 1, Math.floor(rng() * xs.length))];
 
 export function cardsOf(rarity: Rarity, type?: PieceType): Card[] {
-  return CARDS.filter((c) => c.rarity === rarity && (!type || c.pieceType === type));
+  return CARDS.filter((c) => c.rarity === rarity && !c.trialOnly && (!type || c.pieceType === type));
 }
 
 export function rollRarity(odds: Record<Rarity, number>, rng: Rng, min: Rarity = 'common'): Rarity {

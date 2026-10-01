@@ -3,11 +3,11 @@
 
 import { BOARD_SQUARES, fileOf, isBoardSquare, opposite, rankOf, sq, squareName } from './coords';
 import { legalMoves } from './legal';
-import { MIRAGE_COOLDOWN } from './modifiers/knightKing';
+import { COMET_COOLDOWN, MIRAGE_COOLDOWN } from './modifiers/knightKing';
 import { cleanupIllusions, clonePosition, findPiece } from './position';
 import type { Color, Piece, Position, Square } from './types';
 
-export type AbilityId = 'eclipse' | 'earthquake' | 'immortal' | 'hint' | 'mirage';
+export type AbilityId = 'eclipse' | 'earthquake' | 'immortal' | 'hint' | 'mirage' | 'dash';
 
 export interface AbilityDef {
   id: AbilityId;
@@ -25,6 +25,7 @@ export const ABILITY_DEFS: Record<string, AbilityDef> = {
   'knight-mirage': { id: 'mirage', name: 'Міраж', cooldown: MIRAGE_COOLDOWN, hidden: true, viaMove: true },
   'queen-immortal': { id: 'immortal', name: 'Безсмертя', cooldown: 8, hidden: true, viaMove: false },
   'king-hint': { id: 'hint', name: 'Підказка', cooldown: 5, hidden: true, viaMove: false },
+  'king-comet': { id: 'dash', name: 'Ривок', cooldown: COMET_COOLDOWN, hidden: false, viaMove: true },
 };
 
 export interface AbilityOption {

@@ -3,7 +3,7 @@ import { parseSquare } from '../../engine/coords';
 import { classicDeck } from '../../engine/deck';
 import { legalMoves } from '../../engine/legal';
 import { type Action, createMatch, performAction } from '../../engine/match';
-import { BOT_LEAGUES, TRIALS } from '../leagues';
+import { BOT_LEAGUES, trialById } from '../leagues';
 import { MemoryStore } from '../memoryStore';
 import { CLAIM_MS, GameService } from '../service';
 import type { Hasher } from '../store';
@@ -71,7 +71,7 @@ describe('trials', () => {
   it('costs half a legendary pack, needs three wins in a row and pays a legendary pack', async () => {
     const { store, svc, reg } = await setup();
     const { token, profile } = await reg('t@t.com', 'T');
-    const trial = TRIALS[0];
+    const trial = trialById('classic')!;
     expect(trial.cost).toBe(500);
     await expect(svc.enterTrial(token, 'classic')).rejects.toThrow(/осколків/);
     await store.updateUser(profile.id, { shards: 600 });
@@ -106,6 +106,71 @@ describe('trials', () => {
     await svc.startMatch(token, { ranked: false, trial: 'classic' });
     await expect(svc.startMatch(token, { ranked: false, trial: 'classic' })).rejects.toThrow(/поразку/);
     expect((await svc.me(token)).trials.classic.status).toBe('lost');
+  });
+});
+
+describe('new trials', () => {
+  /** Win a bot-trial round with the known mate line (as white, classic decks). */
+  async function winRound(store: MemoryStore, svc: GameService, token: string, id: string) {
+    const start = await svc.startMatch(token, { ranked: false, trial: id });
+    const row = store.data.matches.find((m) => m.id === start.matchId)!;
+    row.color = 'w';
+    row.playerDeck = classicDeck();
+    row.botDeck = classicDeck();
+    return { start, r: await svc.finishMatch(token, start.matchId, WHITE_MATES, false) };
+  }
+
+  it('Шлях Комети: four strong bots with card decks, and Комета as the prize', async () => {
+    const { store, svc, reg } = await setup();
+    const { token, profile } = await reg('k@k.com', 'K');
+    const t = trialById('comet')!;
+    await store.updateUser(profile.id, { shards: 5000 });
+    await svc.enterTrial(token, 'comet');
+    let last;
+    for (let round = 0; round < 4; round++) {
+      const { start, r } = await winRound(store, svc, token, 'comet');
+      expect(start.botLevel).toBe(t.opponents[round]);
+      last = r;
+    }
+    expect(last!.trial).toMatchObject({ status: 'won', card: 'king-comet', reward: null });
+    expect((await svc.collection(token)).owned['king-comet']).toBeTruthy();
+
+    // Won again with the card already owned: a mythic pack instead.
+    await svc.enterTrial(token, 'comet');
+    for (let round = 0; round < 4; round++) last = (await winRound(store, svc, token, 'comet')).r;
+    expect(last!.trial).toMatchObject({ status: 'won', card: null });
+    expect(last!.trial!.reward?.type).toBe('mythic');
+  });
+
+  it('Арсенал: bots play random card decks, not the classic one', async () => {
+    const { store, svc, reg } = await setup();
+    const { token, profile } = await reg('r@r.com', 'R');
+    await store.updateUser(profile.id, { shards: 1000 });
+    await svc.enterTrial(token, 'arsenal');
+    const start = await svc.startMatch(token, { ranked: false, trial: 'arsenal' });
+    const deck = start.botDeck as unknown as Record<string, string>;
+    expect(Object.values(deck).some((v) => typeof v === 'string' && v.includes('-') && !v.endsWith('-classic') && v !== 'bot')).toBe(true);
+  });
+
+  it('Арена гравців counts player-ladder games: three wins in a row pay a legendary pack', async () => {
+    let now = Date.UTC(2026, 3, 1, 12);
+    const { store, svc, reg } = await setup(() => now);
+    const a = await reg('a@a.com', 'A');
+    const b = await reg('b@b.com', 'B');
+    await store.updateUser(a.profile.id, { shards: 1000 });
+    await svc.enterTrial(a.token, 'arena');
+    await expect(svc.startMatch(a.token, { ranked: false, trial: 'arena' })).rejects.toThrow(/лізі гравців/);
+    for (let i = 0; i < 3; i++) {
+      now += 10_000;
+      await svc.seek(a.token);
+      const g = (await svc.seek(b.token)).pvpId!;
+      await svc.pvpResign(b.token, g); // B gives up: A wins
+      const run = (await svc.me(a.token)).trials.arena;
+      expect(run.wins).toBe(i + 1);
+      expect(run.status).toBe(i === 2 ? 'won' : 'active');
+    }
+    const packs = await svc.packs(a.token);
+    expect(packs.some((p) => p.type === 'legendary' && p.source.includes('Арена гравців'))).toBe(true);
   });
 });
 

@@ -119,7 +119,8 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
   const [popover, setPopover] = useState<{ square: Square; moves: Move[] } | null>(null);
   const [menu, setMenu] = useState<string | null>(null);
   const [linePreview, setPreview] = useState<Square[]>([]);
-  const [mirage, setMirage] = useState(false);
+  // Abilities played as a move (Міраж, Ривок Комети): pressing the button switches to those moves.
+  const [special, setSpecial] = useState<'mirage' | 'dash' | null>(null);
   const [thinking, setThinking] = useState(false);
   // A fresh game opens with the opponent's deck; the bot waits for it.
   const [intro, setIntro] = useState(() => getSettings().animations && (remote ? remote.initialActions.length === 0 : true));
@@ -162,8 +163,8 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
   const myTurn = match.turn === human && !match.result;
   const busy = thinking || hintBusy;
   const legal = useMemo(() => (myTurn ? legalMoves(match) : []), [match, myTurn]);
-  const mirageMoves = legal.filter((m) => m.kind === 'mirage');
-  const usable = legal.filter((m) => (mirage ? m.kind === 'mirage' : m.kind !== 'mirage'));
+  const specialMoves = (kind: 'mirage' | 'dash') => legal.filter((m) => m.kind === kind);
+  const usable = legal.filter((m) => (special ? m.kind === special : m.kind !== 'mirage' && m.kind !== 'dash'));
   const fromSelected = selected === null ? [] : usable.filter((m) => m.from === selected);
 
   const marks = useMemo(() => {
@@ -199,7 +200,7 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
       setPopover(null);
       setMenu(null);
       setPreview([]);
-      if (action.type === 'move') setMirage(false);
+      if (action.type === 'move') setSpecial(null);
     },
     [],
   );
@@ -474,7 +475,8 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
           <br />
           <strong>{statusText}</strong>
           {error && <p className="error-text">{error}</p>}
-          {mirage && <p className="tip">Міраж увімкнено: оберіть стрибок коня без взяття.</p>}
+          {special === 'mirage' && <p className="tip">Міраж увімкнено: оберіть стрибок коня без взяття.</p>}
+          {special === 'dash' && <p className="tip">Ривок Комети: оберіть клітинку за 2–5 кроків по прямій.</p>}
           {fromSelected.some((m) => m.kind === 'levitate') && (
             <p className="tip">Сині плитки за краєм дошки — платформи левітації. Фігура мусить повернутися за 3 ходи суперника.</p>
           )}
@@ -488,20 +490,22 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
               const cd = match.cooldowns[c!.id] ?? 0;
               const ready = cd === 0;
               const canPress = myTurn && !busy && !view.pending && !stage && ready && !!def && !def.viaMove && abilityReady(match, c!.id);
-              const on = (def?.id === 'mirage' && mirage) || menu === c!.id || (def?.id === 'immortal' && view.immortalArmed);
+              const viaMoveKind = def?.id === 'mirage' || def?.id === 'dash' ? def.id : null;
+              const on = (!!viaMoveKind && special === viaMoveKind) || menu === c!.id || (def?.id === 'immortal' && view.immortalArmed);
               const press = () => {
                 if (!def) return;
-                if (def.id === 'mirage') {
-                  setMirage(!mirage);
-                  setSelected(mirage ? null : (mirageMoves[0]?.from ?? null));
+                if (viaMoveKind) {
+                  const turnOn = special !== viaMoveKind;
+                  setSpecial(turnOn ? viaMoveKind : null);
+                  setSelected(turnOn ? (specialMoves(viaMoveKind)[0]?.from ?? null) : null);
                 } else if (def.id === 'immortal') act({ type: 'ability', pieceId: c!.id, key: 'arm' });
                 else if (def.id === 'hint') void showHint(c!.id);
                 else setMenu(menu === c!.id ? null : c!.id);
               };
-              const disabled = def?.id === 'mirage' ? !myTurn || busy || (!mirage && mirageMoves.length === 0) : !canPress;
+              const disabled = viaMoveKind ? !myTurn || busy || (special !== viaMoveKind && specialMoves(viaMoveKind).length === 0) : !canPress;
               const sprite = pieceSprite(c!.cardId, c!.type, human);
               // Levitation has no button (it is a move); Міраж is pressed, then played as a jump.
-              const passive = !def || (def.viaMove && def.id !== 'mirage');
+              const passive = !def || (def.viaMove && !viaMoveKind);
               return (
                 <button
                   key={c!.id}
@@ -531,10 +535,14 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
                               ? hintBusy
                                 ? 'рахую…'
                                 : 'показати найкращий хід'
-                              : def.id === 'mirage'
-                                ? mirage
+                              : viaMoveKind
+                                ? special === viaMoveKind
                                   ? 'скасувати'
-                                  : 'стрибок з ілюзіями'
+                                  : myTurn && specialMoves(viaMoveKind).length === 0
+                                    ? 'зараз немає куди'
+                                    : viaMoveKind === 'mirage'
+                                    ? 'стрибок з ілюзіями'
+                                    : 'ривок до 5 клітинок'
                                 : 'обрати лінію'}
                     </small>
                   </span>
@@ -705,6 +713,12 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
                 {verdict.trial.status === 'won' ? (
                   <>
                     <span className="trophy-delta up">🏅 Випробування пройдено!</span>
+                    {verdict.trial.card && (
+                      <div className="trial-won-card">
+                        <CardView card={getCard(verdict.trial.card)} />
+                        <small className="muted">Нова картка вже у вашій колекції — поставте її в колоду.</small>
+                      </div>
+                    )}
                     {verdict.trial.reward && (
                       <div className="reward">
                         <img className="pack-img" src={packArt(verdict.trial.reward.type)} alt="" />

@@ -81,6 +81,7 @@ const ART: Record<string, Art> = {
   'king-swapper': [139, 146],
   'king-barricade': [240],
   'king-hint': [234],
+  'king-comet': [474],
 };
 
 const src = (n: number) => `assets/pieces/p${n}.png`;

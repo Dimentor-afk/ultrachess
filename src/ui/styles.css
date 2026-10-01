@@ -7678,3 +7678,117 @@ button.hb-slot {
     font-size: 1.6rem;
   }
 }
+
+/* ── Trials: difficulty, mode and the prize ── */
+
+.trial-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 460px), 1fr));
+}
+
+.trial-prize {
+  --r: var(--gold);
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 84px;
+  height: 128px;
+  border-radius: 16px;
+  background: radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--r) 45%, transparent), transparent 70%);
+}
+
+.trial-head .trial-prize img {
+  width: 70px;
+  height: 120px;
+}
+
+.trial-card.has-card {
+  border-color: color-mix(in srgb, var(--r-mythological) 60%, var(--line));
+  background:
+    radial-gradient(80% 60% at 10% 0%, rgba(255, 77, 109, 0.16), transparent 70%),
+    var(--panel);
+}
+
+.trial-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.35rem;
+}
+
+.trial-diff.d1 { color: var(--ok); border-color: currentColor; }
+.trial-diff.d2 { color: var(--gold); border-color: currentColor; }
+.trial-diff.d3 { color: var(--r-mythological); border-color: currentColor; }
+
+.trial-card-rules {
+  margin: 0;
+  padding: 0.6rem 0.8rem;
+  border-radius: 12px;
+  background: rgba(7, 11, 22, 0.5);
+  color: #d3daf2;
+  line-height: 1.5;
+}
+
+.trial-won-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  width: min(220px, 100%);
+  margin: 0.4rem auto 0;
+}
+
+.trial-won-card .gcard-rules,
+.trial-won-card .gcard-effects {
+  display: none;
+}
+
+@media (max-width: 560px) {
+  .trial-head {
+    align-items: flex-start;
+  }
+
+  .trial-prize {
+    width: 64px;
+    height: 100px;
+  }
+
+  .trial-head .trial-prize img {
+    width: 54px;
+    height: 92px;
+  }
+}
+
+@media (max-width: 560px) {
+  /* Rounds in one compact row that scrolls sideways. */
+  .trial-rounds {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin-inline: -1rem;
+    padding: 0.2rem 1rem 0.4rem;
+  }
+
+  .trial-rounds::-webkit-scrollbar {
+    display: none;
+  }
+
+  .trial-round {
+    flex: none;
+    gap: 0.45rem;
+    padding: 0.4rem 0.65rem;
+  }
+
+  .trial-round b {
+    font-size: 0.85rem;
+    white-space: nowrap;
+  }
+
+  .trial-round small {
+    font-size: 0.7rem;
+  }
+
+  .trial-head p {
+    font-size: 0.9rem;
+  }
+}

@@ -81,13 +81,14 @@ export function PieceSvg({ type, color, className = '' }: { type: PieceType; col
 // ── Emblems ──
 
 type EmblemId =
-  | 'target' | 'up2' | 'back' | 'diag' | 'ram' | 'swap' | 'ghost' | 'copy' | 'spear' | 'eye'
+  | 'target' | 'comet' | 'up2' | 'back' | 'diag' | 'ram' | 'swap' | 'ghost' | 'copy' | 'spear' | 'eye'
   | 'shield' | 'swords' | 'wings' | 'portal' | 'bounce' | 'turn' | 'jump' | 'bomb' | 'hourglass'
   | 'teleport' | 'moon' | 'quake' | 'bulb' | 'tunnel' | 'push' | 'three' | 'palette' | 'spring'
   | 'rider' | 'compass' | 'crown' | 'plus' | 'link' | 'rotate' | 'infinity' | 'wall' | 'edge' | 'hit';
 
 const EMBLEM: Record<EmblemId, string> = {
   target: 'M12 4a8 8 0 1 0 .01 0M12 9a3 3 0 1 0 .01 0M12 1v5M12 18v5M1 12h5M18 12h5',
+  comet: 'M15 9a3 3 0 1 0 .01 0M13 11L4 20M12 8L5 15M16 12l-7 7',
   up2: 'M6 13l6-6 6 6M6 19l6-6 6 6',
   back: 'M12 4v14M6 12l6 6 6-6',
   diag: 'M6 18L18 6M9 6h9v9',
@@ -191,6 +192,7 @@ export const CARD_EMBLEM: Record<string, EmblemId> = {
   'king-swapper': 'swap',
   'king-barricade': 'wall',
   'king-hint': 'bulb',
+  'king-comet': 'comet',
 };
 
 export function Emblem({ cardId, className = '' }: { cardId: string; className?: string }) {

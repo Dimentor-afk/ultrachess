@@ -15,6 +15,8 @@ import {
   type Ladder,
   type LeagueReward,
   PVP_LEAGUES,
+  TRIALS,
+  type Trial,
   type TrialRun,
   ladderReward,
   leagueIndex,
@@ -150,8 +152,19 @@ export interface MatchFinish {
   rewardSkipped: boolean;
   leagueUps: LeagueUp[];
   ladder: Ladder | null;
-  trial: { name: string; wins: number; rounds: number; status: TrialRun['status']; reward: PackView | null } | null;
+  trial: TrialResult | null;
   profile: Profile;
+}
+
+/** Where a trial run stands after a game, and its prize once won. */
+export interface TrialResult {
+  name: string;
+  wins: number;
+  rounds: number;
+  status: TrialRun['status'];
+  reward: PackView | null;
+  /** A trial-only card, when that was the prize. */
+  card: string | null;
 }
 
 export interface LeaderRow {
@@ -572,6 +585,26 @@ export class GameService {
     await this.store.updateUser(u.id, { trials: JSON.stringify({ ...this.trialRuns(fresh), [run.id]: run }) });
   }
 
+  /** Count one game of a trial run; a win of the last round pays the prize. */
+  private async trialStep(userId: string, t: Trial, outcome: 'win' | 'loss' | 'draw'): Promise<TrialResult> {
+    const u = (await this.store.getUser(userId))!;
+    const run = this.trialRuns(u)[t.id];
+    const wins = outcome === 'win' ? run.wins + 1 : run.wins;
+    const status: TrialRun['status'] = outcome !== 'win' ? 'lost' : wins >= t.opponents.length ? 'won' : 'active';
+    let reward: PackView | null = null;
+    let card: string | null = null;
+    if (status === 'won') {
+      if (t.rewardCard && !(await this.ownedSet(userId)).has(t.rewardCard)) {
+        await this.store.addCard(userId, t.rewardCard);
+        card = t.rewardCard;
+      } else {
+        reward = this.view(await this.createPack(userId, t.reward, `Нагорода: ${t.name}`));
+      }
+    }
+    await this.saveRun(u, { id: t.id, wins, status });
+    return { name: t.name, wins, rounds: t.opponents.length, status, reward, card };
+  }
+
   /** Pay the entry fee and start a fresh run. */
   async enterTrial(token: string, id: string): Promise<Profile> {
     const u = await this.auth(token);
@@ -797,7 +830,7 @@ export class GameService {
     const cap = RARITIES.indexOf(maxRarity);
     for (let tries = 0; tries < 50; tries++) {
       const pickFor = (t: PieceType) => {
-        const pool = CARDS.filter((c) => c.pieceType === t && RARITIES.indexOf(c.rarity) <= cap);
+        const pool = CARDS.filter((c) => c.pieceType === t && !c.trialOnly && RARITIES.indexOf(c.rarity) <= cap);
         return pool[Math.floor(this.rng() * pool.length)].id;
       };
       const deck = classicDeck('bot', 'Колода бота');
@@ -821,6 +854,7 @@ export class GameService {
     if (opts.trial) {
       const t = trialById(opts.trial);
       if (!t) throw new ApiError(404, 'Такого випробування немає.');
+      if (t.kind === 'pvp') throw new ApiError(400, 'Це випробування проходиться в лізі гравців: шукайте суперника на головній.');
       const run = this.trialRuns(u)[t.id];
       if (!run || run.status !== 'active') throw new ApiError(400, 'Спершу оплатіть вхід у випробування.');
       if (run.matchId) {
@@ -836,7 +870,7 @@ export class GameService {
         }
       }
       playerDeck = t.classic ? classicDeck('trial', 'Класична колода') : await this.playableDeck(u.id, opts.deckId);
-      botDeck = classicDeck('bot', 'Класична колода');
+      botDeck = t.classic ? classicDeck('bot', 'Класична колода') : this.botDeck(t.botMaxRarity ?? 'legendary');
       botLevel = t.opponents[run.wins];
       mode = `trial:${t.id}`;
       trialInfo = { id: t.id, name: t.name, round: run.wins + 1, rounds: t.opponents.length };
@@ -908,13 +942,7 @@ export class GameService {
     } else if (mode.startsWith('trial:')) {
       const t = trialById(mode.slice(6));
       const run = this.trialRuns(u)[mode.slice(6)];
-      if (t && run && run.status === 'active' && run.matchId === m.id) {
-        const wins = outcome === 'win' ? run.wins + 1 : run.wins;
-        const status: TrialRun['status'] = outcome !== 'win' ? 'lost' : wins >= t.opponents.length ? 'won' : 'active';
-        const reward = status === 'won' ? this.view(await this.createPack(u.id, t.reward, `Нагорода: ${t.name}`)) : null;
-        await this.saveRun(u, { id: t.id, wins, status });
-        trial = { name: t.name, wins, rounds: t.opponents.length, status, reward };
-      }
+      if (t && run && run.status === 'active' && run.matchId === m.id) trial = await this.trialStep(u.id, t, outcome);
     }
     const events: QuestEvent[] = ['play'];
     if (outcome === 'win') events.push('win');
@@ -1235,6 +1263,11 @@ export class GameService {
       for (const [id, c] of [[row.whiteId, 'w'], [row.blackId, 'b']] as [string, Color][]) {
         const outcome = winner === null ? 'draw' : winner === c ? 'win' : 'loss';
         ladder[c] = await this.settleLadder(id, 'pvp', outcome, 'Перемога в лізі гравців');
+        // A player-ladder trial in progress counts this game too.
+        for (const t of TRIALS.filter((x) => x.kind === 'pvp')) {
+          const u = await this.store.getUser(id);
+          if (u && this.trialRuns(u)[t.id]?.status === 'active') await this.trialStep(id, t, outcome);
+        }
       }
       out.ladder = ladder;
     }
