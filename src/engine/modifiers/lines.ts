@@ -188,17 +188,17 @@ export function pierceMoves(ctx: GenCtx, p: Piece, from: Square, dirs: Dir[]): M
 /**
  * Портальний слон: slide to the board edge, leave through it and reappear on
  * the point-mirrored square (a6 → h3), then keep moving the same way.
+ * No limit: the portal works on every move.
  */
 export function portalMoves(ctx: GenCtx, p: Piece, from: Square, dirs: Dir[]): Move[] {
   const out: Move[] = [];
-  if (ctx.pos.onceUsed[p.id] || !isBoardSquare(from)) return out;
+  if (!isBoardSquare(from)) return out;
   const passOwn = defaultPassOwn(p);
   const add = (s: Square, path: Square[], edge: Square, mirror: Square, capture: boolean) => {
     if (!capture && ctx.attack) return;
     out.push(
       mk(p, from, s, {
         kind: 'special',
-        once: true,
         captures: capture ? [s] : [],
         path: path.slice(),
         legs: [
@@ -206,7 +206,7 @@ export function portalMoves(ctx: GenCtx, p: Piece, from: Square, dirs: Dir[]): M
           { to: mirror, style: 'warp' },
           ...(s !== mirror ? [{ to: s, style: 'slide' as const }] : []),
         ],
-        label: capture ? 'Взяття через портал (раз за гру)' : 'Через портал (раз за гру)',
+        label: capture ? 'Взяття через портал' : 'Через портал',
       }),
     );
   };

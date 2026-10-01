@@ -28,7 +28,8 @@ export const linePieceGenerators: Record<string, Generator> = {
     ...bishop(ctx, p, from),
     ...(p.moveCount === 0 ? jumpOverMoves(ctx, p, from, DIAG, { skip: 1, label: 'Десант через фігуру' }) : []),
   ],
-  'bishop-jumper': (ctx, p, from) => [...bishop(ctx, p, from), ...jumpOverMoves(ctx, p, from, DIAG, {})],
+  // Стрибун: not on its first move (that is the paratrooper's trick).
+  'bishop-jumper': (ctx, p, from) => [...bishop(ctx, p, from), ...(p.moveCount > 0 ? jumpOverMoves(ctx, p, from, DIAG, {}) : [])],
   'bishop-martyr': bishop,
   'bishop-ricochet': (ctx, p, from) => dedupe([...bishop(ctx, p, from), ...ricochetMoves(ctx, p, from, DIAG)]),
   'bishop-illusionist': bishop,
@@ -48,7 +49,7 @@ export const linePieceGenerators: Record<string, Generator> = {
     ...(p.moveCount === 0 ? jumpOverMoves(ctx, p, from, ORTHO, { skip: 1, label: 'Десант через фігуру' }) : []),
   ],
   'rook-maneuver': (ctx, p, from) => slideMoves(ctx, p, from, ALL_DIRS, { max: 4 }),
-  'rook-jumper': (ctx, p, from) => [...rook(ctx, p, from), ...jumpOverMoves(ctx, p, from, ORTHO, {})],
+  'rook-jumper': (ctx, p, from) => [...rook(ctx, p, from), ...(p.moveCount > 0 ? jumpOverMoves(ctx, p, from, ORTHO, {}) : [])],
   'rook-ricochet': (ctx, p, from) => dedupe([...rook(ctx, p, from), ...ricochetMoves(ctx, p, from, ORTHO)]),
   'rook-illusionist': rook,
   'rook-tunnel': (ctx, p, from) => slideMoves(ctx, p, from, ORTHO, { passOwn: () => true }),

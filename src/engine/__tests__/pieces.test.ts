@@ -6,6 +6,21 @@ import { legalMoves } from '../legal';
 import { hasAnyLegalTurn, inCheck } from '../status';
 import { S, at, build, findMove, kingShuffle, movesFrom, play, targets } from './helpers';
 
+describe('jumpers', () => {
+  it('Стрибун and Стрибуча тура jump only after their first move and stop right behind', () => {
+    for (const [card, at0, block, land] of [
+      ['bishop-jumper', 'c1', 'e3', 'f4'],
+      ['rook-jumper', 'd1', 'd3', 'd4'],
+    ] as const) {
+      const pos = build({ [at0]: `w:${card}`, [block]: 'w:pawn-classic', h1: 'w:king-classic', a8: 'b:king-classic' });
+      expect(movesFrom(pos, at0).some((m) => m.label.includes('Перестрибнути')), card).toBe(false);
+      const moved = { ...pos, board: pos.board.map((p) => (p?.cardId === card ? { ...p, moveCount: 1 } : p)) };
+      const jumps = movesFrom(moved, at0).filter((m) => m.label.includes('Перестрибнути'));
+      expect(jumps.map((m) => m.target), card).toEqual([S(land)]);
+    }
+  });
+});
+
 describe('bishop cards', () => {
   it('Вартовий: moves like a queen, but only 1–2 squares', () => {
     const pos = build({ a1: 'w:bishop-sentinel', a2: 'b:pawn-classic', h1: 'w:king-classic', h7: 'b:king-classic' });
@@ -34,8 +49,10 @@ describe('bishop cards', () => {
     expect(targets(moved, 'c1')).toEqual(['b2', 'a3'].sort());
   });
 
-  it('Стрибун always jumps over the first piece', () => {
+  it('Стрибун jumps over the first piece once it has moved', () => {
     const pos = build({ c1: 'w:bishop-jumper', d2: 'b:pawn-classic', h1: 'w:king-classic', e8: 'b:king-classic' });
+    expect(targets(pos, 'c1')).not.toContain('e3');
+    pos.board[pos.board.findIndex((p) => p?.cardId === 'bishop-jumper')]!.moveCount = 1;
     expect(targets(pos, 'c1')).toContain('e3');
     expect(targets(pos, 'c1')).toContain('d2');
   });
@@ -121,11 +138,13 @@ describe('bishop cards', () => {
   it('Портальний слон leaves through the edge and reappears on the mirrored square', () => {
     // f1 → a6, out of the board, back in on h3 and on to d7 (the user's example).
     const pos = build({ f1: 'w:bishop-portal', d7: 'b:pawn-classic', e1: 'w:king-classic', h8: 'b:king-classic' });
-    const t = movesFrom(pos, 'f1').filter((m) => m.once).map((m) => m.target);
+    const t = movesFrom(pos, 'f1').filter((m) => m.label.includes('портал')).map((m) => m.target);
     expect(t).toEqual(expect.arrayContaining([S('h3'), S('g4'), S('f5'), S('e6'), S('d7')]));
     const after = play(pos, 'f1', 'd7', 'портал');
     expect(at(after, 'd7')).toBe('w:bishop-portal');
-    expect(after.onceUsed['w-f1']).toBe(true);
+    // No limit: after the opponent's move the portal works again.
+    const again = play(after, 'h8', 'g8');
+    expect(movesFrom(again, 'd7').some((m) => m.label.includes('портал'))).toBe(true);
     expect(movesFrom(play(pos, 'f1', 'e2'), 'e2').length).toBe(0); // black to move now
   });
 

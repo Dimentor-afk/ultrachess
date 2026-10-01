@@ -211,15 +211,15 @@ export const CARD_SCRIPTS: Record<string, ClipScript> = {
     ],
   },
   'bishop-jumper': {
-    pieces: { d4: 'hero!', e5: 'w:pawn', h8: 'b:rook' },
-    kings: { w: 'a1', b: 'a6' },
+    pieces: { c1: 'hero', e3: 'w:pawn!', h6: 'b:knight' },
     steps: [
-      {
-        move: 'd4 f6',
-        label: /Перестрибнути/,
-        say: 'Завжди може перестрибнути одну фігуру на діагоналі',
-      },
-      { move: 'f6 h8', say: 'І звідти вже атакує далі' },
+      { marks: 'c1', say: 'Першим ходом стрибати не може — ходить як звичайний слон' },
+      { move: 'c1 d2', say: 'Звичайний перший хід' },
+      { move: 'a8 b8', say: 'Суперник ходить…' },
+      { marks: 'hero', say: 'Тепер стрибок є (фіолетове) — одразу за свого пішака' },
+      { move: 'd2 f4', label: /Перестрибнути/, say: 'Перестрибнув і став одразу за фігурою', then: 'Далі в цей хід не йде' },
+      { move: 'b8 a8', say: 'Суперник ходить…' },
+      { move: 'f4 h6', say: 'А вже наступним ходом — в атаку' },
     ],
   },
   'bishop-martyr': {
@@ -322,11 +322,10 @@ export const CARD_SCRIPTS: Record<string, ClipScript> = {
     pieces: { e3: 'hero!', b4: 'b:knight' },
     kings: { b: 'h8' },
     steps: [
-      {
-        move: 'e3 b4',
-        label: /портал/i,
-        say: 'Раз за гру: за край — і з дзеркального боку',
-      },
+      { marks: 'e3', say: 'Фіолетові клітинки — куди слон дістає через портал' },
+      { move: 'e3 b4', label: /портал/i, say: 'За край — і з дзеркального боку, з\'їдає коня' },
+      { move: 'h8 g8', say: 'Суперник ходить…' },
+      { marks: 'hero', say: 'Портал знову працює — і так щоходу' },
     ],
   },
   'bishop-eclipse': {
@@ -381,14 +380,15 @@ export const CARD_SCRIPTS: Record<string, ClipScript> = {
     ],
   },
   'rook-jumper': {
-    pieces: { d1: 'hero!', d2: 'w:pawn', d7: 'b:knight' },
+    pieces: { d1: 'hero', d3: 'w:pawn!', d7: 'b:knight' },
     steps: [
-      {
-        move: 'd1 d3',
-        label: /Перестрибнути/,
-        say: 'Завжди може перестрибнути одну фігуру на лінії',
-      },
-      { move: 'd3 d7', say: 'І йде далі в атаку' },
+      { marks: 'd1', say: 'Першим ходом стрибати не може — ходить як звичайна тура' },
+      { move: 'd1 d2', say: 'Звичайний перший хід' },
+      { move: 'a8 b8', say: 'Суперник ходить…' },
+      { marks: 'hero', say: 'Тепер стрибок є (фіолетове) — одразу за свого пішака' },
+      { move: 'd2 d4', label: /Перестрибнути/, say: 'Перестрибнула й стала одразу за фігурою', then: 'Далі в цей хід не йде' },
+      { move: 'b8 a8', say: 'Суперник ходить…' },
+      { move: 'd4 d7', say: 'А вже наступним ходом — в атаку' },
     ],
   },
   'rook-ricochet': {
