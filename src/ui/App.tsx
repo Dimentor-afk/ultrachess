@@ -1,14 +1,9 @@
-import { type CSSProperties, useCallback, useEffect, useRef, useState } from 'react';
+import { type CSSProperties, Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
 import { type Api, type Profile, createApi } from '../api/client';
-import { AdminPage } from './AdminPage';
 import { AuthPage } from './AuthPage';
 import { DeckPage } from './DeckPage';
 import { HomePage } from './HomePage';
-import { LeaderboardPage } from './LeaderboardPage';
 import { ShopPage } from './ShopPage';
-import { FriendsPage } from './FriendsPage';
-import { ProfilePage } from './ProfilePage';
-import { HelpPage } from './HelpPage';
 import { Avatar } from './common';
 import { themeById } from '../economy/themes';
 import { cardArt } from './cardArt';
@@ -18,6 +13,13 @@ import { currentPath, onNavigate } from './router';
 import { LeaguesPage } from './LeaguesPage';
 import { TrialsPage } from './TrialsPage';
 import { type Loaded, SessionProvider, type Toast, errorText, loadAll, useSession } from './state';
+
+// Pages off the main path load on first visit, which keeps the first download smaller.
+const AdminPage = lazy(() => import('./AdminPage').then((m) => ({ default: m.AdminPage })));
+const LeaderboardPage = lazy(() => import('./LeaderboardPage').then((m) => ({ default: m.LeaderboardPage })));
+const FriendsPage = lazy(() => import('./FriendsPage').then((m) => ({ default: m.FriendsPage })));
+const ProfilePage = lazy(() => import('./ProfilePage').then((m) => ({ default: m.ProfilePage })));
+const HelpPage = lazy(() => import('./HelpPage').then((m) => ({ default: m.HelpPage })));
 
 type Route = 'play' | 'leagues' | 'trials' | 'deck' | 'shop' | 'friends' | 'top' | 'admin' | 'profile' | 'help';
 
@@ -221,6 +223,7 @@ function Shell() {
         )}
         {/* A page that crashes shows its error; the menu stays and another tab starts clean. */}
         <ErrorBoundary key={route}>
+          <Suspense fallback={<p className="muted page-loading">Завантаження…</p>}>
           {route === 'play' && <HomePage />}
           {route === 'leagues' && <LeaguesPage />}
           {route === 'trials' && <TrialsPage />}
@@ -231,6 +234,7 @@ function Shell() {
           {route === 'help' && <HelpPage />}
           {route === 'top' && <LeaderboardPage />}
           {route === 'admin' && s.profile.role === 'admin' && <AdminPage />}
+          </Suspense>
         </ErrorBoundary>
       </main>
     </div>

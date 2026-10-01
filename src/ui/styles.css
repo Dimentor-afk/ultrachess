@@ -7800,3 +7800,53 @@ button.hb-slot {
   top: env(safe-area-inset-top, 0px);
   padding-top: 0.45rem;
 }
+.page-loading { padding: 2rem 0; text-align: center; }
+
+/* Profile on phones: centred hero, ladders and actions in tidy rows. */
+@media (max-width: 560px) {
+  .profile-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 0.8rem;
+  }
+
+  .profile-main {
+    align-items: center;
+  }
+
+  .profile-main h1 {
+    justify-content: center;
+    font-size: 1.7rem;
+  }
+
+  .profile-tags,
+  .profile-arena {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .profile-arena .trophies {
+    font-size: 1.2rem;
+  }
+
+  .profile-side {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-self: stretch;
+    gap: 0.4rem;
+  }
+
+  .profile-side .btn {
+    flex: 1 1 auto;
+    justify-content: center;
+    white-space: nowrap;
+  }
+}
+
+.demo-reset {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--line));
+}

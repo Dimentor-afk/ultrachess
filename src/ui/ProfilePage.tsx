@@ -114,7 +114,7 @@ export function ProfilePage() {
           </button>
           {s.api.resetDemo && (
             <button
-              className="btn btn-danger btn-sm"
+              className="btn btn-ghost btn-sm demo-reset"
               title="Видаляє всі демо-акаунти в цьому браузері: можна зареєструватись і відкрити стартовий пак знову"
               onClick={async () => {
                 if (!confirmReset) return setConfirmReset(true);
@@ -151,7 +151,7 @@ export function ProfilePage() {
         <Stat label="Нічиї" value={p.draws} />
         <Stat label="Відсоток перемог" value={`${winrate}%`} />
         <Stat label="Карток зібрано" value={`${owned.length}/${CARDS.length}`} />
-        <Stat label="Золото / осколки" value={`${p.gold} / ${p.shards}`} />
+        <Stat label="Рекорд кубків" value={`🏆 ${Math.max(p.ladders.pvp.best, p.ladders.bot.best)}`} />
       </div>
 
       <div className="panel">

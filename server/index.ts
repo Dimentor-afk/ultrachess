@@ -214,7 +214,7 @@ function serveStatic(req: IncomingMessage, res: ServerResponse): void {
   if (!existsSync(file) || statSync(file).isDirectory()) file = join(DIST, 'index.html');
   if (!existsSync(file)) return void res.writeHead(404).end('Run `npm run build` first.');
   // Hashed bundles never change; sprites and the page itself are revalidated.
-  const cache = file.includes(join(DIST, 'assets', 'index-')) || file.includes(join(DIST, 'assets', 'bot.worker-'));
+  const cache = /[\\/]assets[\\/][\w.]+-[\w-]{8}\.(js|css)$/.test(file);
   const ext = extname(file);
   const gzip = COMPRESSIBLE.has(ext) && /\bgzip\b/.test(String(req.headers['accept-encoding'] ?? ''));
   res.writeHead(200, {
