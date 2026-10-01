@@ -6483,14 +6483,17 @@ a.btn {
     display: none;
   }
 
+  /* On its own (an installed app on a notched phone) the header covers the
+     status bar area; inside the claude.ai frame the page is already padded. */
   .m-header {
     position: sticky;
-    top: env(safe-area-inset-top, 0px);
+    top: 0;
     z-index: 40;
     display: flex;
     align-items: center;
     gap: 0.4rem;
     padding: 0.45rem 16px;
+    padding-top: calc(0.45rem + env(safe-area-inset-top, 0px));
     background: #0a0f1d;
     border-bottom: 1px solid var(--line);
   }
@@ -7791,4 +7794,9 @@ button.hb-slot {
   .trial-head p {
     font-size: 0.9rem;
   }
+}
+
+.embedded .m-header {
+  top: env(safe-area-inset-top, 0px);
+  padding-top: 0.45rem;
 }

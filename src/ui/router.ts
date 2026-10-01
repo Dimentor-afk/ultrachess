@@ -11,7 +11,7 @@ const listeners = new Set<Listener>();
 let path = readHash();
 
 /** Inside someone else's frame the address bar is not ours: routes stay in memory. */
-const embedded = (() => {
+export const embedded = (() => {
   try {
     return window.top !== window.self;
   } catch {

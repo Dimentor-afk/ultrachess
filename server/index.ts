@@ -4,7 +4,8 @@
 import { randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { type IncomingMessage, type ServerResponse, createServer } from 'node:http';
-import { extname, join, normalize, resolve } from 'node:path';
+import { extname, join, normalize, resolve, sep } from 'node:path';
+import { createGzip } from 'node:zlib';
 import { promisify } from 'node:util';
 import { ApiError, GameService } from '../src/economy/service';
 import type { Hasher } from '../src/economy/store';
@@ -14,6 +15,13 @@ const PORT = Number(process.env.PORT ?? 8080);
 const DB_FILE = process.env.DB_FILE ?? 'ultrachess.db';
 const DIST = resolve(process.env.DIST_DIR ?? 'dist');
 const COOKIE = 'uc_session';
+
+/** Sent with every response. */
+const SECURITY_HEADERS = {
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'same-origin',
+  'X-Frame-Options': 'SAMEORIGIN',
+};
 
 const scryptAsync = promisify(scrypt) as (pw: string, salt: Buffer, len: number) => Promise<Buffer>;
 
@@ -51,7 +59,7 @@ function send(res: ServerResponse, status: number, data?: unknown): void {
     return;
   }
   const body = JSON.stringify(data);
-  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }).end(body);
+  res.writeHead(status, { ...SECURITY_HEADERS, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }).end(body);
 }
 
 async function readBody(req: IncomingMessage): Promise<Record<string, unknown>> {
@@ -187,21 +195,38 @@ const MIME: Record<string, string> = {
   '.svg': 'image/svg+xml',
   '.webp': 'image/webp',
   '.json': 'application/json',
+  '.webmanifest': 'application/manifest+json',
   '.ico': 'image/x-icon',
 };
 
+/** Text files are gzipped on the way out (the app bundle shrinks about 3×). */
+const COMPRESSIBLE = new Set(['.html', '.js', '.css', '.svg', '.json', '.webmanifest']);
+
 function serveStatic(req: IncomingMessage, res: ServerResponse): void {
-  const url = decodeURIComponent((req.url ?? '/').split('?')[0]);
+  let url: string;
+  try {
+    url = decodeURIComponent((req.url ?? '/').split('?')[0]);
+  } catch {
+    return void res.writeHead(400).end();
+  }
   let file = normalize(join(DIST, url));
-  if (!file.startsWith(DIST)) return void res.writeHead(403).end();
+  if (file !== DIST && !file.startsWith(DIST + sep)) return void res.writeHead(403).end();
   if (!existsSync(file) || statSync(file).isDirectory()) file = join(DIST, 'index.html');
   if (!existsSync(file)) return void res.writeHead(404).end('Run `npm run build` first.');
-  const cache = file.includes(`${join(DIST, 'assets')}`) && !file.includes('assets/pieces') && !file.includes('assets/packs');
+  // Hashed bundles never change; sprites and the page itself are revalidated.
+  const cache = file.includes(join(DIST, 'assets', 'index-')) || file.includes(join(DIST, 'assets', 'bot.worker-'));
+  const ext = extname(file);
+  const gzip = COMPRESSIBLE.has(ext) && /\bgzip\b/.test(String(req.headers['accept-encoding'] ?? ''));
   res.writeHead(200, {
-    'Content-Type': MIME[extname(file)] ?? 'application/octet-stream',
+    ...SECURITY_HEADERS,
+    'Content-Type': MIME[ext] ?? 'application/octet-stream',
     'Cache-Control': cache ? 'public, max-age=31536000, immutable' : 'no-cache',
+    Vary: 'Accept-Encoding',
+    ...(gzip ? { 'Content-Encoding': 'gzip' } : {}),
   });
-  createReadStream(file).pipe(res);
+  const stream = createReadStream(file);
+  if (gzip) stream.pipe(createGzip()).pipe(res);
+  else stream.pipe(res);
 }
 
 const server = createServer(async (req, res) => {
@@ -226,3 +251,11 @@ await svc.init();
 server.listen(PORT, () => {
   console.log(`Ultrachess: http://localhost:${PORT}  (db: ${DB_FILE})`);
 });
+
+// Hosts stop containers with SIGTERM: finish open requests, then exit.
+for (const signal of ['SIGTERM', 'SIGINT'] as const) {
+  process.on(signal, () => {
+    server.close(() => process.exit(0));
+    setTimeout(() => process.exit(0), 5000).unref();
+  });
+}

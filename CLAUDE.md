@@ -26,7 +26,8 @@ SQLite: wins, trophies, history), bots, mobile-playable, plenty of "make it your
 1. **WebSockets** for live games (friend games and the player ladder). Today moves go
    by HTTP and the opponent polls every 1.5 s — the lab requires WebSockets in the
    Basic level and graders check the Network tab. Keep the server as the authority.
-2. **Public deploy** (Render / Fly.io): a URL that works from any device.
+2. **Public deploy** (Render / Fly.io): a URL that works from any device. Config is ready
+   (`Dockerfile`, `fly.toml`, `render.yaml`); what is left is running `fly deploy` with the author's account.
 3. **Game rooms with a shareable link** (`/game/<id>`) and **spectator mode**.
 4. **Reconnection**: drop Wi-Fi, come back to the same game (and a clear state while
    reconnecting).

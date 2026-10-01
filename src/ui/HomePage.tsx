@@ -164,6 +164,7 @@ export function HomePage() {
   const bot = botLevel(profile.rankedBot);
   const claimable = profile.quests.filter((q) => q.progress >= q.target && !q.claimed).length;
   const trialActive = Object.values(profile.trials).some((t) => t.status === 'active');
+  const arenaRun = profile.trials.arena?.status === 'active' ? profile.trials.arena : null;
   const slots = [0, 1, 2, 3].map((i) => packs[i] ?? null);
   const packToday = lv.packsToday < lv.packsLimit;
 
@@ -270,6 +271,7 @@ export function HomePage() {
                 ) : (
                   ' · ліміт паків на сьогодні вичерпано'
                 )}
+                {ladder === 'pvp' && arenaRun && <> · 🏅 Арена гравців: перемога {arenaRun.wins + 1} з 3</>}
               </>
             )}
           </span>

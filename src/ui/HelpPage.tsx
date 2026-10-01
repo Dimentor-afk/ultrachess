@@ -89,6 +89,14 @@ export function HelpPage() {
             партії не змінюють кубків.
           </p>
         </article>
+        <article className="panel help-card">
+          <img className="pixel help-art" src={cardArt('king-comet')!} alt="" />
+          <h2>9. Випробування</h2>
+          <p>
+            Серії перемог поспіль за осколки: проти ботів або в лізі гравців. Одна поразка чи нічия — і спробу завершено. Найважче, «Шлях
+            Комети», дає Комету: короля з ривком до 5 клітинок, якого немає в жодному паку.
+          </p>
+        </article>
       </div>
     </section>
   );

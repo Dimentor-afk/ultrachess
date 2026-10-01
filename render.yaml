@@ -1,0 +1,15 @@
+# Render blueprint: New → Blueprint → this repository.
+# A persistent disk needs a paid instance; on the free plan the database resets on every deploy.
+services:
+  - type: web
+    name: ultrachess
+    runtime: docker
+    plan: starter
+    healthCheckPath: /api/health
+    envVars:
+      - key: DB_FILE
+        value: /data/ultrachess.db
+    disk:
+      name: ultrachess-data
+      mountPath: /data
+      sizeGB: 1

@@ -15,6 +15,20 @@ npm test           # тести рушія, економіки й бота
 Змінні оточення сервера: `PORT` (8080), `DB_FILE` (`ultrachess.db`), `DIST_DIR` (`dist`). Потрібен
 Node 22.5+: база даних працює на вбудованому `node:sqlite`, окремо встановлювати її не треба.
 
+## Деплой
+
+Один контейнер (`Dockerfile`): Node-сервер віддає API і зібраний сайт, база — SQLite у `/data`.
+
+- **Fly.io** (`fly.toml`): `fly launch --copy-config`, `fly volumes create ultrachess_data --size 1`,
+  `fly deploy`. Перевірка здоров'я — `GET /api/health`, HTTPS вмикає сам Fly.
+- **Render** (`render.yaml`): New → Blueprint. Постійний диск є лише на платних планах; на
+  безкоштовному база обнуляється з кожним деплоєм.
+- Будь-який хостинг Docker: `docker build -t ultrachess . && docker run -p 8080:8080 -v uc:/data ultrachess`.
+
+Сервер стискає HTML/JS/CSS (gzip, бандл ~490 → ~150 КБ), кешує хешовані бандли назавжди, додає
+базові заголовки безпеки й коректно завершується на SIGTERM. Сайт можна встановити на телефон як
+застосунок (`manifest.webmanifest`, іконки, колір теми).
+
 **Два режими роботи.**
 - **З сервером** (`npm start`): спільні акаунти в SQLite. Паролі хешуються через scrypt, сесія
   зберігається в httpOnly-cookie. Результат кожного матчу сервер перевіряє, переграючи всі ходи
