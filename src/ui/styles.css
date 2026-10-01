@@ -7850,3 +7850,224 @@ button.hb-slot {
   color: var(--danger);
   border-color: color-mix(in srgb, var(--danger) 45%, var(--line));
 }
+
+/* Ends of moves with stops (portal, ricochet, turning rook): a violet ring,
+   so they read apart from ordinary moves and can be tapped straight away. */
+.mark-far {
+  width: 34%;
+  height: 34%;
+  border-radius: 50%;
+  background: rgba(182, 115, 255, 0.55);
+  box-shadow: 0 0 0 0.35cqw rgba(182, 115, 255, 0.95), 0 0 1cqw rgba(182, 115, 255, 0.7);
+}
+
+.mark-far-capture {
+  inset: 5%;
+  border-radius: 50%;
+  border: 0.9cqw solid rgba(182, 115, 255, 0.85);
+  box-shadow: 0 0 1cqw rgba(182, 115, 255, 0.6);
+}
+
+/* Card clip: a looping "video" of the piece's move in the card popup. */
+.clip {
+  margin: 0.2rem 0 0.8rem;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #120d1c;
+  border: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+.clip-board {
+  position: relative;
+  aspect-ratio: 1;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  container-type: inline-size;
+}
+
+.clip-sq.light {
+  background: #e9d8b4;
+}
+
+.clip-sq.dark {
+  background: #a9825a;
+}
+
+.clip-cell,
+.clip-piece {
+  position: absolute;
+  width: 12.5%;
+  height: 12.5%;
+}
+
+.clip-cell {
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  animation: clip-pop 0.25s ease-out both;
+}
+
+.clip-cell > span {
+  border-radius: 50%;
+}
+
+.clip-move > span {
+  width: 32%;
+  height: 32%;
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.clip-capture > span {
+  width: 88%;
+  height: 88%;
+  border: 1cqw solid rgba(0, 0, 0, 0.25);
+}
+
+.clip-far > span {
+  width: 36%;
+  height: 36%;
+  background: rgba(182, 115, 255, 0.6);
+  box-shadow: 0 0 0 0.5cqw rgba(182, 115, 255, 0.95), 0 0 1.5cqw rgba(182, 115, 255, 0.8);
+}
+
+.clip-far-capture > span {
+  width: 88%;
+  height: 88%;
+  border: 1cqw solid rgba(182, 115, 255, 0.9);
+  box-shadow: 0 0 1.5cqw rgba(182, 115, 255, 0.6);
+}
+
+.clip-trail {
+  background: rgba(245, 196, 81, 0.35);
+  animation: none;
+}
+
+.clip-piece {
+  z-index: 2;
+  object-fit: contain;
+  padding: 0.4cqw;
+  transition: opacity 0.3s, transform 0.3s;
+}
+
+.clip-piece.taken {
+  opacity: 0;
+  transform: scale(0.4) rotate(25deg);
+}
+
+.clip-mover {
+  z-index: 3;
+  transition: left 0.28s ease-in-out, top 0.28s ease-in-out;
+  filter: drop-shadow(0 0 1.2cqw rgba(245, 196, 81, 0.9));
+}
+
+.clip-rec {
+  position: absolute;
+  top: 2%;
+  right: 2%;
+  z-index: 4;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.clip figcaption {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.45rem 0.6rem 0.55rem;
+}
+
+.clip-label {
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #f5c451;
+}
+
+.clip-progress {
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.clip-progress > span {
+  display: block;
+  height: 100%;
+  background: #f5c451;
+  animation: clip-progress var(--clip-ms, 5s) linear both;
+}
+
+@keyframes clip-pop {
+  from {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+}
+
+@keyframes clip-progress {
+  from {
+    width: 0;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .clip-cell,
+  .clip-progress > span {
+    animation: none;
+  }
+}
+
+/* Structured card rules: one marked line per aspect. */
+.card-spec {
+  list-style: none;
+  margin: 0.3rem 0 0.6rem;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+  text-align: left;
+}
+
+.card-spec li {
+  display: grid;
+  grid-template-columns: 1.6rem 1fr;
+  gap: 0.5rem;
+  align-items: start;
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+
+.spec-icon {
+  display: grid;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 7px;
+  font-size: 0.85rem;
+  color: var(--spec, var(--text));
+  background: color-mix(in srgb, var(--spec, var(--text)) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--spec, var(--text)) 45%, transparent);
+}
+
+.spec-move { --spec: #6fb3ff; }
+.spec-capture { --spec: #ff6b6b; }
+.spec-special { --spec: #b673ff; }
+.spec-trigger { --spec: #f5c451; }
+.spec-limit { --spec: #9aa3ad; }
+.spec-cost { --spec: #43d19a; }
+
+.card-modal-full {
+  margin-bottom: 0.6rem;
+  font-size: 0.8rem;
+  text-align: left;
+}
+
+.card-modal-full summary {
+  cursor: pointer;
+  color: var(--muted, #9aa3ad);
+}

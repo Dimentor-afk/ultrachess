@@ -10,7 +10,8 @@ import { FX, type FxName } from './fxSprites';
 import { useSettings } from './settings';
 import { useOutlined } from './spriteOutline';
 
-export type Mark = 'move' | 'capture' | 'option' | 'stay';
+/** `far`: the end of a move that goes through stops (portal, ricochet, a turn). */
+export type Mark = 'move' | 'capture' | 'option' | 'stay' | 'far' | 'far-capture';
 
 /**
  * Grid tracks: a ring, 8 squares, a ring. The ring is a thin frame, and

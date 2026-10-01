@@ -3,6 +3,8 @@ import { EFFECT_NAMES, PIECE_NAMES, RARITY_NAMES } from '../engine/cards';
 import type { Card } from '../engine/types';
 import { Emblem } from './art';
 import { cardArt } from './cardArt';
+import { CardClip } from './CardClip';
+import { CARD_SPECS, SPEC_KINDS } from './cardSpec';
 import { Icon } from './icons';
 
 /** Clash-style card popup: the big card, its full rules and the actions for it. */
@@ -26,6 +28,7 @@ export function CardModal({
   }, [onClose]);
 
   const art = cardArt(card.id);
+  const spec = CARD_SPECS[card.id];
   return (
     <div className="modal-backdrop card-modal-backdrop" onClick={onClose}>
       <div
@@ -56,7 +59,27 @@ export function CardModal({
             <span className="gem" />
             {RARITY_NAMES[card.rarity]}
           </span>
-          <p className="card-modal-rules">{card.rulesText}</p>
+          <CardClip cardId={card.id} />
+          {spec ? (
+            <>
+              <ul className="card-spec">
+                {spec.map(([kind, text], i) => (
+                  <li key={i} className={`spec-${kind}`}>
+                    <span className="spec-icon" title={SPEC_KINDS[kind].label} aria-label={SPEC_KINDS[kind].label}>
+                      {SPEC_KINDS[kind].icon}
+                    </span>
+                    <span>{text}</span>
+                  </li>
+                ))}
+              </ul>
+              <details className="card-modal-full">
+                <summary>Повний текст правила</summary>
+                <p className="card-modal-rules">{card.rulesText}</p>
+              </details>
+            </>
+          ) : (
+            <p className="card-modal-rules">{card.rulesText}</p>
+          )}
           <div className="gcard-effects">
             {card.effects.map((e) => (
               <span key={e} className="effect">

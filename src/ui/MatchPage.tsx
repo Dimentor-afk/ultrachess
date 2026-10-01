@@ -178,11 +178,20 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
       for (const s of view.pending.options) out.set(s, 'option');
       return out;
     }
-    // Only the first stop of each move: the rest shows up once the piece is there.
+    // First stops as usual; where a move goes on (portal, ricochet, a turn),
+    // its final squares show at once in their own colour and can be tapped directly.
     for (const m of fromSelected) {
       const first = stopsOf(m)[0];
       const cur = out.get(first);
       out.set(first, m.captures.includes(first) || cur === 'capture' ? 'capture' : 'move');
+    }
+    for (const m of fromSelected) {
+      const stops = stopsOf(m);
+      if (stops.length < 2) continue;
+      const end = stops[stops.length - 1];
+      const cur = out.get(end);
+      if (cur === 'move' || cur === 'capture') continue;
+      out.set(end, m.captures.includes(end) || cur === 'far-capture' ? 'far-capture' : 'far');
     }
     return out;
   }, [view.pending, myTurn, fromSelected, stage]);
@@ -315,6 +324,13 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
     if (selected !== null) {
       const st = startStage(fromSelected, s);
       if (st) return enter(st);
+      // A far square: the end of a move with stops, played in one tap.
+      const far = fromSelected.filter((m) => {
+        const stops = stopsOf(m);
+        return stops.length > 1 && stops[stops.length - 1] === s;
+      });
+      if (far.length === 1) return act({ type: 'move', move: far[0] });
+      if (far.length > 1) return setPopover({ square: s, moves: far });
     }
     setSelected(cell && s !== selected ? s : null);
   };
