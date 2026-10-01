@@ -58,7 +58,7 @@ export function PvpGame({ pvp, onExit, onRematch }: { pvp: PvpState; onExit: () 
               rewardSkipped: l.rewardSkipped,
               leagueUps: l.leagueUps,
               ladder: 'pvp',
-              trial: null,
+              trial: st.trial,
               profile: profile ?? s.profile,
             };
           }

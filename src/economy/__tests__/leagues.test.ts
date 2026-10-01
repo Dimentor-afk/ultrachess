@@ -165,6 +165,7 @@ describe('new trials', () => {
       await svc.seek(a.token);
       const g = (await svc.seek(b.token)).pvpId!;
       await svc.pvpResign(b.token, g); // B gives up: A wins
+      expect((await svc.pvpState(a.token, g)).trial).toMatchObject({ wins: i + 1 });
       const run = (await svc.me(a.token)).trials.arena;
       expect(run.wins).toBe(i + 1);
       expect(run.status).toBe(i === 2 ? 'won' : 'active');

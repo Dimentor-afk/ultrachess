@@ -254,6 +254,8 @@ export interface PvpState {
   /** A player-ladder game; `ladder` is what it changed for you once finished. */
   ranked: boolean;
   ladder: LadderResult | null;
+  /** The player-ladder trial this game counted for, if any. */
+  trial: TrialResult | null;
   /** When the game last moved (a stalled opponent can be timed out). */
   updatedAt: number;
 }
@@ -1250,6 +1252,7 @@ export class GameService {
       resignedBy: row.resignedBy,
       ranked: !!row.ranked,
       ladder: row.result ? ((JSON.parse(row.result) as { ladder?: Record<Color, LadderResult> }).ladder?.[color] ?? null) : null,
+      trial: row.result ? ((JSON.parse(row.result) as { trial?: Record<Color, TrialResult> }).trial?.[color] ?? null) : null,
       updatedAt: row.updatedAt,
     };
   }
@@ -1260,16 +1263,18 @@ export class GameService {
     const out: Record<string, unknown> = { winner, reason: state.result!.reason, moves: state.result!.moves };
     if (row.ranked) {
       const ladder: Partial<Record<Color, LadderResult>> = {};
+      const trial: Partial<Record<Color, TrialResult>> = {};
       for (const [id, c] of [[row.whiteId, 'w'], [row.blackId, 'b']] as [string, Color][]) {
         const outcome = winner === null ? 'draw' : winner === c ? 'win' : 'loss';
         ladder[c] = await this.settleLadder(id, 'pvp', outcome, 'Перемога в лізі гравців');
         // A player-ladder trial in progress counts this game too.
         for (const t of TRIALS.filter((x) => x.kind === 'pvp')) {
           const u = await this.store.getUser(id);
-          if (u && this.trialRuns(u)[t.id]?.status === 'active') await this.trialStep(id, t, outcome);
+          if (u && this.trialRuns(u)[t.id]?.status === 'active') trial[c] = await this.trialStep(id, t, outcome);
         }
       }
       out.ladder = ladder;
+      out.trial = trial;
     }
     return JSON.stringify(out);
   }
