@@ -15,6 +15,6 @@ export function inCheck(pos: Position, color: Color = pos.turn): boolean {
 export function hasAnyLegalTurn(pos: Position): boolean {
   const pc = pos.pending.find((p) => p.color === pos.turn);
   if (pc) return pc.options.some((o) => hasAnyLegalTurn(applyChoice(pos, o).pos));
-  if (legalMoves(pos).length > 0) return true;
+  if (legalMoves(pos, false, { limit: 1 }).length > 0) return true;
   return movesViaAbilities(pos);
 }

@@ -4,7 +4,7 @@ import { CELLS, opposite } from './coords';
 import { makeCtx } from './gen';
 import { generatorFor } from './modifiers';
 import { clonePosition, emptyHidden, findKing, isFrozen } from './position';
-import type { Color, Move, Position } from './types';
+import type { Color, Move, Position, Square } from './types';
 
 /**
  * The position as `color` believes it to be: the opponent's illusions are
@@ -55,11 +55,19 @@ function kingTakesDefended(pos: Position, m: Move, color: Color): boolean {
   return isSquareAttacked(plain, at, opposite(color), plain.ply);
 }
 
+/** Narrower searches, for when the full list is not needed. */
+export interface LegalFilter {
+  /** Only the moves of the piece on this square (checking one chosen move). */
+  from?: Square;
+  /** Stop after this many legal moves (is there any move at all?). */
+  limit?: number;
+}
+
 /**
  * Legal moves of the side to move (empty while a choice is pending).
  * `capturesOnly` skips quiet moves before the costly king-safety check.
  */
-export function legalMoves(pos: Position, capturesOnly = false): Move[] {
+export function legalMoves(pos: Position, capturesOnly = false, filter: LegalFilter = {}): Move[] {
   const color = pos.turn;
   if (pos.pending.some((pc) => pc.color === color)) return [];
   const enemy = opposite(color);
@@ -68,10 +76,13 @@ export function legalMoves(pos: Position, capturesOnly = false): Move[] {
   ctx.squareAttacked = (s) => isSquareAttacked(pos, s, enemy, ply + 1);
   const out: Move[] = [];
   let belief: Position | null = null;
-  for (let s = 0; s < CELLS; s++) {
+  const first = filter.from ?? 0;
+  const last = filter.from ?? CELLS - 1;
+  for (let s = first; s <= last; s++) {
     const p = pos.board[s];
     if (!p || p.color !== color || isFrozen(pos, p.id, ply)) continue;
     for (const m of generatorFor(p.cardId)(ctx, p, s)) {
+      if (filter.limit !== undefined && out.length >= filter.limit) return out;
       if (capturesOnly && m.captures.length === 0 && !m.promotion) continue;
       if (m.captures.some((c) => pos.board[c]?.type === 'king')) continue;
       if (barrierBlocks(pos, color, ply, m)) continue;

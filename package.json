@@ -9,8 +9,8 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "server": "tsx server/index.ts",
-    "start": "npm run build && tsx server/index.ts"
+    "server": "node --disable-warning=ExperimentalWarning --import tsx server/index.ts",
+    "start": "npm run build && npm run server"
   },
   "dependencies": {
     "react": "^19.3.0",

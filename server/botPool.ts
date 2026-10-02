@@ -44,7 +44,8 @@ export class BotPool {
   private broken = false;
   private startFailures = 0;
 
-  constructor(size = Math.max(1, Math.min(4, availableParallelism() - 1))) {
+  /** BOT_WORKERS sets the number of threads; by default one per spare CPU core (1–4). */
+  constructor(size = Number(process.env.BOT_WORKERS) || Math.max(1, Math.min(4, availableParallelism() - 1))) {
     for (let i = 0; i < size; i++) this.slots.push(this.spawn());
   }
 

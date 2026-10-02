@@ -215,7 +215,9 @@ export function performAction(state: MatchState, action: Action): MatchState {
   const color = state.turn;
   switch (action.type) {
     case 'move': {
-      const legal = legalMoves(state).find((m) => sameMove(m, action.move));
+      // Only the moving piece's moves need generating to check the chosen one.
+      const from = action.move?.from;
+      const legal = typeof from === 'number' ? legalMoves(state, false, { from }).find((m) => sameMove(m, action.move)) : undefined;
       if (!legal) throw new Error('Нелегальний хід');
       const { pos, events } = applyMoveWithEvents(state, legal);
       const publicBase = moveText(state, legal);

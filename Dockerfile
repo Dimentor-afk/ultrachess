@@ -13,4 +13,5 @@ ENV NODE_ENV=production \
     DB_FILE=/data/ultrachess.db
 RUN mkdir -p /data
 EXPOSE 8080
-CMD ["npx", "tsx", "server/index.ts"]
+# node with the tsx loader directly: `npx tsx` would keep a second Node process (~50 MB) around.
+CMD ["node", "--disable-warning=ExperimentalWarning", "--import", "tsx", "server/index.ts"]

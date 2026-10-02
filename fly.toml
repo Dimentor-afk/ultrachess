@@ -9,6 +9,12 @@ primary_region = "waw"
   PORT = "8080"
   DB_FILE = "/data/ultrachess.db"
 
+# The server with one bot thread uses ~160 MB; 256 MB (the default) leaves too little headroom.
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1
+
 [[mounts]]
   source = "ultrachess_data"
   destination = "/data"
