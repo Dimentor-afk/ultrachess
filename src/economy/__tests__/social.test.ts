@@ -74,17 +74,24 @@ describe('friend matches', () => {
     const white = sa.color === 'w' ? a : b;
     const black = sa.color === 'w' ? b : a;
     let m = createMatch(sa.whiteDeck, sa.blackDeck);
-    const first = legalMoves(m)[0];
-    // Black may not move first; an out-of-date count is refused.
-    await expect(svc.pvpAction(black.token, pvpId!, { type: 'move', move: first }, 0)).rejects.toThrow(/суперника/);
-    await svc.pvpAction(white.token, pvpId!, { type: 'move', move: first }, 0);
-    await expect(svc.pvpAction(white.token, pvpId!, { type: 'move', move: first }, 0)).rejects.toThrow();
+    // The side to move gets its legal moves and a version; the other side neither.
+    const wv = (await svc.pvpState(white.token, pvpId!)).view;
+    const bv0 = (await svc.pvpState(black.token, pvpId!)).view;
+    expect(wv.legal.length).toBeGreaterThan(0);
+    expect(wv.v).not.toBe('');
+    expect(bv0).toMatchObject({ legal: [], v: '' });
+    const first = wv.legal[0];
+    // Black may not move first; a stale version is refused.
+    await expect(svc.pvpAction(black.token, pvpId!, { type: 'move', move: first }, wv.v)).rejects.toThrow(/суперника/);
+    await svc.pvpAction(white.token, pvpId!, { type: 'move', move: first }, wv.v);
+    await expect(svc.pvpAction(white.token, pvpId!, { type: 'move', move: first }, wv.v)).rejects.toThrow();
     m = performAction(m, { type: 'move', move: first });
     expect((await svc.inbox(black.token)).yourTurn).toBe(1);
 
     // An illegal action is rejected by the replay.
+    const bv = (await svc.pvpState(black.token, pvpId!)).view;
     const bogus: Action = { type: 'move', move: { ...legalMoves(m)[0], target: parseSquare('e4'), to: parseSquare('e4') } };
-    await expect(svc.pvpAction(black.token, pvpId!, bogus, 1)).rejects.toThrow();
+    await expect(svc.pvpAction(black.token, pvpId!, bogus, bv.v)).rejects.toThrow();
 
     const state = await svc.pvpResign(black.token, pvpId!);
     expect(state.status).toBe('finished');
@@ -111,14 +118,63 @@ describe('friend matches', () => {
     // Fool's mate for black: f3 e5 g4 Qh4#.
     let m = createMatch(sa.whiteDeck, sa.blackDeck);
     const tokenOf = (c: 'w' | 'b') => ((sa.color === c ? a : b).token);
-    let n = 0;
     for (const uci of ['f2f3', 'e7e5', 'g2g4', 'd8h4']) {
       const mv = legalMoves(m).find((x) => x.from === parseSquare(uci.slice(0, 2)) && x.target === parseSquare(uci.slice(2)))!;
-      await svc.pvpAction(tokenOf(m.turn), pvpId!, { type: 'move', move: mv }, n++);
+      const { v } = (await svc.pvpState(tokenOf(m.turn), pvpId!)).view;
+      await svc.pvpAction(tokenOf(m.turn), pvpId!, { type: 'move', move: mv }, v);
       m = performAction(m, { type: 'move', move: mv });
     }
     expect(m.result?.winner).toBe('b');
     expect((await svc.pvpState(a.token, pvpId!)).status).toBe('finished');
+  });
+});
+
+describe('watching and hidden information', () => {
+  /** A friend game between A and B (both with Безсмертна), and C who only watches. */
+  async function game() {
+    const { svc, store, a, b } = await twoPlayers();
+    const c = await svc.register('c@c.com', 'secret1', 'Глядач');
+    for (const pl of [a, b]) {
+      for (const id of ['pawn-classic', 'knight-classic', 'bishop-classic', 'rook-classic', 'queen-immortal', 'king-classic']) {
+        await store.addCard(pl.profile.id, id);
+      }
+      await svc.saveDeck(pl.token, { ...classicDeck('imm', 'Безсмертна'), queen: 'queen-immortal' });
+      await svc.setActiveDeck(pl.token, 'imm');
+    }
+    await svc.addFriend(a.token, b.profile.id);
+    await svc.addFriend(b.token, a.profile.id);
+    await svc.challengeFriend(a.token, b.profile.id);
+    const { pvpId } = await svc.respondChallenge(b.token, (await svc.challenges(b.token)).incoming[0].id, true);
+    const sa = await svc.pvpState(a.token, pvpId!);
+    const white = sa.color === 'w' ? a : b;
+    const black = sa.color === 'w' ? b : a;
+    return { svc, id: pvpId!, white, black, c };
+  }
+
+  it('anyone with the link can watch, but only players can act', async () => {
+    const { svc, id, white, c } = await game();
+    const spec = await svc.pvpState(c.token, id);
+    expect(spec.color).toBeNull();
+    expect(spec.view).toMatchObject({ you: null, legal: [], v: '' });
+    const move = (await svc.pvpState(white.token, id)).view.legal[0];
+    await expect(svc.pvpAction(c.token, id, { type: 'move', move }, '')).rejects.toThrow();
+    await expect(svc.pvpResign(c.token, id)).rejects.toThrow();
+  });
+
+  it("the opponent's and a spectator's views do not change when Безсмертна is armed", async () => {
+    const { svc, id, white, black, c } = await game();
+    const events: string[] = [];
+    svc.onEvent = (e) => events.push(e.type);
+    const before = { b: (await svc.pvpState(black.token, id)).view, c: (await svc.pvpState(c.token, id)).view };
+    const wv = (await svc.pvpState(white.token, id)).view;
+    const queen = wv.state.board.find((p) => p?.cardId === 'queen-immortal' && p.color === 'w')!;
+    const armed = await svc.pvpAction(white.token, id, { type: 'ability', pieceId: queen.id, key: 'arm' }, wv.v);
+    expect(armed.view.state.hiddenState.w.immortalPly).not.toBeNull();
+    expect((await svc.pvpState(black.token, id)).view).toEqual(before.b);
+    expect((await svc.pvpState(c.token, id)).view).toEqual(before.c);
+    expect(JSON.stringify((await svc.pvpState(black.token, id)).view)).not.toMatch(/Безсмертна:|"immortalPly":\d/);
+    // Live screens are told that the game changed (the hub sends each viewer only what changed for them).
+    expect(events).toContain('game');
   });
 });
 

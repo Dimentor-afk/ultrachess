@@ -10,6 +10,7 @@ import { promisify } from 'node:util';
 import { ADMIN_EMAILS, ApiError, GameService } from '../src/economy/service';
 import type { Hasher } from '../src/economy/store';
 import { BotPool } from './botPool';
+import { Hub } from './hub';
 import { SqliteStore } from './sqliteStore';
 
 const PORT = Number(process.env.PORT ?? 8080);
@@ -209,7 +210,7 @@ const routes: [string, RegExp, Handler][] = [
     'POST',
     /^matches\/(\w+)\/action$/,
     ({ token, params, body }) =>
-      svc.matchAction(token, params[0], body.action && typeof body.action === 'object' ? (body.action as never) : null, Number(body.expected)),
+      svc.matchAction(token, params[0], body.action && typeof body.action === 'object' ? (body.action as never) : null, String(body.v ?? '')),
   ],
   ['POST', /^matches\/(\w+)\/finish$/, ({ token, params, body }) => svc.finishMatch(token, params[0], !!body.resigned)],
   ['GET', /^leaderboard$/, () => svc.leaderboard()],
@@ -234,7 +235,7 @@ const routes: [string, RegExp, Handler][] = [
   ['POST', /^challenges\/(\w+)\/respond$/, ({ token, params, body }) =>
     svc.respondChallenge(token, params[0], !!body.accept, body.deckId ? String(body.deckId) : undefined)],
   ['GET', /^pvp\/(\w+)$/, ({ token, params }) => svc.pvpState(token, params[0])],
-  ['POST', /^pvp\/(\w+)\/action$/, ({ token, params, body }) => svc.pvpAction(token, params[0], body.action as never, Number(body.expected))],
+  ['POST', /^pvp\/(\w+)\/action$/, ({ token, params, body }) => svc.pvpAction(token, params[0], body.action as never, String(body.v ?? ''))],
   ['POST', /^pvp\/(\w+)\/resign$/, ({ token, params }) => svc.pvpResign(token, params[0])],
   ['POST', /^pvp\/(\w+)\/claim$/, ({ token, params }) => svc.pvpClaim(token, params[0])],
   ['POST', /^seek$/, ({ token, body }) => svc.seek(token, body.deckId ? String(body.deckId) : undefined)],
@@ -282,6 +283,9 @@ function serveStatic(req: IncomingMessage, res: ServerResponse): void {
   } catch {
     return void res.writeHead(400).end();
   }
+  // A game's address typed or shared without the # (example.com/game/<id>): the app routes by hash.
+  const room = /^\/game\/([\w-]+)\/?$/.exec(url);
+  if (room) return void res.writeHead(302, { Location: `/#/game/${room[1]}` }).end();
   let file = normalize(join(DIST, url));
   if (file !== DIST && !file.startsWith(DIST + sep)) return void res.writeHead(403).end();
   if (!existsSync(file) || statSync(file).isDirectory()) file = join(DIST, 'index.html');
@@ -335,6 +339,9 @@ const server = createServer(async (req, res) => {
   }
 });
 
+// Live games: WebSocket on the same port (/api/ws).
+const hub = new Hub(server, svc, tokenOf, sameOrigin);
+
 await svc.init();
 // Expired sessions pile up otherwise: clean them at start and once a day.
 await store.purgeSessions(Date.now());
@@ -346,6 +353,7 @@ server.listen(PORT, () => {
 // Hosts stop containers with SIGTERM: finish open requests, then exit.
 for (const signal of ['SIGTERM', 'SIGINT'] as const) {
   process.on(signal, () => {
+    hub.close();
     server.close(() => void bots.close().finally(() => process.exit(0)));
     setTimeout(() => process.exit(0), 5000).unref();
   });

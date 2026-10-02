@@ -11,6 +11,8 @@ import {
   type ChallengeView,
   type Collection,
   type FriendsView,
+  type GameView,
+  type LiveGame as LiveGameRow,
   type HistoryRow,
   type Inbox,
   type PlayerCard,
@@ -32,9 +34,12 @@ import type { Hasher, Role } from '../economy/store';
 import type { Action } from '../engine/match';
 import type { Deck } from '../engine/types';
 import { requestBotTurn } from '../ui/botClient';
+import { LiveSocket, liveUrl } from './live';
 
 export { ApiError };
 export type {
+  GameView,
+  LiveGameRow,
   AdminUser,
   ChallengeView,
   Collection,
@@ -85,7 +90,11 @@ export interface Api {
   setActiveDeck(id: string): Promise<Profile>;
   startMatch(opts: { deckId?: string; ranked: boolean; level?: number; trial?: string }): Promise<MatchStart>;
   /** Send the player's action (or null to let the bot move); the answer is the server's record of the game. */
-  matchAction(id: string, action: Action | null, expected: number): Promise<{ actions: Action[] }>;
+  /**
+   * Bot games: send the player's action (null: let the bot move, or just fetch
+   * the game) with the version `v` of the view it was made on.
+   */
+  matchAction(id: string, action: Action | null, v: string): Promise<{ view: GameView; stale?: boolean }>;
   finishMatch(id: string, resigned: boolean): Promise<MatchFinish>;
   leaderboard(): Promise<LeaderRow[]>;
   adminUsers(): Promise<AdminUser[]>;
@@ -109,12 +118,14 @@ export interface Api {
   challengeFriend(friendId: string, deckId?: string): Promise<void>;
   respondChallenge(id: string, accept: boolean, deckId?: string): Promise<{ pvpId: string | null }>;
   pvpState(id: string): Promise<PvpState>;
-  pvpAction(id: string, action: Action, expected: number): Promise<PvpState>;
+  pvpAction(id: string, action: Action, v: string): Promise<PvpState>;
   pvpResign(id: string): Promise<PvpState>;
   pvpClaim(id: string): Promise<PvpState>;
   seek(deckId?: string): Promise<{ pvpId: string | null; searching: number }>;
   cancelSeek(): Promise<void>;
   enterTrial(id: string): Promise<Profile>;
+  /** Live updates over WebSocket (server mode); the browser demo polls instead. */
+  live?: LiveSocket;
   /** Browser demo only: delete every demo account stored in this browser. */
   resetDemo?(): Promise<void>;
 }
@@ -146,7 +157,16 @@ class HttpApi implements Api {
   }
   register = (email: string, password: string, name: string) => this.call<Profile>('POST', 'auth/register', { email, password, name });
   login = (email: string, password: string) => this.call<Profile>('POST', 'auth/login', { email, password });
-  logout = () => this.call<void>('POST', 'auth/logout', {});
+  logout = async () => {
+    this.socket?.close();
+    this.socket = undefined;
+    await this.call<void>('POST', 'auth/logout', {});
+  };
+  private socket: LiveSocket | undefined;
+  /** Opened on first use (signed in by then: the socket is authenticated by the session cookie). */
+  get live(): LiveSocket {
+    return (this.socket ??= new LiveSocket(liveUrl()));
+  }
   collection = () => this.call<Collection>('GET', 'collection');
   packs = () => this.call<PackView[]>('GET', 'packs');
   openPack = (id: string) => this.call<OpenResult>('POST', `packs/${id}/open`, {});
@@ -161,8 +181,8 @@ class HttpApi implements Api {
   deleteDeck = (id: string) => this.call<Deck[]>('DELETE', `decks/${id}`);
   setActiveDeck = (id: string) => this.call<Profile>('POST', 'decks/active', { id });
   startMatch = (opts: { deckId?: string; ranked: boolean; level?: number; trial?: string }) => this.call<MatchStart>('POST', 'matches', opts);
-  matchAction = (id: string, action: Action | null, expected: number) =>
-    this.call<{ actions: Action[] }>('POST', `matches/${id}/action`, { action, expected });
+  matchAction = (id: string, action: Action | null, v: string) =>
+    this.call<{ view: GameView; stale?: boolean }>('POST', `matches/${id}/action`, { action, v });
   finishMatch = (id: string, resigned: boolean) => this.call<MatchFinish>('POST', `matches/${id}/finish`, { resigned });
   leaderboard = () => this.call<LeaderRow[]>('GET', 'leaderboard');
   adminUsers = () => this.call<AdminUser[]>('GET', 'admin/users');
@@ -188,7 +208,7 @@ class HttpApi implements Api {
   respondChallenge = (id: string, accept: boolean, deckId?: string) =>
     this.call<{ pvpId: string | null }>('POST', `challenges/${id}/respond`, { accept, deckId });
   pvpState = (id: string) => this.call<PvpState>('GET', `pvp/${id}`);
-  pvpAction = (id: string, action: Action, expected: number) => this.call<PvpState>('POST', `pvp/${id}/action`, { action, expected });
+  pvpAction = (id: string, action: Action, v: string) => this.call<PvpState>('POST', `pvp/${id}/action`, { action, v });
   pvpResign = (id: string) => this.call<PvpState>('POST', `pvp/${id}/resign`, {});
   pvpClaim = (id: string) => this.call<PvpState>('POST', `pvp/${id}/claim`, {});
   seek = (deckId?: string) => this.call<{ pvpId: string | null; searching: number }>('POST', 'seek', { deckId });
@@ -308,7 +328,7 @@ class LocalApi implements Api {
   deleteDeck = async (id: string) => this.svc.deleteDeck(await this.t(), id);
   setActiveDeck = async (id: string) => this.svc.setActiveDeck(await this.t(), id);
   startMatch = async (opts: { deckId?: string; ranked: boolean; level?: number; trial?: string }) => this.svc.startMatch(await this.t(), opts);
-  matchAction = async (id: string, action: Action | null, expected: number) => this.svc.matchAction(await this.t(), id, action, expected);
+  matchAction = async (id: string, action: Action | null, v: string) => this.svc.matchAction(await this.t(), id, action, v);
   finishMatch = async (id: string, resigned: boolean) => this.svc.finishMatch(await this.t(), id, resigned);
   leaderboard = async () => {
     await this.t();
@@ -336,7 +356,7 @@ class LocalApi implements Api {
   challengeFriend = async (friendId: string, deckId?: string) => this.svc.challengeFriend(await this.t(), friendId, deckId);
   respondChallenge = async (id: string, accept: boolean, deckId?: string) => this.svc.respondChallenge(await this.t(), id, accept, deckId);
   pvpState = async (id: string) => this.svc.pvpState(await this.t(), id);
-  pvpAction = async (id: string, action: Action, expected: number) => this.svc.pvpAction(await this.t(), id, action, expected);
+  pvpAction = async (id: string, action: Action, v: string) => this.svc.pvpAction(await this.t(), id, action, v);
   pvpResign = async (id: string) => this.svc.pvpResign(await this.t(), id);
   pvpClaim = async (id: string) => this.svc.pvpClaim(await this.t(), id);
   seek = async (deckId?: string) => this.svc.seek(await this.t(), deckId);

@@ -4,7 +4,8 @@
 import { CARDS, CARD_BY_ID } from '../engine/cards';
 import { DECK_SLOTS, classicDeck, deckPositions, validateDeck } from '../engine/deck';
 import { type Action, type MatchState, createMatch, performAction, resign } from '../engine/match';
-import type { Color, Deck, PieceType, Rarity } from '../engine/types';
+import { secureState } from '../engine/secure';
+import type { Color, Deck, Move, PieceType, Rarity } from '../engine/types';
 import { PACK_SHARD_PRICE, type PackType, RARITIES, type Rng, SHARDS_PER_DUPE, packGold, packName, rollPack } from './packs';
 import {
   BOT_LEAGUES,
@@ -139,11 +140,36 @@ export interface OpenResult {
  */
 export type BotRunner = (state: MatchState, color: Color, opts: BotOptions) => Promise<BotTurn>;
 
+/**
+ * A game as one viewer sees it. The server never sends the real game state:
+ * a player gets it without the opponent's hidden information, a spectator
+ * without anyone's (see engine/secure.ts).
+ */
+export interface GameView {
+  /** The viewer's side; null for a spectator. */
+  you: Color | null;
+  state: MatchState;
+  /** The viewer's legal moves, worked out by the server, when it is their turn. */
+  legal: Move[];
+  /**
+   * Version of the game, sent back with the next action so a stale move is
+   * refused. Random per position (it does not count actions: that would
+   * give hidden actions away). Empty when the viewer cannot act.
+   */
+  v: string;
+}
+
+/** Something that the open screens of these users should pick up (live updates). */
+export type ServiceEvent =
+  | { type: 'game'; id: string; users: string[] }
+  | { type: 'matched'; id: string; users: string[] }
+  | { type: 'nudge'; users: string[] };
+
 export interface MatchStart {
   matchId: string;
   ranked: boolean;
-  /** Actions already played: a game that was left unfinished goes on from here. */
-  actions: Action[];
+  /** The game so far: a game that was left unfinished goes on from here. */
+  view: GameView;
   /** Set for a trial match. */
   trial?: { id: string; name: string; round: number; rounds: number };
   color: Color;
@@ -205,6 +231,8 @@ export interface FriendsView {
   friends: (PlayerCard & { linkId: string })[];
   incoming: (PlayerCard & { linkId: string })[];
   outgoing: (PlayerCard & { linkId: string })[];
+  /** Friends' games in progress (to watch). */
+  live: LiveGame[];
 }
 
 export interface PublicProfile extends PlayerCard {
@@ -251,14 +279,15 @@ export interface PvpSummary {
 
 export interface PvpState {
   id: string;
-  color: Color;
+  /** Your side; null when you are watching someone else's game. */
+  color: Color | null;
   /** Each side's capture effect. */
   captureFx: Record<Color, string>;
-  you: PlayerCard;
-  opponent: PlayerCard;
+  white: PlayerCard;
+  black: PlayerCard;
   whiteDeck: Deck;
   blackDeck: Deck;
-  actions: Action[];
+  view: GameView;
   status: 'active' | 'finished';
   resignedBy: Color | null;
   /** A player-ladder game; `ladder` is what it changed for you once finished. */
@@ -266,8 +295,15 @@ export interface PvpState {
   ladder: LadderResult | null;
   /** The player-ladder trial this game counted for, if any. */
   trial: TrialResult | null;
-  /** When the game last moved (a stalled opponent can be timed out). */
-  updatedAt: number;
+}
+
+/** A friend's game in progress, open to watch. */
+export interface LiveGame {
+  id: string;
+  white: PlayerCard;
+  black: PlayerCard;
+  ranked: boolean;
+  moves: number;
 }
 
 export interface Inbox {
@@ -689,6 +725,11 @@ export class GameService {
     return BOARD_THEMES.filter((t) => t.price === 0 || bought.includes(t.id)).map((t) => t.id);
   }
 
+  /** The signed-in user's id (the WebSocket hub checks a connection's session with it). */
+  async userIdOf(token: string): Promise<string> {
+    return (await this.auth(token)).id;
+  }
+
   async me(token: string): Promise<Profile> {
     return this.profileOf((await this.auth(token)).id);
   }
@@ -971,7 +1012,7 @@ export class GameService {
     return {
       matchId: m.id,
       ranked: m.ranked,
-      actions: m.actions,
+      view: this.matchView(m, this.replayMatch(m), m.actions.length),
       color: m.color,
       botLevel: m.botLevel,
       playerDeck: m.playerDeck,
@@ -984,9 +1025,16 @@ export class GameService {
     return m.mode || (m.ranked ? 'bot' : 'training');
   }
 
+  private matchView(m: MatchRow, state: MatchState, n: number): GameView {
+    return this.gameView(`match:${m.id}`, state, m.color, n, m.status === 'active');
+  }
+
   private replayMatch(m: MatchRow): MatchState {
-    return this.replay(`match:${m.id}`, m.actions, () =>
-      m.color === 'w' ? createMatch(m.playerDeck, m.botDeck) : createMatch(m.botDeck, m.playerDeck),
+    return this.replay(
+      `match:${m.id}`,
+      m.actions,
+      () => (m.color === 'w' ? createMatch(m.playerDeck, m.botDeck) : createMatch(m.botDeck, m.playerDeck)),
+      `${m.color}:${JSON.stringify(m.playerDeck)}:${JSON.stringify(m.botDeck)}`,
     );
   }
 
@@ -996,15 +1044,70 @@ export class GameService {
    * records only ever grow, so the last state of each game is kept and only
    * the new actions are played on top of it.
    */
-  private replays = new Map<string, { n: number; state: MatchState }>();
+  private replays = new Map<string, { n: number; state: MatchState; sig: string }>();
 
-  private replay(key: string, actions: Action[], fresh: () => MatchState): MatchState {
-    const hit = this.replays.get(key);
-    let state = hit && hit.n <= actions.length ? hit.state : fresh();
-    for (let i = hit && hit.n <= actions.length ? hit.n : 0; i < actions.length; i++) state = performAction(state, actions[i]);
+  // ── Views ──
+
+  /** Opaque ids of hidden pieces, per game (stable while the server runs). */
+  private opaqueIds = new Map<string, Map<string, string>>();
+  /** The current version token of each game. */
+  private versions = new Map<string, { n: number; v: string }>();
+
+  private opaqueFor(key: string): (id: string) => string {
+    let ids = this.opaqueIds.get(key);
+    if (!ids) {
+      ids = new Map();
+      this.opaqueIds.set(key, ids);
+      if (this.opaqueIds.size > REPLAY_CACHE) this.opaqueIds.delete(this.opaqueIds.keys().next().value!);
+    }
+    const map = ids;
+    return (id) => {
+      let x = map.get(id);
+      if (!x) map.set(id, (x = `x${randomId(5)}`));
+      return x;
+    };
+  }
+
+  private versionOf(key: string, n: number): string {
+    const cur = this.versions.get(key);
+    if (cur && cur.n === n) return cur.v;
+    const v = randomId(6);
+    this.versions.delete(key);
+    this.versions.set(key, { n, v });
+    if (this.versions.size > REPLAY_CACHE * 4) this.versions.delete(this.versions.keys().next().value!);
+    return v;
+  }
+
+  private gameView(key: string, state: MatchState, viewer: Color | null, n: number, active: boolean): GameView {
+    const canAct = active && viewer !== null && !state.result && state.turn === viewer;
+    return {
+      you: viewer,
+      state: secureState(state, viewer, this.opaqueFor(key)),
+      legal: canAct ? legalMoves(state) : [],
+      v: canAct ? this.versionOf(key, n) : '',
+    };
+  }
+
+  /** Live updates: the server's WebSocket hub listens; the browser demo polls instead. */
+  onEvent: ((e: ServiceEvent) => void) | null = null;
+
+  private emit(e: ServiceEvent): void {
+    try {
+      this.onEvent?.(e);
+    } catch (err) {
+      console.error('Event listener failed:', err);
+    }
+  }
+
+  /** `sig` describes the game's setup: a cached state of a different setup is not reused. */
+  private replay(key: string, actions: Action[], fresh: () => MatchState, sig = ''): MatchState {
+    const cached = this.replays.get(key);
+    const hit = cached && cached.n <= actions.length && cached.sig === sig ? cached : null;
+    let state = hit ? hit.state : fresh();
+    for (let i = hit ? hit.n : 0; i < actions.length; i++) state = performAction(state, actions[i]);
     // Most recently used last; the oldest entries go first.
     this.replays.delete(key);
-    this.replays.set(key, { n: actions.length, state });
+    this.replays.set(key, { n: actions.length, state, sig });
     if (this.replays.size > REPLAY_CACHE) this.replays.delete(this.replays.keys().next().value!);
     return state;
   }
@@ -1044,18 +1147,21 @@ export class GameService {
   /**
    * Play one of the player's actions in a bot game and answer with the bot's.
    * The server keeps the record and plays the bot itself, so the player
-   * cannot make the bot lose. `action: null` only lets the bot move (it starts
-   * as white, or the game was resumed). If `expected` (the number of actions
-   * the client has) is out of date, nothing is played and the client gets the
-   * record to catch up with.
+   * cannot make the bot lose; the answer is the player's view of the game.
+   * `v` is the version of the view the player acted on: a stale action is
+   * not played (`stale: true`, the answer is the current view). `action: null`
+   * lets the bot move (it opens as white, or the game was resumed) and also
+   * just fetches the view, e.g. after a reconnect.
    */
-  async matchAction(token: string, matchId: string, action: Action | null, expected: number): Promise<{ actions: Action[] }> {
+  async matchAction(token: string, matchId: string, action: Action | null, v: string): Promise<{ view: GameView; stale?: boolean }> {
     const u = await this.auth(token);
     const m = await this.store.getMatch(matchId);
     if (!m || m.userId !== u.id) throw new ApiError(404, 'Матч не знайдено.');
-    if (expected !== m.actions.length || m.status !== 'active') return { actions: m.actions };
-    if (m.actions.length > 3000) throw new ApiError(400, 'Забагато ходів.');
     let state = this.replayMatch(m);
+    const n = m.actions.length;
+    if (m.status !== 'active') return { view: this.matchView(m, state, n), stale: !!action };
+    if (action && v !== this.versionOf(`match:${m.id}`, n)) return { view: this.matchView(m, state, n), stale: true };
+    if (n > 3000) throw new ApiError(400, 'Забагато ходів.');
     const actions = [...m.actions];
     const botColor: Color = m.color === 'w' ? 'b' : 'w';
     if (action) {
@@ -1075,13 +1181,12 @@ export class GameService {
       state = r.state;
       actions.push(...r.actions);
     }
-    if (actions.length !== m.actions.length) {
-      // Another request on this game got there first: send the stored record instead.
-      if (!(await this.store.updateMatch(m.id, { actions }, m.actions.length))) {
-        return { actions: (await this.store.getMatch(m.id))!.actions };
-      }
+    if (actions.length !== n && !(await this.store.updateMatch(m.id, { actions }, n))) {
+      // Another request on this game got there first: answer with the stored game.
+      const fresh = (await this.store.getMatch(m.id))!;
+      return { view: this.matchView(fresh, this.replayMatch(fresh), fresh.actions.length), stale: true };
     }
-    return { actions };
+    return { view: this.matchView(m, state, actions.length) };
   }
 
   /**
@@ -1263,7 +1368,7 @@ export class GameService {
 
   async friends(token: string): Promise<FriendsView> {
     const me = await this.auth(token);
-    const view: FriendsView = { friends: [], incoming: [], outgoing: [] };
+    const view: FriendsView = { friends: [], incoming: [], outgoing: [], live: [] };
     for (const f of await this.store.listFriends(me.id)) {
       const other = f.fromId === me.id ? f.toId : f.fromId;
       const entry = { ...(await this.cardOf(other)), linkId: f.id };
@@ -1272,6 +1377,22 @@ export class GameService {
       else view.outgoing.push(entry);
     }
     view.friends.sort((a, b) => Number(b.online) - Number(a.online) || b.trophies - a.trophies);
+    // Friends' games in progress, to watch (not your own: you play those).
+    const seen = new Set<string>();
+    for (const f of view.friends) {
+      for (const p of await this.store.listPvp(f.id, 5)) {
+        if (p.status !== 'active' || seen.has(p.id) || p.whiteId === me.id || p.blackId === me.id) continue;
+        seen.add(p.id);
+        view.live.push({
+          id: p.id,
+          white: await this.cardOf(p.whiteId),
+          black: await this.cardOf(p.blackId),
+          ranked: !!p.ranked,
+          // Half-moves, not actions: the action count would give hidden ones away.
+          moves: this.replayPvp(p).ply,
+        });
+      }
+    }
     return view;
   }
 
@@ -1286,6 +1407,7 @@ export class GameService {
     // They asked first: adding them back accepts the request.
     if (link) await this.store.updateFriend(link.id, { status: 'accepted' });
     else await this.store.insertFriend({ id: randomId(8), fromId: me.id, toId: userId, status: 'pending', createdAt: this.now() });
+    this.emit({ type: 'nudge', users: [userId] });
     return this.friends(token);
   }
 
@@ -1295,6 +1417,7 @@ export class GameService {
     if (!link || link.toId !== me.id || link.status !== 'pending') throw new ApiError(404, 'Заявку не знайдено.');
     if (accept) await this.store.updateFriend(link.id, { status: 'accepted' });
     else await this.store.deleteFriend(link.id);
+    this.emit({ type: 'nudge', users: [link.fromId] });
     return this.friends(token);
   }
 
@@ -1346,7 +1469,8 @@ export class GameService {
         yourTurn: !!state && state.turn === color,
         status: p.status,
         outcome: !r ? null : r.winner === null ? 'draw' : r.winner === color ? 'win' : 'loss',
-        moves: state ? state.history.length : (JSON.parse(p.actions) as unknown[]).length,
+        // Half-moves, not actions or history lines: those would count the opponent's hidden actions.
+        moves: state ? state.ply : (JSON.parse(p.actions) as unknown[]).length,
         updatedAt: p.updatedAt,
         ranked: !!p.ranked,
       });
@@ -1363,6 +1487,7 @@ export class GameService {
     if (pending) throw new ApiError(409, pending.fromId === me.id ? 'Виклик уже надіслано.' : 'Цей друг уже викликав вас — прийміть виклик.');
     const deck = await this.playableDeck(me.id, deckId);
     await this.store.insertChallenge({ id: randomId(8), fromId: me.id, toId: friendId, fromDeck: deck, status: 'pending', pvpId: null, createdAt: this.now() });
+    this.emit({ type: 'nudge', users: [friendId] });
   }
 
   async respondChallenge(token: string, id: string, accept: boolean, deckId?: string): Promise<{ pvpId: string | null }> {
@@ -1371,6 +1496,7 @@ export class GameService {
     if (!c || c.status !== 'pending' || (c.toId !== me.id && c.fromId !== me.id)) throw new ApiError(404, 'Виклик не знайдено.');
     if (!accept || c.fromId === me.id) {
       await this.store.updateChallenge(c.id, { status: c.fromId === me.id ? 'cancelled' : 'declined' });
+      this.emit({ type: 'nudge', users: [c.fromId === me.id ? c.toId : c.fromId] });
       return { pvpId: null };
     }
     const deck = await this.playableDeck(me.id, deckId);
@@ -1391,6 +1517,7 @@ export class GameService {
     };
     await this.store.insertPvp(row);
     await this.store.updateChallenge(c.id, { status: 'accepted', pvpId: row.id });
+    this.emit({ type: 'matched', id: row.id, users: [c.fromId] });
     return { pvpId: row.id };
   }
 
@@ -1405,24 +1532,31 @@ export class GameService {
     return { row, color: row.whiteId === userId ? 'w' : 'b' };
   }
 
-  private async pvpView(row: PvpRow, color: Color): Promise<PvpState> {
+  /** A player of the game, or anyone else as a spectator (game ids are unguessable: the link is the invitation). */
+  private async pvpRole(userId: string, id: string): Promise<{ row: PvpRow; color: Color | null }> {
+    const row = await this.store.getPvp(id);
+    if (!row) throw new ApiError(404, 'Партію не знайдено.');
+    return { row, color: row.whiteId === userId ? 'w' : row.blackId === userId ? 'b' : null };
+  }
+
+  private async pvpView(row: PvpRow, color: Color | null): Promise<PvpState> {
     const w = await this.store.getUser(row.whiteId);
     const b = await this.store.getUser(row.blackId);
+    const result = row.result ? (JSON.parse(row.result) as { ladder?: Record<Color, LadderResult>; trial?: Record<Color, TrialResult> }) : null;
     return {
       id: row.id,
       color,
       captureFx: { w: captureFxById(w?.captureFx).id, b: captureFxById(b?.captureFx).id },
-      you: await this.cardOf(color === 'w' ? row.whiteId : row.blackId),
-      opponent: await this.cardOf(color === 'w' ? row.blackId : row.whiteId),
+      white: await this.cardOf(row.whiteId),
+      black: await this.cardOf(row.blackId),
       whiteDeck: row.whiteDeck,
       blackDeck: row.blackDeck,
-      actions: JSON.parse(row.actions),
+      view: this.gameView(`pvp:${row.id}`, this.replayPvp(row), color, (JSON.parse(row.actions) as unknown[]).length, row.status === 'active'),
       status: row.status,
       resignedBy: row.resignedBy,
       ranked: !!row.ranked,
-      ladder: row.result ? ((JSON.parse(row.result) as { ladder?: Record<Color, LadderResult> }).ladder?.[color] ?? null) : null,
-      trial: row.result ? ((JSON.parse(row.result) as { trial?: Record<Color, TrialResult> }).trial?.[color] ?? null) : null,
-      updatedAt: row.updatedAt,
+      ladder: color && result?.ladder?.[color] ? result.ladder[color] : null,
+      trial: color && result?.trial?.[color] ? result.trial[color] : null,
     };
   }
 
@@ -1483,6 +1617,7 @@ export class GameService {
         updatedAt: this.now(),
       };
       await this.store.insertPvp(row);
+      this.emit({ type: 'matched', id: row.id, users: [other.userId] });
       return { pvpId: row.id, searching: 0 };
     }
     await this.store.putSeek({ userId: me.id, deck, updatedAt: this.now() });
@@ -1508,25 +1643,29 @@ export class GameService {
     const patch: Partial<PvpRow> = { status: 'finished', resignedBy: other, updatedAt: this.now(), result: await this.pvpResult(row, done) };
     await this.store.updatePvp(row.id, patch);
     await this.pvpQuests(row, done.result!.winner);
+    this.emit({ type: 'game', id: row.id, users: [row.whiteId, row.blackId] });
     return this.pvpView({ ...row, ...patch }, color);
   }
 
+  /** The game for a player, or for a spectator (anyone signed in who has the game's link). */
   async pvpState(token: string, id: string): Promise<PvpState> {
     const me = await this.auth(token);
-    const { row, color } = await this.pvpFor(me.id, id);
+    const { row, color } = await this.pvpRole(me.id, id);
     return this.pvpView(row, color);
   }
 
   /**
-   * Play one action in a friend match. The server replays the game and checks
-   * that it is this player's turn and the action is legal.
+   * Play one action in a player game. The server replays the game and checks
+   * that it is this player's turn, that `v` is the version they saw, and that
+   * the action is legal. Then everyone watching gets the new view.
    */
-  async pvpAction(token: string, id: string, action: Action, expected: number): Promise<PvpState> {
+  async pvpAction(token: string, id: string, action: Action, v: string): Promise<PvpState> {
     const me = await this.auth(token);
     const { row, color } = await this.pvpFor(me.id, id);
     if (row.status !== 'active') throw new ApiError(409, 'Партію завершено.');
     const actions = JSON.parse(row.actions) as Action[];
-    if (actions.length !== expected) throw new ApiError(409, 'Позиція змінилась — оновіть партію.');
+    const expected = actions.length;
+    if (v !== this.versionOf(`pvp:${row.id}`, expected)) throw new ApiError(409, 'Позиція змінилась — оновлюємо партію.');
     const state = this.replayPvp(row);
     if (state.turn !== color) throw new ApiError(409, 'Зараз хід суперника.');
     let next: MatchState;
@@ -1536,8 +1675,10 @@ export class GameService {
       throw new ApiError(400, 'Такий хід неможливий.');
     }
     actions.push(action);
-    const patch: Partial<PvpRow> = { actions: JSON.stringify(actions), updatedAt: this.now() };
-    if (!(await this.store.updatePvp(row.id, patch, expected))) throw new ApiError(409, 'Позиція змінилась — оновіть партію.');
+    // A hidden action (Безсмертна, Підказка) must not even show as "the opponent did something".
+    const hidden = next.history[next.history.length - 1]?.text === null;
+    const patch: Partial<PvpRow> = { actions: JSON.stringify(actions), updatedAt: hidden ? row.updatedAt : this.now() };
+    if (!(await this.store.updatePvp(row.id, patch, expected))) throw new ApiError(409, 'Позиція змінилась — оновлюємо партію.');
     if (next.result) {
       // Settle only after the move is written, so a race cannot pay twice.
       const fin: Partial<PvpRow> = { status: 'finished', result: await this.pvpResult(row, next) };
@@ -1545,6 +1686,7 @@ export class GameService {
       Object.assign(patch, fin);
     }
     if (next.result) await this.pvpQuests(row, next.result.winner);
+    this.emit({ type: 'game', id: row.id, users: [row.whiteId, row.blackId] });
     return this.pvpView({ ...row, ...patch }, color);
   }
 
@@ -1561,6 +1703,7 @@ export class GameService {
     };
     await this.store.updatePvp(row.id, patch);
     await this.pvpQuests(row, state.result!.winner);
+    this.emit({ type: 'game', id: row.id, users: [row.whiteId, row.blackId] });
     return this.pvpView({ ...row, ...patch }, color);
   }
 

@@ -39,11 +39,12 @@ const scripted: BotRunner = async (state) => ({ actions: [bot.line[state.history
 /** Play the player's (white's) side of `line` through the server; the scripted bot plays the rest. */
 async function playLine(svc: GameService, token: string, matchId: string, line: Action[]) {
   bot.line = line;
-  let n = 0;
-  while (n < line.length) {
-    const r = await svc.matchAction(token, matchId, line[n], n);
-    if (r.actions.length <= n) throw new Error('the server did not take the move');
-    n = r.actions.length;
+  let view = (await svc.matchAction(token, matchId, null, '')).view;
+  // No hidden actions in these lines: the history counts the actions played.
+  while (!view.state.result && view.state.history.length < line.length) {
+    const r = await svc.matchAction(token, matchId, line[view.state.history.length], view.v);
+    if (r.stale) throw new Error('the server did not take the move');
+    view = r.view;
   }
 }
 
@@ -125,10 +126,12 @@ describe('trials', () => {
     await svc.enterTrial(token, 'classic');
     const s2 = await svc.startMatch(token, { ranked: false, trial: 'classic' });
     store.data.matches.find((m) => m.id === s2.matchId)!.color = 'w';
-    await svc.matchAction(token, s2.matchId, WHITE_MATES[0], 0);
+    bot.line = WHITE_MATES;
+    const v = (await svc.matchAction(token, s2.matchId, null, '')).view.v;
+    await svc.matchAction(token, s2.matchId, WHITE_MATES[0], v);
     const again = await svc.startMatch(token, { ranked: false, trial: 'classic' });
     expect(again.matchId).toBe(s2.matchId);
-    expect(again.actions).toHaveLength(2);
+    expect(again.view.state.history).toHaveLength(2);
     expect(again.trial).toMatchObject({ round: 1, rounds: 3 });
     // Resigning it ends the run.
     expect((await svc.finishMatch(token, s2.matchId, true)).trial).toMatchObject({ status: 'lost' });

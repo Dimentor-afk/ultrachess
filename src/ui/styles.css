@@ -8352,3 +8352,45 @@ button.hb-slot {
     background-position: -200% 0;
   }
 }
+
+/* Live games: connection state, spectators, friends' games to watch. */
+.link-lost {
+  margin: 0.45rem 0 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 0.3rem 0.6rem;
+  border-radius: 10px;
+  color: #ffd8a8;
+  background: rgba(255, 140, 50, 0.16);
+  border: 1px solid rgba(255, 140, 50, 0.45);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.watchers {
+  display: inline-block;
+  margin-left: 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.live-row {
+  justify-content: space-between;
+}
+
+.live-vs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.live-vs .avatar {
+  width: 1.7rem;
+  height: 1.7rem;
+}
+
+.live-vs small {
+  flex-basis: 100%;
+}

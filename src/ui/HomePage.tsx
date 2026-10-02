@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { MatchStart, PackView, PvpState } from '../api/client';
+import type { MatchStart, PackView } from '../api/client';
 import { PACKS, PACK_SHARD_PRICE, RARITIES, STARTER_PACK, packName } from '../economy/packs';
 import { LADDER_NAMES, LADDER_PACK_LIMIT, LADDER_TROPHIES, LADDER_WIN_GOLD, LEAGUES, type Ladder } from '../economy/leagues';
-import { PvpGame } from './PvpGame';
+import { currentPath, navigate } from './router';
 import { RARITY_NAMES } from '../engine/cards';
 import type { Rarity } from '../engine/types';
 import { Game } from './LazyGame';
@@ -32,7 +32,6 @@ export function HomePage() {
   const s = useSession();
   const { api, profile, decks, packs } = s;
   const [game, setGame] = useState<{ start: MatchStart; key: number } | null>(null);
-  const [pvp, setPvp] = useState<PvpState | null>(null);
   const [searching, setSearching] = useState<{ since: number; others: number } | null>(null);
   const [opening, setOpening] = useState<PackView | null>(null);
   const [level, setLevel] = useState(2);
@@ -87,7 +86,7 @@ export function HomePage() {
         if (r.pvpId) {
           setSearching(null);
           play('rare');
-          setPvp(await api.pvpState(r.pvpId));
+          navigate(`/game/${r.pvpId}`);
         } else {
           setSearching((x) => (x ? { ...x, others: r.searching } : x));
         }
@@ -100,12 +99,29 @@ export function HomePage() {
     };
     void tick();
     const t = setInterval(tick, 2000);
+    // Live: the server says at once when someone took our search.
+    const off = api.live?.onMatched((id) => {
+      if (stop) return;
+      stop = true;
+      setSearching(null);
+      play('rare');
+      navigate(`/game/${id}`);
+    });
     return () => {
       stop = true;
       clearInterval(t);
+      off?.();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searching?.since]);
+
+  // "Шукати ще" after a ladder game comes back here with /play/seek: search again.
+  useEffect(() => {
+    if (currentPath() !== '/play/seek') return;
+    navigate('/play');
+    if (activeDeck) setSearching({ since: Date.now(), others: 0 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const cancelSearch = () => {
     setSearching(null);
@@ -114,28 +130,8 @@ export function HomePage() {
 
   const resumeRanked = async () => {
     if (!s.inbox.rankedGame) return;
-    try {
-      setPvp(await api.pvpState(s.inbox.rankedGame));
-    } catch (e) {
-      s.toast(errorText(e), 'error');
-    }
+    navigate(`/game/${s.inbox.rankedGame}`);
   };
-
-  if (pvp) {
-    return (
-      <PvpGame
-        pvp={pvp}
-        onExit={() => {
-          setPvp(null);
-          void s.refreshInbox();
-        }}
-        onRematch={() => {
-          setPvp(null);
-          setSearching({ since: Date.now(), others: 0 });
-        }}
-      />
-    );
-  }
 
   if (game) {
     return (
@@ -146,7 +142,7 @@ export function HomePage() {
         playerAvatar={profile.avatar}
         captureFx={{ [game.start.color]: captureFxById(profile.captureFx).sprite as FxName }}
         trophies={profile.ladders.bot.trophies}
-        onAction={async (action, expected) => (await api.matchAction(game.start.matchId, action, expected)).actions}
+        onAction={(action, v) => api.matchAction(game.start.matchId, action, v)}
         onFinish={async (resigned) => {
           const v = await api.finishMatch(game.start.matchId, resigned);
           s.setProfile(v.profile);

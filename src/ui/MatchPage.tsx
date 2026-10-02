@@ -3,11 +3,11 @@ import { ABILITY_DEFS, abilityOptions, abilityReady } from '../engine/abilities'
 import { HINT_BOT, botLevel } from '../engine/bot/levels';
 import { PIECE_NAMES, getCard } from '../engine/cards';
 import { opposite, squareName } from '../engine/coords';
-import { legalMoves } from '../engine/legal';
-import { type Action, type MatchState, createMatch, fullMoves, performAction, resign, withHint } from '../engine/match';
+import { type Action, type MatchState, fullMoves, performAction, resign } from '../engine/match';
 import { findKing } from '../engine/position';
 import type { Color, Move, PieceType, Square } from '../engine/types';
-import type { MatchFinish, MatchStart } from '../api/client';
+import type { GameView, MatchFinish, MatchStart, PlayerCard } from '../api/client';
+import type { LiveStatus } from '../api/live';
 import { packArt, pieceSprite } from './cardArt';
 import { playerView } from '../engine/view';
 import { Board, type Mark, boardRing, squareCenter } from './Board';
@@ -28,37 +28,51 @@ export interface GameProps {
   /** Report the finished game; resolves to the server's verdict (bot games). */
   onFinish?: (resigned: boolean) => Promise<MatchFinish>;
   /**
-   * Bot games: send the player's action (null: just let the bot move) and get
-   * the server's record back, with the bot's answer in it.
+   * Bot games: send the player's action (null: let the bot move, or just
+   * fetch the game) and get the player's view back, with the bot's answer.
    */
-  onAction?: (action: Action | null, expected: number) => Promise<Action[]>;
+  onAction?: (action: Action | null, v: string) => Promise<{ view: GameView; stale?: boolean }>;
   onExit: () => void;
   onRematch?: () => void;
   rematchLabel?: string;
-  /** A friend instead of the bot: moves go to the server, theirs come back by polling. */
+  /** A game with people (or one you watch): views come from the server, live. */
   remote?: RemoteGame;
   /** Capture effect sprites per side. */
   captureFx?: Partial<Record<Color, FxName>>;
 }
 
-export interface RemoteGame {
-  opponentName: string;
-  opponentAvatar: string;
-  initialActions: Action[];
-  resignedBy: Color | null;
-  poll(): Promise<{ actions: Action[]; resignedBy: Color | null }>;
-  send(action: Action, expected: number): Promise<void>;
-  resign(): Promise<void>;
-  /** A player-ladder game (trophies at stake). */
-  ranked?: boolean;
-  /** Take the win when the opponent stalls (player ladder). */
-  claim?: () => Promise<void>;
+/** An update of a game with people: the viewer's view and who is watching. */
+export interface RemoteUpdate {
+  view: GameView;
+  watchers: number;
 }
 
+export interface RemoteGame {
+  /** Your side; null when you watch someone else's game. */
+  you: Color | null;
+  white: PlayerCard;
+  black: PlayerCard;
+  /** A player-ladder game (trophies at stake). */
+  ranked?: boolean;
+  /** New views as the server sends them (WebSocket; polling in the demo). Returns the unsubscribe function. */
+  subscribe(cb: (u: RemoteUpdate) => void): () => void;
+  /** The game as it is now (after an error). */
+  fetch(): Promise<GameView>;
+  send(action: Action, v: string): Promise<GameView>;
+  resign(): Promise<GameView>;
+  /** Take the win when the opponent stalls (player ladder). */
+  claim?: () => Promise<GameView>;
+  /** The live connection, for the "reconnecting" banner (absent in the demo). */
+  onStatus?: (cb: (s: LiveStatus) => void) => () => void;
+  /** Link to this game, for the opponent or spectators. */
+  shareUrl?: string;
+}
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAction, onExit, onRematch, rematchLabel, remote, captureFx }: GameProps) {
+  // A spectator sees the board from white's side and acts as nobody.
+  const spectator = !!remote && remote.you === null;
   const human = start.color;
   const bot = opposite(human);
   // Lets the shell make room for the board (a class is much cheaper than :has(.game)).
@@ -66,130 +80,114 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
     document.documentElement.classList.add('in-game');
     return () => document.documentElement.classList.remove('in-game');
   }, []);
-  const fresh = () => (human === 'w' ? createMatch(start.playerDeck, start.botDeck) : createMatch(start.botDeck, start.playerDeck));
-  const replay = (actions: Action[], resignedBy: Color | null) => {
-    let m = fresh();
-    for (const a of actions) m = performAction(m, a);
-    return resignedBy && !m.result ? resign(m, resignedBy) : m;
-  };
-  // A bot game left unfinished goes on from the server's record.
-  const initialActions = remote ? remote.initialActions : (start.actions ?? []);
-  const [match, setMatchState] = useState<MatchState>(() => replay(initialActions, remote ? remote.resignedBy : null));
-  // Every action is recorded, in step with the server's record of the game.
-  const actionsRef = useRef<Action[]>([...initialActions]);
-  const sending = useRef(0);
+  const alive = useRef(true);
+  useEffect(() => () => void (alive.current = false), []);
+
+  // The server's latest view of the game for us, and what the board shows:
+  // the same view, or for a moment our own move played on it ahead of the answer.
+  const [server, setServer] = useState<GameView>(start.view);
+  const serverRef = useRef(start.view);
+  const [match, setMatchState] = useState<MatchState>(start.view.state);
   const matchRef = useRef(match);
   const setMatch = (next: MatchState) => {
     matchRef.current = next;
     setMatchState(next);
   };
-  const apply = (m: MatchState, a: Action): MatchState => {
-    const next = performAction(m, a);
-    const expected = actionsRef.current.length;
-    actionsRef.current.push(a);
-    if (remote) {
-      sending.current++;
-      remote
-        .send(a, expected)
-        .catch((e) => {
-          setError(e instanceof Error ? e.message : String(e));
-          return resync();
-        })
-        .finally(() => sending.current--);
-    } else {
-      sendToServer(a, expected);
-    }
-    return next;
+  const lastSeen = useRef(JSON.stringify(start.view));
+  const receive = (v: GameView) => {
+    if (!alive.current) return;
+    lastSeen.current = JSON.stringify(v);
+    serverRef.current = v;
+    setServer(v);
+    setMatch(v.state);
   };
+  const [error, setError] = useState<string | null>(null);
+  const [watchers, setWatchers] = useState(0);
+  const [link, setLink] = useState<LiveStatus>('online');
 
-  // Bot games: the server checks every action and answers with the bot's moves.
-  // Requests go one after another; `serverChain` ends when all are answered.
-  const serverChain = useRef<Promise<void>>(Promise.resolve());
+  // Actions go to the server one after another; `chain` ends when all are answered.
+  const chain = useRef<Promise<void>>(Promise.resolve());
   const inflight = useRef(0);
-  const sendToServer = (action: Action | null, expected: number) => {
-    if (!onAction) return;
+  const [sending, setSending] = useState(0);
+  const send = (action: Action | null) => {
+    if (spectator || (!remote && !onAction)) return;
     inflight.current++;
-    serverChain.current = serverChain.current.then(async () => {
+    setSending((n) => n + 1);
+    chain.current = chain.current.then(async () => {
       const started = Date.now();
       try {
         for (let attempt = 0; alive.current; attempt++) {
           try {
-            await catchUp(await onAction(action, expected), started);
-            if (alive.current) setError(null);
+            // The version of the view the action was made on (read now: an earlier answer may have changed it).
+            const v = serverRef.current.v;
+            if (remote) {
+              receive(await remote.send(action!, v));
+              setError(null);
+            } else {
+              const r = await onAction!(action, v);
+              // Let the player's own move land before the bot's answer.
+              if (action) await sleep(Math.max(0, 450 - (Date.now() - started)));
+              receive(r.view);
+              setError(r.stale && action ? 'Позиція оновилась — зробіть хід ще раз.' : null);
+            }
             return;
           } catch (e) {
             if (!alive.current) return;
-            // fetch() fails with a TypeError when the network is down: keep the
-            // move and send it again (a repeat is safe, `expected` makes the
-            // server ignore a move it already has).
+            // fetch() and a dropped socket fail with a TypeError: keep the move and send it again
+            // (a repeat is safe: the version makes the server refuse a move it already has).
             if (e instanceof TypeError && attempt < 10) {
               setError('Немає зв’язку з сервером — надішлемо хід, щойно зв’язок повернеться…');
               await sleep(Math.min(10_000, 1000 * 2 ** attempt));
               continue;
             }
             setError(e instanceof TypeError ? 'Немає зв’язку з сервером.' : e instanceof Error ? e.message : String(e));
-            await resyncBot();
+            await resync();
             return;
           }
         }
       } finally {
         inflight.current--;
-        if (alive.current) setServerTick((n) => n + 1);
+        if (alive.current) setSending((n) => n - 1);
       }
     });
   };
-  /** Take the server's record: play the bot's new actions, or rebuild if we went out of step. */
-  const catchUp = async (server: Action[], started: number) => {
-    // Resigned while the bot was thinking: the server's verdict decides, the board stays.
-    if (matchRef.current.result) return;
-    const local = actionsRef.current;
-    const same = server.length >= local.length && local.every((a, i) => JSON.stringify(a) === JSON.stringify(server[i]));
-    if (!same) {
-      actionsRef.current = [...server];
-      if (alive.current) setMatch(replay(server, null));
-      return;
-    }
-    if (server.length === local.length) return;
-    // Let the player's own move land before the bot answers.
-    await sleep(Math.max(0, 450 - (Date.now() - started)));
-    if (!alive.current) return;
-    let m = matchRef.current;
-    for (const a of server.slice(local.length)) m = performAction(m, a);
-    actionsRef.current = [...server];
-    setMatch(m);
-  };
-  /** Lost connection: fetch the server's record again, waiting longer each try. */
-  const resyncBot = async () => {
-    for (let i = 0; i < 8 && alive.current && onAction; i++) {
+  /** Fetch the game as the server has it, waiting longer after each failure. */
+  const resync = async () => {
+    for (let i = 0; i < 8 && alive.current; i++) {
       try {
-        const server = await onAction(null, -1);
-        if (!alive.current || matchRef.current.result) return;
-        actionsRef.current = [...server];
-        setMatch(replay(server, null));
-        setError(null);
+        receive(remote ? await remote.fetch() : (await onAction!(null, '')).view);
         return;
       } catch {
         await sleep(Math.min(15_000, 1000 * 2 ** i));
       }
     }
   };
-  // Re-runs the bot-turn check after each server answer.
-  const [serverTick, setServerTick] = useState(0);
-  // Friend games: rebuild from the server's record when ours went out of step.
-  const resync = async () => {
+
+  // Games with people: views pushed by the server (or polled in the demo).
+  useEffect(() => {
     if (!remote) return;
-    const r = await remote.poll();
-    actionsRef.current = [...r.actions];
-    if (alive.current) setMatch(replay(r.actions, r.resignedBy));
-  };
+    const stop = remote.subscribe(({ view, watchers: w }) => {
+      setWatchers(w);
+      // Our own request will bring this view too; nothing else may happen while it is on its way.
+      if (inflight.current > 0 || JSON.stringify(view) === lastSeen.current) return;
+      receive(view);
+    });
+    const offStatus = remote.onStatus?.((st) => setLink(st));
+    return () => {
+      stop();
+      offStatus?.();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remote]);
+
   const [verdict, setVerdict] = useState<MatchFinish | null>(null);
   const [verdictError, setVerdictError] = useState<string | null>(null);
   const reported = useRef(false);
   const report = (resigned: boolean) => {
     if (reported.current || !onFinish) return;
     reported.current = true;
-    // Bot games: the last move must reach the server before the result is asked for.
-    (remote ? Promise.resolve() : serverChain.current)
+    // The last move must reach the server before the result is asked for.
+    chain.current
       .then(() => onFinish(resigned))
       .then((v) => alive.current && setVerdict(v))
       .catch((e) => alive.current && setVerdictError(e instanceof Error ? e.message : String(e)));
@@ -206,13 +204,15 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
   // Abilities played as a move (Міраж, Ривок Комети): pressing the button switches to those moves.
   const [special, setSpecial] = useState<'mirage' | 'dash' | null>(null);
   // A fresh game opens with the opponent's deck; the bot waits for it.
-  const [intro, setIntro] = useState(() => getSettings().animations && initialActions.length === 0);
+  const [intro, setIntro] = useState(() => getSettings().animations && !spectator && start.view.state.history.length === 0);
   // Intro progress: how many of the opponent's cards have landed on the board.
   const [landed, setLanded] = useState(0);
   const [hintBusy, setHintBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Підказка's answer, worked out here on our own view; it holds for this ply only.
+  const [hintMove, setHintMove] = useState<{ ply: number; move: Move } | null>(null);
   const [showSummary, setShowSummary] = useState(true);
   const [confirmResign, setConfirmResign] = useState(false);
+  const [shared, setShared] = useState(false);
   // Player ladder: a stalled opponent can be timed out.
   const [quietSince, setQuietSince] = useState(() => Date.now());
   const [clock, setClock] = useState(() => Date.now());
@@ -222,9 +222,7 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
     const t = setInterval(() => setClock(Date.now()), 5000);
     return () => clearInterval(t);
   }, [remote]);
-  const alive = useRef(true);
   const historyRef = useRef<HTMLOListElement>(null);
-  useEffect(() => () => void (alive.current = false), []);
 
   const realView = useMemo(() => playerView(match, human), [match, human]);
   const preview = useMemo(() => {
@@ -243,11 +241,12 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
     const el = historyRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [view.history.length]);
-  const myTurn = match.turn === human && !match.result;
+  const myTurn = !spectator && match.turn === human && !match.result;
   // Bot games: the bot's move comes from the server.
   const thinking = !remote && !intro && !match.result && match.turn === bot;
-  const busy = thinking || hintBusy;
-  const legal = useMemo(() => (myTurn ? legalMoves(match) : []), [match, myTurn]);
+  const busy = thinking || hintBusy || sending > 0;
+  // Our legal moves are worked out by the server; none while our own move is on its way.
+  const legal = myTurn && match === server.state ? server.legal : [];
   const specialMoves = (kind: 'mirage' | 'dash') => legal.filter((m) => m.kind === kind);
   const usable = legal.filter((m) => (special ? m.kind === special : m.kind !== 'mirage' && m.kind !== 'dash'));
   const fromSelected = selected === null ? [] : usable.filter((m) => m.from === selected);
@@ -283,12 +282,15 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
 
   const act = useCallback(
     (action: Action) => {
+      if (spectator) return;
+      // Shown at once; the server's answer replaces it (it may differ: an illusion taken, …).
       try {
-        setMatch(apply(matchRef.current, action));
-        setError(null);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : String(e));
+        setMatch(performAction(matchRef.current, action));
+      } catch {
+        // Our view cannot play it (an opponent's illusion is in the way): the server decides.
       }
+      setError(null);
+      send(action);
       setSelected(null);
       setStage(null);
       setPopover(null);
@@ -296,6 +298,7 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
       setPreview([]);
       if (action.type === 'move') setSpecial(null);
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 
@@ -303,45 +306,9 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
   // (the bot opens as white, or a resumed game), ask the server for its move.
   useEffect(() => {
     if (!thinking || inflight.current > 0) return;
-    sendToServer(null, actionsRef.current.length);
+    send(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [thinking, serverTick]);
-
-  // Friend games: pick up the opponent's moves.
-  useEffect(() => {
-    if (!remote) return;
-    let stop = false;
-    const tick = async () => {
-      if (stop || sending.current || document.hidden) return;
-      try {
-        const r = await remote.poll();
-        if (stop || sending.current) return;
-        const local = actionsRef.current;
-        const same = r.actions.length >= local.length && local.every((a, i) => JSON.stringify(a) === JSON.stringify(r.actions[i]));
-        if (!same) {
-          actionsRef.current = [...r.actions];
-          setMatch(replay(r.actions, r.resignedBy));
-          return;
-        }
-        let m = matchRef.current;
-        for (const a of r.actions.slice(local.length)) m = performAction(m, a);
-        actionsRef.current = [...r.actions];
-        if (r.resignedBy && !m.result) m = resign(m, r.resignedBy);
-        if (m !== matchRef.current) setMatch(m);
-      } catch {
-        // Offline for a moment: try again on the next tick.
-      }
-    };
-    const t = setInterval(tick, 1500);
-    const onShow = () => void tick();
-    document.addEventListener('visibilitychange', onShow);
-    return () => {
-      stop = true;
-      clearInterval(t);
-      document.removeEventListener('visibilitychange', onShow);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [remote]);
+  }, [thinking, sending]);
 
   // Reached a stop: finish when nothing goes further, otherwise stand there.
   const enter = (st: Stage) => {
@@ -399,7 +366,7 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
     const prev = soundRef.current;
     const pieces = countPieces(match);
     if (match.history.length !== prev.plies) {
-      if (match.result) play(match.result.winner === human ? 'win' : 'loss');
+      if (match.result) play(spectator || match.result.winner === human ? 'win' : 'loss');
       else if (match.status === 'check') play('check');
       else play(pieces < prev.pieces ? 'capture' : 'move');
     }
@@ -408,25 +375,33 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
   }, [match]);
 
   useEffect(() => {
-    if (match.result) report(false);
+    if (match.result && !spectator) report(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [match.result]);
 
   const showHint = async (pieceId: string) => {
-    let armed: MatchState;
-    try {
-      armed = apply(match, { type: 'ability', pieceId, key: 'show' });
-    } catch (e) {
-      setError(String(e));
-      return;
-    }
-    setMatch(armed);
+    act({ type: 'ability', pieceId, key: 'show' });
     setHintBusy(true);
     try {
-      const move = await requestHint(armed, human, HINT_BOT);
-      if (alive.current && matchRef.current.ply === armed.ply) setMatch(withHint(matchRef.current, human, move));
+      // Worked out on our own view (the opponent's illusions are real pieces for it), after the press is recorded.
+      await chain.current;
+      const at = serverRef.current.state;
+      const move = await requestHint(at, human, HINT_BOT);
+      if (alive.current && move && matchRef.current.ply === at.ply) setHintMove({ ply: at.ply, move });
     } finally {
       if (alive.current) setHintBusy(false);
+    }
+  };
+
+  const share = async () => {
+    if (!remote?.shareUrl) return;
+    try {
+      if (navigator.share) await navigator.share({ title: 'Ultrachess', text: 'Подивись партію в Ultrachess', url: remote.shareUrl });
+      else await navigator.clipboard.writeText(remote.shareUrl);
+      setShared(true);
+      setTimeout(() => alive.current && setShared(false), 2500);
+    } catch {
+      // Cancelled by the user, or no clipboard access: nothing to do.
     }
   };
 
@@ -436,20 +411,32 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
     lastMove.add(view.lastMove.target);
     if (view.lastMove.to !== null) lastMove.add(view.lastMove.to);
   }
-  const hint = new Set<Square>(view.hint ? [view.hint.from, view.hint.target] : []);
+  const shownHint = myTurn && hintMove && hintMove.ply === match.ply ? hintMove.move : null;
+  const hint = new Set<Square>(shownHint ? [shownHint.from, shownHint.target] : []);
   const checkSquare = match.status === 'check' || match.status === 'checkmate' ? findKing(match, match.turn) : null;
 
-  const myAbilityPieces = view.cells
-    .map((c, s) => ({ c, s }))
-    .filter(({ c }) => c && c.color === human && !c.illusion && (ABILITY_DEFS[c.cardId] || c.cardId.endsWith('levitation')));
+  const myAbilityPieces = spectator
+    ? []
+    : view.cells
+        .map((c, s) => ({ c, s }))
+        .filter(({ c }) => c && c.color === human && !c.illusion && (ABILITY_DEFS[c.cardId] || c.cardId.endsWith('levitation')));
+
+  // Who sits where: the opponent on top, you at the bottom (a spectator: black on top, white below).
+  const top: PlayerCard | null = remote ? (human === 'w' ? remote.black : remote.white) : null;
+  const sideName = (c: Color) => (remote ? (c === 'w' ? remote.white : remote.black).name : c === human ? playerName : `Бот · ${botLevel(start.botLevel).name}`);
 
   const selectedPiece = selected !== null ? view.cells[selected] : null;
   const menuOptions = useMemo(() => (menu ? abilityOptions(match, menu) : []), [menu, match]);
 
   let statusText: string;
-  if (match.result) {
+  if (match.result && spectator) {
+    statusText =
+      match.result.winner === null ? `Нічия — ${match.result.reason}` : `Перемога: ${sideName(match.result.winner)} — ${match.result.reason}`;
+  } else if (match.result) {
     statusText =
       match.result.winner === null ? `Нічия — ${match.result.reason}` : match.result.winner === human ? `Перемога! ${match.result.reason}` : `Поразка. ${match.result.reason}`;
+  } else if (spectator) {
+    statusText = `${match.status === 'check' ? 'Шах! ' : ''}Хід: ${sideName(match.turn)} (${match.turn === 'w' ? 'білі' : 'чорні'})`;
   } else if (stage) {
     statusText = stayMoves(stage).length
       ? 'Фігура тут. Натисніть її, щоб зупинитись, або підсвічену клітинку, щоб іти далі'
@@ -461,8 +448,8 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
   } else {
     statusText = remote
       ? match.status === 'check'
-        ? `Шах! Хід: ${remote.opponentName}…`
-        : `Хід суперника: ${remote.opponentName}…`
+        ? `Шах! Хід: ${sideName(bot)}…`
+        : `Хід суперника: ${sideName(bot)}…`
       : match.status === 'check'
         ? 'Шах боту. Бот думає…'
         : 'Бот думає…';
@@ -473,10 +460,10 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
       <div className="game-board-col">
         <div className={`player-bar ${match.turn === bot && !match.result ? 'to-move' : ''}`}>
           <span className="pb-who">
-            {remote ? <Avatar card={remote.opponentAvatar} /> : <span className="avatar avatar-bot">🤖</span>}
+            {top ? <Avatar card={top.avatar} /> : <span className="avatar avatar-bot">🤖</span>}
             <span>
-              <b>{remote ? remote.opponentName : `Бот · ${botLevel(start.botLevel).name}`}</b>
-              <small className="muted">{start.botDeck.name}</small>
+              <b>{top ? top.name : `Бот · ${botLevel(start.botLevel).name}`}</b>
+              <small className="muted">{top ? `🏆 ${top.trophies} · ` : ''}{start.botDeck.name}</small>
             </span>
           </span>
           <Captured types={lostPieces(match, human)} color={human} />
@@ -520,7 +507,7 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
             </div>
           )}
         </div>
-        <div className={`player-bar ${myTurn ? 'to-move' : ''}`}>
+        <div className={`player-bar ${match.turn === human && !match.result ? 'to-move' : ''}`}>
           <span className="pb-who">
             {playerAvatar ? <Avatar card={playerAvatar} /> : <span className="avatar">{playerName.slice(0, 1).toUpperCase()}</span>}
             <span>
@@ -538,9 +525,7 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
       <aside className="game-side">
         <div className={`panel status status-${match.result ? 'over' : myTurn ? 'mine' : 'bot'}`} aria-live="polite">
           <span className="eyebrow mode-tag">{remote
-              ? remote.ranked
-                ? 'Ліга гравців'
-                : 'Гра з другом'
+              ? `${spectator ? 'Глядач · ' : ''}${remote.ranked ? 'Ліга гравців' : 'Гра з другом'}`
               : start.trial
                 ? `${start.trial.name} · раунд ${start.trial.round}/${start.trial.rounds}`
                 : start.ranked
@@ -548,6 +533,16 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
                   : 'Тренування'}</span>
           <br />
           <strong>{statusText}</strong>
+          {remote && watchers > 0 && (
+            <span className="watchers" title="Скільки людей дивиться партію">
+              👁 {watchers}
+            </span>
+          )}
+          {remote && link !== 'online' && (
+            <p className="link-lost" role="status">
+              Зв’язок обірвався — перепідключаємось, партія чекає на сервері…
+            </p>
+          )}
           {error && <p className="error-text">{error}</p>}
           {special === 'mirage' && <p className="tip">Міраж увімкнено: оберіть стрибок коня без взяття.</p>}
           {special === 'dash' && <p className="tip">Ривок Комети: оберіть клітинку за 2–5 кроків по прямій.</p>}
@@ -643,10 +638,10 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
             </button>
           </div>
         )}
-        {view.hint && (
+        {shownHint && (
           <p className="tip">
-            Підказка: {PIECE_NAMES[view.cells[view.hint.from]?.type ?? 'pawn']} {squareName(view.hint.from)} → {squareName(view.hint.target)} (
-            {view.hint.label})
+            Підказка: {PIECE_NAMES[view.cells[shownHint.from]?.type ?? 'pawn']} {squareName(shownHint.from)} → {squareName(shownHint.target)} (
+            {shownHint.label})
           </p>
         )}
 
@@ -657,7 +652,7 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
               <CardView card={getCard(selectedPiece.cardId)} compact color={selectedPiece.color} />
               <ul className="piece-status small">
                 <li>
-                  {selectedPiece.color === human ? 'Ваша' : 'Суперника'}, {squareName(selected!)}
+                  {spectator ? (selectedPiece.color === 'w' ? 'Білі' : 'Чорні') : selectedPiece.color === human ? 'Ваша' : 'Суперника'}, {squareName(selected!)}
                 </li>
                 {selectedPiece.illusion && <li>Це ваша ілюзія: суперник бачить звичайну фігуру.</li>}
                 {selectedPiece.frozen && <li>❄ пропускає хід</li>}
@@ -684,19 +679,24 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
         </div>
 
         <div className="game-actions">
-          {remote?.claim && !match.result && !myTurn && clock - quietSince > CLAIM_MS && (
+          {remote?.shareUrl && (
+            <button className="btn btn-ghost" onClick={() => void share()} title="Посилання на цю партію: суперник повернеться в гру, друзі зможуть дивитися">
+              {shared ? '✓ Посилання скопійовано' : '🔗 Поділитися'}
+            </button>
+          )}
+          {remote?.claim && !spectator && !match.result && !myTurn && clock - quietSince > CLAIM_MS && (
             <button
               className="btn btn-primary"
               onClick={() =>
                 remote.claim!()
-                  .then(resync)
+                  .then(receive)
                   .catch((e) => setError(e instanceof Error ? e.message : String(e)))
               }
             >
               Суперник мовчить — забрати перемогу
             </button>
           )}
-          {!match.result && (
+          {!match.result && !spectator && (
             <button
               className="btn btn-danger"
               onClick={() => {
@@ -704,7 +704,7 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
                 setStage(null);
                 setPopover(null);
                 setMatch(resign(matchRef.current, human));
-                if (remote) void remote.resign().catch(() => resync());
+                if (remote) void remote.resign().then(receive, () => resync());
                 else report(true);
               }}
               onBlur={() => setConfirmResign(false)}
@@ -712,9 +712,9 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
               {confirmResign ? 'Точно здатися?' : 'Здатися'}
             </button>
           )}
-          {match.result && (
+          {(match.result || spectator) && (
             <button className="btn" onClick={onExit}>
-              До меню
+              {spectator && !match.result ? 'Вийти' : 'До меню'}
             </button>
           )}
         </div>
@@ -724,7 +724,7 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
         <DeckIntro
           steps={introPlan}
           color={bot}
-          opponent={remote ? remote.opponentName : `Бот · ${botLevel(start.botLevel).name}`}
+          opponent={sideName(bot)}
           onLand={setLanded}
           onDone={() => setIntro(false)}
         />
@@ -733,13 +733,19 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
       {match.result && showSummary && (
         <div className="modal-backdrop">
           <div className="modal summary" role="dialog" aria-label="Підсумок партії">
-            <h2 className={`outcome outcome-${match.result.winner === null ? 'draw' : match.result.winner === human ? 'win' : 'loss'}`}>
-              {match.result.winner === null ? 'Нічия' : match.result.winner === human ? 'Перемога!' : 'Поразка'}
+            <h2 className={`outcome outcome-${match.result.winner === null ? 'draw' : spectator || match.result.winner === human ? 'win' : 'loss'}`}>
+              {match.result.winner === null
+                ? 'Нічия'
+                : spectator
+                  ? `Перемога: ${sideName(match.result.winner)}`
+                  : match.result.winner === human
+                    ? 'Перемога!'
+                    : 'Поразка'}
             </h2>
             <p>
               {match.result.reason} · ходів: {match.result.moves}
             </p>
-            {remote && !remote.ranked && <p className="muted">Дружня гра: кубки не змінюються, партія є в історії обох гравців.</p>}
+            {remote && !remote.ranked && !spectator && <p className="muted">Дружня гра: кубки не змінюються, партія є в історії обох гравців.</p>}
             {onFinish && !verdict && !verdictError && <p className="muted">{remote ? 'Рахуємо кубки…' : 'Перевіряємо партію…'}</p>}
             {verdictError && <p className="error-text">{verdictError}</p>}
             {verdict?.ladder && (
@@ -814,7 +820,7 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
             )}
             {verdict && !verdict.ladder && !verdict.trial && <p className="muted">Тренування: кубки й паки не нараховуються.</p>}
             <div className="editor-actions">
-              {onRematch && (
+              {onRematch && !spectator && (
                 <button className="btn btn-primary" onClick={onRematch}>
                   {rematchLabel ?? (remote ? 'Шукати ще' : 'Ще бій')}
                 </button>

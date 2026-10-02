@@ -20,8 +20,9 @@ const LeaderboardPage = lazy(() => import('./LeaderboardPage').then((m) => ({ de
 const FriendsPage = lazy(() => import('./FriendsPage').then((m) => ({ default: m.FriendsPage })));
 const ProfilePage = lazy(() => import('./ProfilePage').then((m) => ({ default: m.ProfilePage })));
 const HelpPage = lazy(() => import('./HelpPage').then((m) => ({ default: m.HelpPage })));
+const GamePage = lazy(() => import('./GamePage').then((m) => ({ default: m.GamePage })));
 
-type Route = 'play' | 'leagues' | 'trials' | 'deck' | 'shop' | 'friends' | 'top' | 'admin' | 'profile' | 'help';
+type Route = 'play' | 'leagues' | 'trials' | 'deck' | 'shop' | 'friends' | 'top' | 'admin' | 'profile' | 'help' | 'game';
 
 const ROUTES: { id: Route; label: string; icon: string; admin?: boolean }[] = [
   { id: 'play', label: 'Грати', icon: 'play' },
@@ -53,7 +54,7 @@ const ARENA: { id: Route; label: string }[] = [
 function readRoute(): Route {
   const h = currentPath().replace(/^\/?/, '').split('/')[0];
   if (h === 'cards') return 'deck'; // the old collection page lives on the deck page now
-  if (h === 'profile' || h === 'help') return h;
+  if (h === 'profile' || h === 'help' || h === 'game') return h;
   return ROUTES.find((r) => r.id === h)?.id ?? 'play';
 }
 
@@ -232,6 +233,7 @@ function Shell() {
           {route === 'friends' && <FriendsPage />}
           {route === 'profile' && <ProfilePage />}
           {route === 'help' && <HelpPage />}
+          {route === 'game' && <GamePage />}
           {route === 'top' && <LeaderboardPage />}
           {route === 'admin' && s.profile.role === 'admin' && <AdminPage />}
           </Suspense>

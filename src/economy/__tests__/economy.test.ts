@@ -41,11 +41,12 @@ const scripted: BotRunner = async (state) => ({ actions: [bot.line[state.history
 /** Play the player's side of `line` through the server; the scripted bot plays the rest. */
 async function playLine(svc: GameService, token: string, matchId: string, line: Action[]) {
   bot.line = line;
-  let n = 0;
-  while (n < line.length) {
-    const r = await svc.matchAction(token, matchId, line[n], n);
-    if (r.actions.length <= n) throw new Error('the server did not take the move');
-    n = r.actions.length;
+  let view = (await svc.matchAction(token, matchId, null, '')).view;
+  // No hidden actions in these lines: the history counts the actions played.
+  while (!view.state.result && view.state.history.length < line.length) {
+    const r = await svc.matchAction(token, matchId, line[view.state.history.length], view.v);
+    if (r.stale) throw new Error('the server did not take the move');
+    view = r.view;
   }
 }
 
@@ -243,7 +244,8 @@ describe('service', () => {
 
     // An illegal move is rejected.
     await store.insertMatch({ ...(await store.getMatch('m1'))!, id: 'm2', status: 'active', actions: [] });
-    await expect(svc.matchAction(token, 'm2', actions[1], 0)).rejects.toThrow(/неможливий/);
+    const v = (await svc.matchAction(token, 'm2', null, '')).view.v;
+    await expect(svc.matchAction(token, 'm2', actions[1], v)).rejects.toThrow(/неможливий/);
   });
 
   it('the server plays the bot: the client cannot choose its moves', async () => {
@@ -253,13 +255,15 @@ describe('service', () => {
     const mate = scholarsMate();
     // The bot answers 1.e4 with its own move (here 1…e6, not the 1…e5 the mate needs).
     bot.line = [mate[0], line(['e2e4', 'e7e6'])[1]];
-    const r = await svc.matchAction(token, 'c1', mate[0], 0);
-    expect(r.actions).toHaveLength(2);
-    expect(r.actions[1]).toEqual(bot.line[1]);
-    // Sending "the bot's move" with a stale count changes nothing.
-    expect((await svc.matchAction(token, 'c1', mate[1], 1)).actions).toEqual(r.actions);
-    // Playing out of turn is refused.
-    await expect(svc.matchAction(token, 'c1', mate[1], 2)).rejects.toThrow();
+    const v0 = (await svc.matchAction(token, 'c1', null, '')).view.v;
+    const r = await svc.matchAction(token, 'c1', mate[0], v0);
+    expect(r.view.state.history.map((h) => h.text)).toEqual(['Пішак e2–e4', 'Пішак e7–e6']);
+    // Sending "the bot's move" with the old version changes nothing.
+    const stale = await svc.matchAction(token, 'c1', mate[1], v0);
+    expect(stale.stale).toBe(true);
+    expect(stale.view.state.history).toHaveLength(2);
+    // With the current version a black move is simply illegal for white.
+    await expect(svc.matchAction(token, 'c1', mate[1], r.view.v)).rejects.toThrow();
   });
 
   it('a bot that fails still moves, and an unfinished ranked game is resumed', async () => {
@@ -273,12 +277,12 @@ describe('service', () => {
     const [p] = await svc.packs(token);
     await svc.openPack(token, p.id);
     const start = await svc.startMatch(token, { ranked: true });
-    const first = await svc.matchAction(token, start.matchId, null, 0);
+    const first = await svc.matchAction(token, start.matchId, null, '');
     // As black the bot opened; as white it waits for the player.
-    expect(first.actions).toHaveLength(start.color === 'b' ? 1 : 0);
+    expect(first.view.state.history).toHaveLength(start.color === 'b' ? 1 : 0);
     const again = await svc.startMatch(token, { ranked: true });
     expect(again.matchId).toBe(start.matchId);
-    expect(again.actions).toEqual(first.actions);
+    expect(again.view.state.history).toEqual(first.view.state.history);
   });
 });
 

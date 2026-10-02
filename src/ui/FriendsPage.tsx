@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { ChallengesView, FriendsView, PlayerCard, PvpState } from '../api/client';
-import { PvpGame } from './PvpGame';
+import type { ChallengesView, FriendsView, PlayerCard } from '../api/client';
+import { navigate } from './router';
 import { PlayerModal } from './PlayerModal';
 import { Avatar } from './common';
 import { Icon } from './icons';
@@ -23,7 +23,6 @@ export function FriendsPage() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<PlayerCard[] | null>(null);
   const [viewing, setViewing] = useState<string | null>(null);
-  const [playing, setPlaying] = useState<PvpState | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -38,16 +37,22 @@ export function FriendsPage() {
   }, [s.api]);
 
   useEffect(() => {
-    if (playing) return;
     void load();
-    const t = setInterval(() => !document.hidden && void load(), 8000);
+    // With the live connection the server says when something changed; the timer is the fallback.
+    const t = setInterval(() => !document.hidden && void load(), s.api.live ? 30_000 : 8000);
     const onShow = () => !document.hidden && void load();
     document.addEventListener('visibilitychange', onShow);
+    const offNudge = s.api.live?.onNudge(() => void load());
+    // A challenge we sent was accepted: straight into the game.
+    const offMatched = s.api.live?.onMatched((id) => navigate(`/game/${id}`));
     return () => {
       clearInterval(t);
       document.removeEventListener('visibilitychange', onShow);
+      offNudge?.();
+      offMatched?.();
     };
-  }, [load, playing]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [load]);
 
   const run = async (fn: () => Promise<unknown>, ok?: string) => {
     try {
@@ -68,25 +73,8 @@ export function FriendsPage() {
     }
   };
 
-  const open = async (id: string) => {
-    try {
-      setPlaying(await s.api.pvpState(id));
-    } catch (e) {
-      s.toast(errorText(e), 'error');
-    }
-  };
-
-  if (playing) {
-    return (
-      <PvpGame
-        pvp={playing}
-        onExit={() => {
-          setPlaying(null);
-          void load();
-        }}
-      />
-    );
-  }
+  // Every game has its own address: it can be reopened, shared and watched.
+  const open = (id: string) => navigate(`/game/${id}`);
 
   const friendIds = new Set([...(friends?.friends ?? []), ...(friends?.incoming ?? []), ...(friends?.outgoing ?? [])].map((f) => f.id));
   const activeGames = ch?.games.filter((g) => g.status === 'active' && !g.ranked) ?? [];
@@ -150,7 +138,7 @@ export function FriendsPage() {
                   onClick={() =>
                     run(async () => {
                       const r = await s.api.respondChallenge(c.id, true, s.profile.activeDeckId ?? undefined);
-                      if (r.pvpId) await open(r.pvpId);
+                      if (r.pvpId) open(r.pvpId);
                     })
                   }
                 >
@@ -178,6 +166,30 @@ export function FriendsPage() {
                   {g.yourTurn ? 'Ходити' : 'Відкрити'}
                 </button>
               </PlayerRow>
+            ))}
+          </div>
+        </>
+      )}
+
+      {(friends?.live.length ?? 0) > 0 && (
+        <>
+          <div className="section-head">
+            <h2>👁 Друзі грають зараз</h2>
+          </div>
+          <div className="player-list">
+            {friends!.live.map((g) => (
+              <div key={g.id} className="player-row live-row">
+                <span className="live-vs">
+                  <Avatar card={g.white.avatar} /> <b>{g.white.name}</b> <span className="muted">vs</span> <Avatar card={g.black.avatar} />{' '}
+                  <b>{g.black.name}</b>
+                  <small className="muted">
+                    {g.ranked ? 'ліга гравців' : 'дружня'} · хід {Math.floor(g.moves / 2) + 1}
+                  </small>
+                </span>
+                <button className="btn btn-sm" onClick={() => open(g.id)}>
+                  Дивитися
+                </button>
+              </div>
             ))}
           </div>
         </>

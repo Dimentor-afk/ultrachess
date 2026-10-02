@@ -79,11 +79,14 @@ export function SessionProvider({
     const t = setInterval(() => !document.hidden && void refreshInbox(), 12_000);
     const onShow = () => !document.hidden && void refreshInbox();
     document.addEventListener('visibilitychange', onShow);
+    // Live: a challenge, a friend request or a move refreshes the counters at once.
+    const offNudge = api.live?.onNudge(() => void refreshInbox());
     return () => {
       clearInterval(t);
       document.removeEventListener('visibilitychange', onShow);
+      offNudge?.();
     };
-  }, [refreshInbox]);
+  }, [refreshInbox, api]);
   const value: Session = {
     api,
     ...data,

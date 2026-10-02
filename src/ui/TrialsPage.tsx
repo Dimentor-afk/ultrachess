@@ -63,7 +63,7 @@ export function TrialsPage() {
         playerAvatar={profile.avatar}
         captureFx={{ [game.start.color]: captureFxById(profile.captureFx).sprite as FxName }}
         trophies={profile.trophies}
-        onAction={async (action, expected) => (await api.matchAction(game.start.matchId, action, expected)).actions}
+        onAction={(action, v) => api.matchAction(game.start.matchId, action, v)}
         onFinish={async (resigned) => {
           const v = await api.finishMatch(game.start.matchId, resigned);
           s.setProfile(v.profile);
