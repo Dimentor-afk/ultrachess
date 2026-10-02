@@ -33,9 +33,10 @@ the fallback), per-viewer views so hidden information reaches only its owner
 
 Still to do:
 
-1. **Public deploy** (Fly.io / Render): config is ready (`Dockerfile`, `fly.toml`,
-   `render.yaml`); what is left is running `fly deploy` with the author's account and putting
-   the URL into the README (it has a placeholder).
+1. **Public deploy:** live at https://ultrachess.fly.dev (Fly app `ultrachess`, region fra,
+   one machine with the `ultrachess_data` volume, auto-stops when idle). Deploy from the author's
+   Mac with `fly deploy`. Left: Resend secrets (`RESEND_API_KEY`, `MAIL_FROM`, `PUBLIC_URL`) and
+   `min_machines_running = 1` before the defense.
 2. **"Who did what"** in the README: the author's name (placeholder `[Ім'я автора]`).
 
 ### Open question for the teacher
