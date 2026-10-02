@@ -284,6 +284,22 @@ describe('service', () => {
     expect(again.matchId).toBe(start.matchId);
     expect(again.view.state.history).toEqual(first.view.state.history);
   });
+
+  it('a bot game saved by an older demo (no record of actions) goes on from the start', async () => {
+    const { store, svc } = await setup(3);
+    const { token } = await svc.register('o@o.com', 'secret1', 'O');
+    const [p] = await svc.packs(token);
+    await svc.openPack(token, p.id);
+    const start = await svc.startMatch(token, { ranked: true });
+    // What an older version left in localStorage: the same game without `actions`.
+    const old = JSON.parse(JSON.stringify(store.data));
+    for (const m of old.matches) delete m.actions;
+    const later = new GameService(new MemoryStore(old), plainHasher, Date.now, seeded(3), scripted);
+    await later.init();
+    const again = await later.startMatch(token, { ranked: true });
+    expect(again.matchId).toBe(start.matchId);
+    expect(again.view.state.ply).toBe(0);
+  });
 });
 
 function line(ucis: string[]): Action[] {

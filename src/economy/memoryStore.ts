@@ -31,6 +31,14 @@ export const emptyData = (): MemoryData => ({
 
 const clone = <T,>(x: T): T => JSON.parse(JSON.stringify(x));
 
+/**
+ * A bot game saved before the server kept its record has no actions: it goes
+ * on from the start, with the same decks and colours.
+ */
+export function withMatchDefaults(m: MatchRow): MatchRow {
+  return { ...m, mode: m.mode ?? '', actions: Array.isArray(m.actions) ? m.actions : [] };
+}
+
 /** Fill fields added after the demo data was first saved. */
 export function withUserDefaults(u: UserRow): UserRow {
   return {
@@ -65,6 +73,7 @@ export class MemoryStore implements Store {
   ) {
     this.data = { ...emptyData(), ...this.data };
     this.data.users = this.data.users.map(withUserDefaults);
+    this.data.matches = this.data.matches.map(withMatchDefaults);
   }
 
   /** Take over data another tab wrote (the browser demo shares one storage). */
@@ -72,6 +81,7 @@ export class MemoryStore implements Store {
     if (!data) return;
     this.data = { ...emptyData(), ...data };
     this.data.users = this.data.users.map(withUserDefaults);
+    this.data.matches = this.data.matches.map(withMatchDefaults);
   }
 
   private save(): void {
