@@ -5,7 +5,7 @@ import { legalMoves } from '../../engine/legal';
 import { type Action, createMatch, performAction } from '../../engine/match';
 import { BOT_LEAGUES, trialById } from '../leagues';
 import { MemoryStore } from '../memoryStore';
-import { CLAIM_MS, GameService } from '../service';
+import { type BotRunner, CLAIM_MS, GameService } from '../service';
 import type { Hasher } from '../store';
 
 const hasher: Hasher = { hash: async (p) => `h:${p}`, verify: async (p, h) => h === `h:${p}` };
@@ -32,9 +32,24 @@ function line(ucis: string[]): Action[] {
 const WHITE_MATES = line(['e2e4', 'e7e5', 'f1c4', 'b8c6', 'd1h5', 'g8f6', 'h5f7']);
 const BLACK_MATES = line(['f2f3', 'e7e5', 'g2g4', 'd8h4']);
 
+/** A bot that plays a given line; tests set `bot.line` before a game. */
+const bot = { line: [] as Action[] };
+const scripted: BotRunner = async (state) => ({ actions: [bot.line[state.history.length]], score: 0 });
+
+/** Play the player's (white's) side of `line` through the server; the scripted bot plays the rest. */
+async function playLine(svc: GameService, token: string, matchId: string, line: Action[]) {
+  bot.line = line;
+  let n = 0;
+  while (n < line.length) {
+    const r = await svc.matchAction(token, matchId, line[n], n);
+    if (r.actions.length <= n) throw new Error('the server did not take the move');
+    n = r.actions.length;
+  }
+}
+
 async function setup(now: () => number = Date.now) {
   const store = new MemoryStore();
-  const svc = new GameService(store, hasher, now, seeded(3));
+  const svc = new GameService(store, hasher, now, seeded(3), scripted);
   await svc.init();
   const reg = async (email: string, name: string) => {
     const r = await svc.register(email, 'secret1', name);
@@ -53,17 +68,19 @@ describe('bot ladder', () => {
     expect((await svc.startMatch(token, { ranked: true })).botLevel).toBe(BOT_LEAGUES[0].botLevel);
 
     await store.updateUser(profile.id, { botTrophies: BOT_LEAGUES[1].minTrophies - 5 });
-    await store.insertMatch({ id: 'b1', userId: profile.id, ranked: true, mode: 'bot', color: 'w', botLevel: 0, playerDeck: classicDeck(), botDeck: classicDeck(), status: 'active', result: null, createdAt: Date.now() });
+    await store.insertMatch({ id: 'b1', userId: profile.id, ranked: true, mode: 'bot', color: 'w', botLevel: 0, playerDeck: classicDeck(), botDeck: classicDeck(), status: 'active', result: null, createdAt: Date.now(), actions: [] });
     const gold = (await svc.me(token)).gold;
-    const r = await svc.finishMatch(token, 'b1', WHITE_MATES, false);
+    await playLine(svc, token, 'b1', WHITE_MATES);
+    const r = await svc.finishMatch(token, 'b1', false);
     expect(r.leagueUps).toEqual([{ ladder: 'bot', name: BOT_LEAGUES[1].name, gold: BOT_LEAGUES[1].reward.gold, pack: null }]);
     expect(r.profile.gold).toBe(gold + 10 + BOT_LEAGUES[1].reward.gold);
     expect(r.profile.ladders.bot.league).toBe(1);
 
     // Dropping back and climbing again pays nothing more.
     await store.updateUser(profile.id, { botTrophies: BOT_LEAGUES[1].minTrophies - 5 });
-    await store.insertMatch({ id: 'b2', userId: profile.id, ranked: true, mode: 'bot', color: 'w', botLevel: 0, playerDeck: classicDeck(), botDeck: classicDeck(), status: 'active', result: null, createdAt: Date.now() });
-    expect((await svc.finishMatch(token, 'b2', WHITE_MATES, false)).leagueUps).toEqual([]);
+    await store.insertMatch({ id: 'b2', userId: profile.id, ranked: true, mode: 'bot', color: 'w', botLevel: 0, playerDeck: classicDeck(), botDeck: classicDeck(), status: 'active', result: null, createdAt: Date.now(), actions: [] });
+    await playLine(svc, token, 'b2', WHITE_MATES);
+    expect((await svc.finishMatch(token, 'b2', false)).leagueUps).toEqual([]);
   });
 });
 
@@ -86,26 +103,35 @@ describe('trials', () => {
       // Make the player white so the known mate line fits.
       await store.updateMatch(start.matchId, {});
       (store.data.matches.find((m) => m.id === start.matchId)!).color = 'w';
-      const r = await svc.finishMatch(token, start.matchId, WHITE_MATES, false);
+      await playLine(svc, token, start.matchId, WHITE_MATES);
+      const r = await svc.finishMatch(token, start.matchId, false);
       expect(r.trial).toMatchObject({ wins: round + 1, status: round === 2 ? 'won' : 'active' });
       if (round === 2) expect(r.trial!.reward?.type).toBe('legendary');
     }
     await expect(svc.startMatch(token, { ranked: false, trial: 'classic' })).rejects.toThrow(/вхід/);
   });
 
-  it('a defeat or an abandoned game ends the run', async () => {
+  it('a defeat ends the run; an abandoned game is resumed', async () => {
     const { store, svc, reg } = await setup();
     const { token, profile } = await reg('u@u.com', 'U');
     await store.updateUser(profile.id, { shards: 2000 });
     await svc.enterTrial(token, 'classic');
     const s1 = await svc.startMatch(token, { ranked: false, trial: 'classic' });
     store.data.matches.find((m) => m.id === s1.matchId)!.color = 'w';
-    expect((await svc.finishMatch(token, s1.matchId, BLACK_MATES, false)).trial).toMatchObject({ status: 'lost', wins: 0 });
+    await playLine(svc, token, s1.matchId, BLACK_MATES);
+    expect((await svc.finishMatch(token, s1.matchId, false)).trial).toMatchObject({ status: 'lost', wins: 0 });
 
+    // A game left unfinished is not restarted: the same game goes on.
     await svc.enterTrial(token, 'classic');
-    await svc.startMatch(token, { ranked: false, trial: 'classic' });
-    await expect(svc.startMatch(token, { ranked: false, trial: 'classic' })).rejects.toThrow(/поразку/);
-    expect((await svc.me(token)).trials.classic.status).toBe('lost');
+    const s2 = await svc.startMatch(token, { ranked: false, trial: 'classic' });
+    store.data.matches.find((m) => m.id === s2.matchId)!.color = 'w';
+    await svc.matchAction(token, s2.matchId, WHITE_MATES[0], 0);
+    const again = await svc.startMatch(token, { ranked: false, trial: 'classic' });
+    expect(again.matchId).toBe(s2.matchId);
+    expect(again.actions).toHaveLength(2);
+    expect(again.trial).toMatchObject({ round: 1, rounds: 3 });
+    // Resigning it ends the run.
+    expect((await svc.finishMatch(token, s2.matchId, true)).trial).toMatchObject({ status: 'lost' });
   });
 });
 
@@ -117,7 +143,8 @@ describe('new trials', () => {
     row.color = 'w';
     row.playerDeck = classicDeck();
     row.botDeck = classicDeck();
-    return { start, r: await svc.finishMatch(token, start.matchId, WHITE_MATES, false) };
+    await playLine(svc, token, start.matchId, WHITE_MATES);
+    return { start, r: await svc.finishMatch(token, start.matchId, false) };
   }
 
   it('Шлях Комети: four strong bots with card decks, and Комета as the prize', async () => {

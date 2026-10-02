@@ -9,6 +9,7 @@ import { createGzip } from 'node:zlib';
 import { promisify } from 'node:util';
 import { ApiError, GameService } from '../src/economy/service';
 import type { Hasher } from '../src/economy/store';
+import { BotPool } from './botPool';
 import { SqliteStore } from './sqliteStore';
 
 const PORT = Number(process.env.PORT ?? 8080);
@@ -41,7 +42,8 @@ const hasher: Hasher = {
 };
 
 const store = new SqliteStore(DB_FILE);
-const svc = new GameService(store, hasher);
+const bots = new BotPool();
+const svc = new GameService(store, hasher, Date.now, Math.random, bots.run);
 
 function tokenOf(req: IncomingMessage): string | null {
   const m = /(?:^|;\s*)uc_session=([a-f0-9]+)/.exec(req.headers.cookie ?? '');
@@ -136,9 +138,11 @@ const routes: [string, RegExp, Handler][] = [
   ],
   [
     'POST',
-    /^matches\/(\w+)\/finish$/,
-    ({ token, params, body }) => svc.finishMatch(token, params[0], Array.isArray(body.actions) ? body.actions : [], !!body.resigned),
+    /^matches\/(\w+)\/action$/,
+    ({ token, params, body }) =>
+      svc.matchAction(token, params[0], body.action && typeof body.action === 'object' ? (body.action as never) : null, Number(body.expected)),
   ],
+  ['POST', /^matches\/(\w+)\/finish$/, ({ token, params, body }) => svc.finishMatch(token, params[0], !!body.resigned)],
   ['GET', /^leaderboard$/, () => svc.leaderboard()],
   ['POST', /^profile$/, ({ token, body }) =>
     svc.updateProfile(token, {
@@ -255,7 +259,7 @@ server.listen(PORT, () => {
 // Hosts stop containers with SIGTERM: finish open requests, then exit.
 for (const signal of ['SIGTERM', 'SIGINT'] as const) {
   process.on(signal, () => {
-    server.close(() => process.exit(0));
+    server.close(() => void bots.close().finally(() => process.exit(0)));
     setTimeout(() => process.exit(0), 5000).unref();
   });
 }

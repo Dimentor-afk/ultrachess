@@ -16,7 +16,7 @@ import {
   rollStarter,
 } from '../packs';
 import { LADDER_PACK_LIMIT, LADDER_WIN_GOLD } from '../leagues';
-import { GameService } from '../service';
+import { type BotRunner, GameService } from '../service';
 import { BOARD_THEMES } from '../themes';
 import { CAPTURE_FX } from '../captureFx';
 import type { Hasher } from '../store';
@@ -34,9 +34,24 @@ const plainHasher: Hasher = {
   verify: async (p, h) => h === `plain:${p}`,
 };
 
+/** A bot that plays a given line; tests set `bot.line` before a game. */
+const bot = { line: [] as Action[] };
+const scripted: BotRunner = async (state) => ({ actions: [bot.line[state.history.length]], score: 0 });
+
+/** Play the player's side of `line` through the server; the scripted bot plays the rest. */
+async function playLine(svc: GameService, token: string, matchId: string, line: Action[]) {
+  bot.line = line;
+  let n = 0;
+  while (n < line.length) {
+    const r = await svc.matchAction(token, matchId, line[n], n);
+    if (r.actions.length <= n) throw new Error('the server did not take the move');
+    n = r.actions.length;
+  }
+}
+
 async function setup(seed = 1) {
   const store = new MemoryStore();
-  const svc = new GameService(store, plainHasher, Date.now, seeded(seed));
+  const svc = new GameService(store, plainHasher, Date.now, seeded(seed), scripted);
   await svc.init();
   return { store, svc };
 }
@@ -203,6 +218,7 @@ describe('service', () => {
       status: 'active',
       result: null,
       createdAt: Date.now(),
+      actions: [],
     });
     // Scholar's mate.
     const line = ['e2e4', 'e7e5', 'f1c4', 'b8c6', 'd1h5', 'g8f6', 'h5f7'];
@@ -214,30 +230,81 @@ describe('service', () => {
       m = performAction(m, actions[actions.length - 1]);
     }
     expect(m.status).toBe('checkmate');
-    const res = await svc.finishMatch(token, 'm1', actions, false);
+    // The game is not over yet: no result.
+    await expect(svc.finishMatch(token, 'm1', false)).rejects.toThrow(/не завершена/);
+    await playLine(svc, token, 'm1', actions);
+    const res = await svc.finishMatch(token, 'm1', false);
     expect(res).toMatchObject({ outcome: 'win', trophiesDelta: 20, ladder: 'bot' });
     expect(res.reward?.type).toBe('common');
     expect(res.profile.ladders.bot.trophies).toBe(20);
     // The bot ladder does not touch the player ladder.
     expect(res.profile.trophies).toBe(0);
-    await expect(svc.finishMatch(token, 'm1', actions, false)).rejects.toThrow();
+    await expect(svc.finishMatch(token, 'm1', false)).rejects.toThrow();
 
-    // A tampered record is rejected.
-    await store.insertMatch({ ...(await store.getMatch('m1'))!, id: 'm2', status: 'active' });
-    const bad = actions.slice(0, 3).concat(actions.slice(4));
-    await expect(svc.finishMatch(token, 'm2', bad, false)).rejects.toThrow();
+    // An illegal move is rejected.
+    await store.insertMatch({ ...(await store.getMatch('m1'))!, id: 'm2', status: 'active', actions: [] });
+    await expect(svc.matchAction(token, 'm2', actions[1], 0)).rejects.toThrow(/неможливий/);
   });
 
+  it('the server plays the bot: the client cannot choose its moves', async () => {
+    const { svc, store } = await setup();
+    const { token, profile } = await svc.register('c@c.com', 'secret1', 'C');
+    await store.insertMatch({ id: 'c1', userId: profile.id, ranked: true, mode: 'bot', color: 'w', botLevel: 1, playerDeck: classicDeck(), botDeck: classicDeck(), status: 'active', result: null, createdAt: Date.now(), actions: [] });
+    const mate = scholarsMate();
+    // The bot answers 1.e4 with its own move (here 1…e6, not the 1…e5 the mate needs).
+    bot.line = [mate[0], line(['e2e4', 'e7e6'])[1]];
+    const r = await svc.matchAction(token, 'c1', mate[0], 0);
+    expect(r.actions).toHaveLength(2);
+    expect(r.actions[1]).toEqual(bot.line[1]);
+    // Sending "the bot's move" with a stale count changes nothing.
+    expect((await svc.matchAction(token, 'c1', mate[1], 1)).actions).toEqual(r.actions);
+    // Playing out of turn is refused.
+    await expect(svc.matchAction(token, 'c1', mate[1], 2)).rejects.toThrow();
+  });
+
+  it('a bot that fails still moves, and an unfinished ranked game is resumed', async () => {
+    const store = new MemoryStore();
+    const broken: BotRunner = async () => {
+      throw new Error('worker died');
+    };
+    const svc = new GameService(store, plainHasher, Date.now, seeded(2), broken);
+    await svc.init();
+    const { token } = await svc.register('r@r.com', 'secret1', 'R');
+    const [p] = await svc.packs(token);
+    await svc.openPack(token, p.id);
+    const start = await svc.startMatch(token, { ranked: true });
+    const first = await svc.matchAction(token, start.matchId, null, 0);
+    // As black the bot opened; as white it waits for the player.
+    expect(first.actions).toHaveLength(start.color === 'b' ? 1 : 0);
+    const again = await svc.startMatch(token, { ranked: true });
+    expect(again.matchId).toBe(start.matchId);
+    expect(again.actions).toEqual(first.actions);
+  });
+});
+
+function line(ucis: string[]): Action[] {
+  let m = createMatch(classicDeck(), classicDeck());
+  const out: Action[] = [];
+  for (const uci of ucis) {
+    const mv = legalMoves(m).find((x) => x.from === parseSquare(uci.slice(0, 2)) && x.target === parseSquare(uci.slice(2)))!;
+    out.push({ type: 'move', move: mv });
+    m = performAction(m, out[out.length - 1]);
+  }
+  return out;
+}
+
+describe('bot-ladder rewards', () => {
   it('bot-ladder wins give packs right away, at most 5 a day', async () => {
     let now = Date.UTC(2026, 0, 1, 12);
     const store = new MemoryStore();
-    const svc = new GameService(store, plainHasher, () => now, seeded(9));
+    const svc = new GameService(store, plainHasher, () => now, seeded(9), scripted);
     await svc.init();
     const { token, profile } = await svc.register('t@t.com', 'secret1', 'T');
     const mate = scholarsMate();
     const win = async (id: string) => {
-      await store.insertMatch({ id, userId: profile.id, ranked: true, mode: 'bot', color: 'w', botLevel: 1, playerDeck: classicDeck(), botDeck: classicDeck(), status: 'active', result: null, createdAt: now });
-      return svc.finishMatch(token, id, mate, false);
+      await store.insertMatch({ id, userId: profile.id, ranked: true, mode: 'bot', color: 'w', botLevel: 1, playerDeck: classicDeck(), botDeck: classicDeck(), status: 'active', result: null, createdAt: now, actions: [] });
+      await playLine(svc, token, id, mate);
+      return svc.finishMatch(token, id, false);
     };
     const limit = LADDER_PACK_LIMIT.bot;
     for (let i = 0; i < limit; i++) {
@@ -275,15 +342,16 @@ describe('daily quests', () => {
   it('count games, packs and wins and pay out once', async () => {
     let now = Date.UTC(2026, 2, 3, 10);
     const store = new MemoryStore();
-    const svc = new GameService(store, plainHasher, () => now, seeded(4));
+    const svc = new GameService(store, plainHasher, () => now, seeded(4), scripted);
     await svc.init();
     const { token, profile } = await svc.register('q@q.com', 'secret1', 'Q');
     const play3 = profile.quests.find((q) => q.id === 'play3')!;
     expect(play3).toMatchObject({ progress: 0, target: 3, claimed: false });
     await expect(svc.claimQuest(token, 'play3')).rejects.toThrow(/не виконано/);
     for (let i = 0; i < 3; i++) {
-      await store.insertMatch({ id: `q${i}`, userId: profile.id, ranked: true, mode: 'bot', color: 'w', botLevel: 1, playerDeck: classicDeck(), botDeck: classicDeck(), status: 'active', result: null, createdAt: now });
-      await svc.finishMatch(token, `q${i}`, scholarsMate(), false);
+      await store.insertMatch({ id: `q${i}`, userId: profile.id, ranked: true, mode: 'bot', color: 'w', botLevel: 1, playerDeck: classicDeck(), botDeck: classicDeck(), status: 'active', result: null, createdAt: now, actions: [] });
+      await playLine(svc, token, `q${i}`, scholarsMate());
+      await svc.finishMatch(token, `q${i}`, false);
     }
     const me = await svc.me(token);
     expect(me.quests.find((q) => q.id === 'play3')!.progress).toBe(3);

@@ -73,7 +73,7 @@ export function PvpGame({ pvp, onExit, onRematch }: { pvp: PvpState; onExit: () 
   return (
     <Game
       key={pvp.id}
-      start={{ matchId: pvp.id, ranked: pvp.ranked, color: pvp.color, botLevel: 0, playerDeck: mine, botDeck: theirs }}
+      start={{ matchId: pvp.id, ranked: pvp.ranked, actions: pvp.actions, color: pvp.color, botLevel: 0, playerDeck: mine, botDeck: theirs }}
       playerName={s.profile.name}
       playerAvatar={s.profile.avatar}
       trophies={s.profile.trophies}

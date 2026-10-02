@@ -17,7 +17,7 @@ import { LADDER_NAMES } from '../economy/leagues';
 import { CLAIM_MS } from '../economy/service';
 import { DeckIntro, introSteps } from './DeckIntro';
 import type { FxName } from './fxSprites';
-import { requestBotTurn, requestHint } from './botClient';
+import { requestHint } from './botClient';
 import { Avatar, CardView, Glyph } from './common';
 
 export interface GameProps {
@@ -26,7 +26,12 @@ export interface GameProps {
   playerAvatar?: string;
   trophies: number;
   /** Report the finished game; resolves to the server's verdict (bot games). */
-  onFinish?: (actions: Action[], resigned: boolean) => Promise<MatchFinish>;
+  onFinish?: (resigned: boolean) => Promise<MatchFinish>;
+  /**
+   * Bot games: send the player's action (null: just let the bot move) and get
+   * the server's record back, with the bot's answer in it.
+   */
+  onAction?: (action: Action | null, expected: number) => Promise<Action[]>;
   onExit: () => void;
   onRematch?: () => void;
   rematchLabel?: string;
@@ -53,10 +58,9 @@ export interface RemoteGame {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-export function Game({ start, playerName, playerAvatar, trophies, onFinish, onExit, onRematch, rematchLabel, remote, captureFx }: GameProps) {
+export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAction, onExit, onRematch, rematchLabel, remote, captureFx }: GameProps) {
   const human = start.color;
   const bot = opposite(human);
-  const botOpts = botLevel(start.botLevel).opts;
   // Lets the shell make room for the board (a class is much cheaper than :has(.game)).
   useEffect(() => {
     document.documentElement.classList.add('in-game');
@@ -68,9 +72,11 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
     for (const a of actions) m = performAction(m, a);
     return resignedBy && !m.result ? resign(m, resignedBy) : m;
   };
-  const [match, setMatchState] = useState<MatchState>(() => (remote ? replay(remote.initialActions, remote.resignedBy) : fresh()));
-  // Every action is recorded so the server can replay and verify the game.
-  const actionsRef = useRef<Action[]>(remote ? [...remote.initialActions] : []);
+  // A bot game left unfinished goes on from the server's record.
+  const initialActions = remote ? remote.initialActions : (start.actions ?? []);
+  const [match, setMatchState] = useState<MatchState>(() => replay(initialActions, remote ? remote.resignedBy : null));
+  // Every action is recorded, in step with the server's record of the game.
+  const actionsRef = useRef<Action[]>([...initialActions]);
   const sending = useRef(0);
   const matchRef = useRef(match);
   const setMatch = (next: MatchState) => {
@@ -90,9 +96,72 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
           return resync();
         })
         .finally(() => sending.current--);
+    } else {
+      sendToServer(a, expected);
     }
     return next;
   };
+
+  // Bot games: the server checks every action and answers with the bot's moves.
+  // Requests go one after another; `serverChain` ends when all are answered.
+  const serverChain = useRef<Promise<void>>(Promise.resolve());
+  const inflight = useRef(0);
+  const sendToServer = (action: Action | null, expected: number) => {
+    if (!onAction) return;
+    inflight.current++;
+    serverChain.current = serverChain.current.then(async () => {
+      const started = Date.now();
+      try {
+        await catchUp(await onAction(action, expected), started);
+        if (alive.current) setError(null);
+      } catch (e) {
+        // fetch() fails with a TypeError when the network is down.
+        const offline = e instanceof TypeError;
+        if (alive.current) setError(offline ? 'Немає зв’язку з сервером — пробуємо ще раз…' : e instanceof Error ? e.message : String(e));
+        await resyncBot();
+      } finally {
+        inflight.current--;
+        if (alive.current) setServerTick((n) => n + 1);
+      }
+    });
+  };
+  /** Take the server's record: play the bot's new actions, or rebuild if we went out of step. */
+  const catchUp = async (server: Action[], started: number) => {
+    // Resigned while the bot was thinking: the server's verdict decides, the board stays.
+    if (matchRef.current.result) return;
+    const local = actionsRef.current;
+    const same = server.length >= local.length && local.every((a, i) => JSON.stringify(a) === JSON.stringify(server[i]));
+    if (!same) {
+      actionsRef.current = [...server];
+      if (alive.current) setMatch(replay(server, null));
+      return;
+    }
+    if (server.length === local.length) return;
+    // Let the player's own move land before the bot answers.
+    await sleep(Math.max(0, 450 - (Date.now() - started)));
+    if (!alive.current) return;
+    let m = matchRef.current;
+    for (const a of server.slice(local.length)) m = performAction(m, a);
+    actionsRef.current = [...server];
+    setMatch(m);
+  };
+  /** Lost connection: fetch the server's record again, waiting longer each try. */
+  const resyncBot = async () => {
+    for (let i = 0; i < 8 && alive.current && onAction; i++) {
+      try {
+        const server = await onAction(null, -1);
+        if (!alive.current || matchRef.current.result) return;
+        actionsRef.current = [...server];
+        setMatch(replay(server, null));
+        setError(null);
+        return;
+      } catch {
+        await sleep(Math.min(15_000, 1000 * 2 ** i));
+      }
+    }
+  };
+  // Re-runs the bot-turn check after each server answer.
+  const [serverTick, setServerTick] = useState(0);
   // Friend games: rebuild from the server's record when ours went out of step.
   const resync = async () => {
     if (!remote) return;
@@ -106,7 +175,9 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
   const report = (resigned: boolean) => {
     if (reported.current || !onFinish) return;
     reported.current = true;
-    onFinish(actionsRef.current, resigned)
+    // Bot games: the last move must reach the server before the result is asked for.
+    (remote ? Promise.resolve() : serverChain.current)
+      .then(() => onFinish(resigned))
       .then((v) => alive.current && setVerdict(v))
       .catch((e) => alive.current && setVerdictError(e instanceof Error ? e.message : String(e)));
   };
@@ -121,9 +192,8 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
   const [linePreview, setPreview] = useState<Square[]>([]);
   // Abilities played as a move (Міраж, Ривок Комети): pressing the button switches to those moves.
   const [special, setSpecial] = useState<'mirage' | 'dash' | null>(null);
-  const [thinking, setThinking] = useState(false);
   // A fresh game opens with the opponent's deck; the bot waits for it.
-  const [intro, setIntro] = useState(() => getSettings().animations && (remote ? remote.initialActions.length === 0 : true));
+  const [intro, setIntro] = useState(() => getSettings().animations && initialActions.length === 0);
   // Intro progress: how many of the opponent's cards have landed on the board.
   const [landed, setLanded] = useState(0);
   const [hintBusy, setHintBusy] = useState(false);
@@ -161,6 +231,8 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
     if (el) el.scrollTop = el.scrollHeight;
   }, [view.history.length]);
   const myTurn = match.turn === human && !match.result;
+  // Bot games: the bot's move comes from the server.
+  const thinking = !remote && !intro && !match.result && match.turn === bot;
   const busy = thinking || hintBusy;
   const legal = useMemo(() => (myTurn ? legalMoves(match) : []), [match, myTurn]);
   const specialMoves = (kind: 'mirage' | 'dash') => legal.filter((m) => m.kind === kind);
@@ -214,43 +286,13 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onEx
     [],
   );
 
-  // Bot turn. Any change of `match` (e.g. resigning) invalidates a pending answer.
-  const botToken = useRef(0);
+  // Bot games: when the bot is to move and nothing is on its way to the server
+  // (the bot opens as white, or a resumed game), ask the server for its move.
   useEffect(() => {
-    const token = ++botToken.current;
-    if (remote || intro || match.result || match.turn !== bot) {
-      setThinking(false);
-      return;
-    }
-    setThinking(true);
-    (async () => {
-      const started = Date.now();
-      let next = match;
-      try {
-        const turn = await requestBotTurn(match, bot, botOpts);
-        await sleep(Math.max(0, 450 - (Date.now() - started)));
-        const recorded: Action[] = [];
-        for (const a of turn.actions) {
-          next = performAction(next, a);
-          recorded.push(a);
-        }
-        if (token !== botToken.current || !alive.current) return;
-        actionsRef.current.push(...recorded);
-      } catch (e) {
-        console.error('Bot failed, playing a fallback move', e);
-        if (token !== botToken.current || !alive.current) return;
-        next = match;
-        const pc = next.pending.find((p) => p.color === bot);
-        if (pc) next = apply(next, { type: 'choose', square: pc.options[0] });
-        const fallback = legalMoves(next)[0];
-        if (fallback) next = apply(next, { type: 'move', move: fallback });
-      }
-      if (token !== botToken.current || !alive.current) return;
-      setMatch(next);
-      setThinking(false);
-    })();
+    if (!thinking || inflight.current > 0) return;
+    sendToServer(null, actionsRef.current.length);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [match, intro]);
+  }, [thinking, serverTick]);
 
   // Friend games: pick up the opponent's moves.
   useEffect(() => {

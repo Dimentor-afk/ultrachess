@@ -17,7 +17,9 @@ Multiplayer Web App** (rooms, reconnection, persistence; fits a turn-based game 
 more naturally) or **Lab 42** (own capstone).
 
 Already covered: TypeScript end to end, Node server, server-authoritative play (the
-server replays every action with the engine and rejects illegal moves = anti-cheat),
+server checks every action with the engine and rejects illegal moves = anti-cheat; in bot
+games it also plays the bot itself, in worker threads, and keeps the record, so the
+client cannot play the bot's side and a bot game resumes after a reload),
 matchmaking → game → results loop, names/avatars/side colours, persistent stats (auth +
 SQLite: wins, trophies, history), bots, mobile-playable, plenty of "make it yours".
 
@@ -30,7 +32,8 @@ SQLite: wins, trophies, history), bots, mobile-playable, plenty of "make it your
    (`Dockerfile`, `fly.toml`, `render.yaml`); what is left is running `fly deploy` with the author's account.
 3. **Game rooms with a shareable link** (`/game/<id>`) and **spectator mode**.
 4. **Reconnection**: drop Wi-Fi, come back to the same game (and a clear state while
-   reconnecting).
+   reconnecting). Bot games already resume from the server's record; friend/ladder games
+   still need it with WebSockets.
 5. **README in the lab's format**: play link, GIF of two players, architecture
    diagram, networking write-up (what is sent, when, why the server is the source of
    truth), how to run, features, known limitations, who did what.

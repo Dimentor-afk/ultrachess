@@ -146,8 +146,9 @@ export function HomePage() {
         playerAvatar={profile.avatar}
         captureFx={{ [game.start.color]: captureFxById(profile.captureFx).sprite as FxName }}
         trophies={profile.ladders.bot.trophies}
-        onFinish={async (actions, resigned) => {
-          const v = await api.finishMatch(game.start.matchId, actions, resigned);
+        onAction={async (action, expected) => (await api.matchAction(game.start.matchId, action, expected)).actions}
+        onFinish={async (resigned) => {
+          const v = await api.finishMatch(game.start.matchId, resigned);
           s.setProfile(v.profile);
           s.setPacks(await api.packs());
           return v;

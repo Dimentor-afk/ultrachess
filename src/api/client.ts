@@ -31,6 +31,7 @@ import {
 import type { Hasher, Role } from '../economy/store';
 import type { Action } from '../engine/match';
 import type { Deck } from '../engine/types';
+import { requestBotTurn } from '../ui/botClient';
 
 export { ApiError };
 export type {
@@ -83,7 +84,9 @@ export interface Api {
   deleteDeck(id: string): Promise<Deck[]>;
   setActiveDeck(id: string): Promise<Profile>;
   startMatch(opts: { deckId?: string; ranked: boolean; level?: number; trial?: string }): Promise<MatchStart>;
-  finishMatch(id: string, actions: Action[], resigned: boolean): Promise<MatchFinish>;
+  /** Send the player's action (or null to let the bot move); the answer is the server's record of the game. */
+  matchAction(id: string, action: Action | null, expected: number): Promise<{ actions: Action[] }>;
+  finishMatch(id: string, resigned: boolean): Promise<MatchFinish>;
   leaderboard(): Promise<LeaderRow[]>;
   adminUsers(): Promise<AdminUser[]>;
   adminGrantPack(userId: string, type: PackType): Promise<void>;
@@ -158,8 +161,9 @@ class HttpApi implements Api {
   deleteDeck = (id: string) => this.call<Deck[]>('DELETE', `decks/${id}`);
   setActiveDeck = (id: string) => this.call<Profile>('POST', 'decks/active', { id });
   startMatch = (opts: { deckId?: string; ranked: boolean; level?: number; trial?: string }) => this.call<MatchStart>('POST', 'matches', opts);
-  finishMatch = (id: string, actions: Action[], resigned: boolean) =>
-    this.call<MatchFinish>('POST', `matches/${id}/finish`, { actions, resigned });
+  matchAction = (id: string, action: Action | null, expected: number) =>
+    this.call<{ actions: Action[] }>('POST', `matches/${id}/action`, { action, expected });
+  finishMatch = (id: string, resigned: boolean) => this.call<MatchFinish>('POST', `matches/${id}/finish`, { resigned });
   leaderboard = () => this.call<LeaderRow[]>('GET', 'leaderboard');
   adminUsers = () => this.call<AdminUser[]>('GET', 'admin/users');
   adminGrantPack = (userId: string, type: PackType) => this.call<void>('POST', `admin/users/${userId}/pack`, { type });
@@ -245,7 +249,8 @@ class LocalApi implements Api {
   constructor() {
     const store = new MemoryStore(readJson<MemoryData>(DB_KEY) ?? undefined, (d) => write(DB_KEY, JSON.stringify(d)));
     this.store = store;
-    this.svc = new GameService(store, webHasher);
+    // The demo has no server: the bot thinks in a web worker, like before.
+    this.svc = new GameService(store, webHasher, Date.now, Math.random, requestBotTurn);
     this.ready = this.svc.init();
     try {
       this.token = localStorage.getItem(TOKEN_KEY);
@@ -303,7 +308,8 @@ class LocalApi implements Api {
   deleteDeck = async (id: string) => this.svc.deleteDeck(await this.t(), id);
   setActiveDeck = async (id: string) => this.svc.setActiveDeck(await this.t(), id);
   startMatch = async (opts: { deckId?: string; ranked: boolean; level?: number; trial?: string }) => this.svc.startMatch(await this.t(), opts);
-  finishMatch = async (id: string, actions: Action[], resigned: boolean) => this.svc.finishMatch(await this.t(), id, actions, resigned);
+  matchAction = async (id: string, action: Action | null, expected: number) => this.svc.matchAction(await this.t(), id, action, expected);
+  finishMatch = async (id: string, resigned: boolean) => this.svc.finishMatch(await this.t(), id, resigned);
   leaderboard = async () => {
     await this.t();
     return this.svc.leaderboard();

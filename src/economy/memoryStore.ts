@@ -106,6 +106,10 @@ export class MemoryStore implements Store {
   async getSession(token: string) {
     return this.data.sessions.find((s) => s.token === token) ?? null;
   }
+  async purgeSessions(now: number) {
+    this.data.sessions = this.data.sessions.filter((s) => s.expiresAt >= now);
+    this.save();
+  }
   async deleteSession(token: string) {
     this.data.sessions = this.data.sessions.filter((s) => s.token !== token);
     this.save();
@@ -174,12 +178,16 @@ export class MemoryStore implements Store {
   }
   async getMatch(id: string) {
     const m = this.data.matches.find((x) => x.id === id);
-    return m ? clone(m) : null;
+    // Matches stored before the server played the bot have no action list.
+    return m ? { ...clone(m), actions: clone(m.actions ?? []) } : null;
   }
-  async updateMatch(id: string, patch: Partial<MatchRow>) {
+  async updateMatch(id: string, patch: Partial<MatchRow>, expectedActions?: number) {
     const m = this.data.matches.find((x) => x.id === id);
-    if (m) Object.assign(m, clone(patch));
+    if (!m) return false;
+    if (expectedActions !== undefined && (m.actions ?? []).length !== expectedActions) return false;
+    Object.assign(m, clone(patch));
     this.save();
+    return true;
   }
   async listMatches(userId: string, limit: number) {
     return clone(this.data.matches.filter((m) => m.userId === userId).slice(-limit).reverse());

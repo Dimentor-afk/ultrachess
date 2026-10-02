@@ -180,6 +180,8 @@ const USER_MIGRATIONS: [string, string][] = [
 /** Columns added to other tables after the first release. */
 const OTHER_MIGRATIONS: [string, string, string][] = [
   ['matches', 'mode', "TEXT NOT NULL DEFAULT ''"],
+  ['matches', 'actions', "TEXT NOT NULL DEFAULT '[]'"],
+  ['matches', 'action_count', 'INTEGER NOT NULL DEFAULT 0'],
   ['pvp', 'ranked', 'INTEGER NOT NULL DEFAULT 0'],
 ];
 
@@ -267,6 +269,7 @@ function match(r: Row | undefined): MatchRow | null {
     status: r.status as MatchRow['status'],
     result: (r.result as string | null) ?? null,
     createdAt: Number(r.created_at),
+    actions: JSON.parse((r.actions as string | null) ?? '[]'),
   };
 }
 
@@ -364,6 +367,9 @@ export class SqliteStore implements Store {
     const r = this.db.prepare('SELECT * FROM sessions WHERE token = ?').get(token) as Row | undefined;
     return r ? { token: r.token as string, userId: r.user_id as string, expiresAt: Number(r.expires_at) } : null;
   }
+  async purgeSessions(now: number) {
+    this.db.prepare('DELETE FROM sessions WHERE expires_at < ?').run(now);
+  }
   async deleteSession(token: string) {
     this.db.prepare('DELETE FROM sessions WHERE token = ?').run(token);
   }
@@ -424,16 +430,45 @@ export class SqliteStore implements Store {
   async insertMatch(m: MatchRow) {
     this.db
       .prepare(
-        'INSERT INTO matches (id, user_id, ranked, mode, color, bot_level, player_deck, bot_deck, status, result, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO matches (id, user_id, ranked, mode, color, bot_level, player_deck, bot_deck, status, result, created_at, actions, action_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       )
-      .run(m.id, m.userId, m.ranked ? 1 : 0, m.mode, m.color, m.botLevel, JSON.stringify(m.playerDeck), JSON.stringify(m.botDeck), m.status, m.result, m.createdAt);
+      .run(
+        m.id,
+        m.userId,
+        m.ranked ? 1 : 0,
+        m.mode,
+        m.color,
+        m.botLevel,
+        JSON.stringify(m.playerDeck),
+        JSON.stringify(m.botDeck),
+        m.status,
+        m.result,
+        m.createdAt,
+        JSON.stringify(m.actions ?? []),
+        (m.actions ?? []).length,
+      );
   }
   async getMatch(id: string) {
     return match(this.db.prepare('SELECT * FROM matches WHERE id = ?').get(id) as Row | undefined);
   }
-  async updateMatch(id: string, patch: Partial<MatchRow>) {
-    const cols: Record<string, string> = { status: 'status', result: 'result' };
-    update(this.db, 'matches', cols, id, patch as Row);
+  async updateMatch(id: string, patch: Partial<MatchRow>, expectedActions?: number) {
+    const sets: string[] = [];
+    const vals: (string | number | null)[] = [];
+    if (patch.status !== undefined) sets.push('status = ?'), vals.push(patch.status);
+    if (patch.result !== undefined) sets.push('result = ?'), vals.push(patch.result);
+    if (patch.actions !== undefined) {
+      sets.push('actions = ?', 'action_count = ?');
+      vals.push(JSON.stringify(patch.actions), patch.actions.length);
+    }
+    if (!sets.length) return true;
+    let sql = `UPDATE matches SET ${sets.join(', ')} WHERE id = ?`;
+    vals.push(id);
+    // Optimistic lock: a second request on the same game cannot overwrite the first.
+    if (expectedActions !== undefined) {
+      sql += ' AND action_count = ?';
+      vals.push(expectedActions);
+    }
+    return Number(this.db.prepare(sql).run(...vals).changes) > 0;
   }
   async listMatches(userId: string, limit: number) {
     return (this.db.prepare('SELECT * FROM matches WHERE user_id = ? ORDER BY created_at DESC LIMIT ?').all(userId, limit) as Row[]).map(

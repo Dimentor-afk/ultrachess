@@ -1,6 +1,7 @@
 // Persistence contract for the game service. Implemented by SQLite on the
 // server (server/sqliteStore.ts) and by localStorage in the browser demo.
 
+import type { Action } from '../engine/match';
 import type { Deck } from '../engine/types';
 import type { PackType } from './packs';
 
@@ -104,6 +105,8 @@ export interface MatchRow {
   status: 'active' | 'finished';
   result: string | null;
   createdAt: number;
+  /** Every action played so far, both sides (the server plays the bot's). */
+  actions: Action[];
 }
 
 export interface FriendRow {
@@ -180,7 +183,10 @@ export interface Store {
 
   insertMatch(m: MatchRow): Promise<void>;
   getMatch(id: string): Promise<MatchRow | null>;
-  updateMatch(id: string, patch: Partial<MatchRow>): Promise<void>;
+  /** With `expectedActions`, writes only if the stored game has that many actions (false otherwise). */
+  updateMatch(id: string, patch: Partial<MatchRow>, expectedActions?: number): Promise<boolean>;
+  /** Drop sessions that expired before `now`. */
+  purgeSessions(now: number): Promise<void>;
   listMatches(userId: string, limit: number): Promise<MatchRow[]>;
 
   listFriends(userId: string): Promise<FriendRow[]>;

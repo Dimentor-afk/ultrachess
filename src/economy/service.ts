@@ -26,6 +26,8 @@ import { BOARD_THEMES, DEFAULT_THEME, themeById } from './themes';
 import { CAPTURE_FX, DEFAULT_CAPTURE_FX, captureFxById } from './captureFx';
 import { type ShopOffer, shopOffer } from './dailyShop';
 import { BOT_LEVELS, botLevel } from '../engine/bot/levels';
+import { type BotOptions, type BotTurn, chooseTurn } from '../engine/bot/search';
+import { legalMoves } from '../engine/legal';
 import { type QuestEvent, type QuestView, addProgress, parseQuests, questViews } from './quests';
 import { type Hasher, type MatchRow, type PackRow, type PvpRow, type Role, type Store, type UserRow, randomId } from './store';
 
@@ -131,9 +133,17 @@ export interface OpenResult {
   shards: number;
 }
 
+/**
+ * Plays the bot's turn. The server runs it in a worker thread, the browser
+ * demo in a web worker; tests pass a scripted bot.
+ */
+export type BotRunner = (state: MatchState, color: Color, opts: BotOptions) => Promise<BotTurn>;
+
 export interface MatchStart {
   matchId: string;
   ranked: boolean;
+  /** Actions already played: a game that was left unfinished goes on from here. */
+  actions: Action[];
   /** Set for a trial match. */
   trial?: { id: string; name: string; round: number; rounds: number };
   color: Color;
@@ -297,6 +307,7 @@ export class GameService {
     private hasher: Hasher,
     private now: () => number = Date.now,
     private rng: Rng = Math.random,
+    private bot: BotRunner = async (state, color, opts) => chooseTurn(state, color, opts),
   ) {}
 
   /** Seed the admin accounts (no password until their owner registers). */
@@ -860,16 +871,9 @@ export class GameService {
       const run = this.trialRuns(u)[t.id];
       if (!run || run.status !== 'active') throw new ApiError(400, 'Спершу оплатіть вхід у випробування.');
       if (run.matchId) {
-        // Leaving a trial game unfinished counts as a defeat (no restarting until you win).
+        // An unfinished trial game goes on where it stopped: no restarting a bad game.
         const old = await this.store.getMatch(run.matchId);
-        if (old && old.status === 'active') {
-          await this.store.updateMatch(old.id, {
-            status: 'finished',
-            result: JSON.stringify({ outcome: 'loss', reason: 'Партію покинуто', moves: 0, trophiesDelta: 0 }),
-          });
-          await this.saveRun(u, { ...run, status: 'lost', matchId: undefined });
-          throw new ApiError(409, 'Попередню партію випробування не дограно — її зараховано як поразку, спробу завершено.');
-        }
+        if (old && old.status === 'active') return this.matchStart(old);
       }
       playerDeck = t.classic ? classicDeck('trial', 'Класична колода') : await this.playableDeck(u.id, opts.deckId);
       botDeck = t.classic ? classicDeck('bot', 'Класична колода') : this.botDeck(t.botMaxRarity ?? 'legendary');
@@ -877,6 +881,11 @@ export class GameService {
       mode = `trial:${t.id}`;
       trialInfo = { id: t.id, name: t.name, round: run.wins + 1, rounds: t.opponents.length };
     } else {
+      if (opts.ranked) {
+        // An unfinished bot-ladder game goes on: leaving a lost game must not save the trophies.
+        const open = (await this.store.listMatches(u.id, 20)).find((x) => x.status === 'active' && this.modeOf(x) === 'bot');
+        if (open) return this.matchStart(open);
+      }
       const decks = await this.store.listDecks(u.id);
       const d = decks.find((x) => x.id === (opts.deckId ?? u.activeDeckId)) ?? decks[0];
       if (!d) throw new ApiError(400, 'Спочатку зберіть колоду.');
@@ -900,32 +909,131 @@ export class GameService {
       status: 'active',
       result: null,
       createdAt: this.now(),
+      actions: [],
     };
     await this.store.insertMatch(m);
     if (opts.trial) await this.saveRun(u, { ...this.trialRuns(u)[opts.trial], matchId: m.id });
-    return { matchId: m.id, ranked: m.ranked, color: m.color, botLevel, playerDeck, botDeck, trial: trialInfo };
+    return { ...(await this.matchStart(m)), trial: trialInfo };
+  }
+
+  private async matchStart(m: MatchRow): Promise<MatchStart> {
+    const mode = this.modeOf(m);
+    let trial: MatchStart['trial'];
+    if (mode.startsWith('trial:')) {
+      const t = trialById(mode.slice(6));
+      const u = await this.store.getUser(m.userId);
+      const run = u && t ? this.trialRuns(u)[t.id] : undefined;
+      if (t && run) trial = { id: t.id, name: t.name, round: run.wins + 1, rounds: t.opponents.length };
+    }
+    return {
+      matchId: m.id,
+      ranked: m.ranked,
+      actions: m.actions,
+      color: m.color,
+      botLevel: m.botLevel,
+      playerDeck: m.playerDeck,
+      botDeck: m.botDeck,
+      ...(trial ? { trial } : {}),
+    };
   }
 
   private modeOf(m: MatchRow): string {
     return m.mode || (m.ranked ? 'bot' : 'training');
   }
 
+  private replayMatch(m: MatchRow): MatchState {
+    let state = m.color === 'w' ? createMatch(m.playerDeck, m.botDeck) : createMatch(m.botDeck, m.playerDeck);
+    for (const a of m.actions) state = performAction(state, a);
+    return state;
+  }
+
+  /** One bot turn, checked like any other move; a broken answer falls back to a plain legal move. */
+  private async botTurn(state: MatchState, color: Color, level: number): Promise<{ state: MatchState; actions: Action[] }> {
+    let next = state;
+    const played: Action[] = [];
+    try {
+      const turn = await this.bot(state, color, botLevel(level).opts);
+      for (const a of turn.actions) {
+        next = performAction(next, a);
+        played.push(a);
+      }
+      if (next.turn === color && !next.result && !next.pending.some((p) => p.color !== color)) throw new Error('Bot did not finish its turn');
+    } catch (err) {
+      // Visible in the server log: a silent fallback would hide a broken bot.
+      console.warn('Bot turn failed, playing a fallback move:', err instanceof Error ? err.message : err);
+      next = state;
+      played.length = 0;
+      const pc = next.pending.find((p) => p.color === color);
+      if (pc) {
+        const a: Action = { type: 'choose', square: pc.options[0] };
+        next = performAction(next, a);
+        played.push(a);
+      }
+      const move = legalMoves(next)[0];
+      if (move && !next.result) {
+        const a: Action = { type: 'move', move };
+        next = performAction(next, a);
+        played.push(a);
+      }
+    }
+    return { state: next, actions: played };
+  }
+
   /**
-   * Finish a match. The server replays every action with the rules engine,
-   * so an illegal or made-up game is rejected.
+   * Play one of the player's actions in a bot game and answer with the bot's.
+   * The server keeps the record and plays the bot itself, so the player
+   * cannot make the bot lose. `action: null` only lets the bot move (it starts
+   * as white, or the game was resumed). If `expected` (the number of actions
+   * the client has) is out of date, nothing is played and the client gets the
+   * record to catch up with.
    */
-  async finishMatch(token: string, matchId: string, actions: Action[], resigned: boolean): Promise<MatchFinish> {
+  async matchAction(token: string, matchId: string, action: Action | null, expected: number): Promise<{ actions: Action[] }> {
+    const u = await this.auth(token);
+    const m = await this.store.getMatch(matchId);
+    if (!m || m.userId !== u.id) throw new ApiError(404, 'Матч не знайдено.');
+    if (expected !== m.actions.length || m.status !== 'active') return { actions: m.actions };
+    if (m.actions.length > 3000) throw new ApiError(400, 'Забагато ходів.');
+    let state = this.replayMatch(m);
+    const actions = [...m.actions];
+    const botColor: Color = m.color === 'w' ? 'b' : 'w';
+    if (action) {
+      if (state.result) throw new ApiError(409, 'Партію завершено.');
+      if (state.turn !== m.color) throw new ApiError(409, 'Зараз хід бота.');
+      try {
+        state = performAction(state, action);
+      } catch {
+        throw new ApiError(400, 'Такий хід неможливий.');
+      }
+      actions.push(action);
+    }
+    // The bot answers until it is the player's turn again (or the game is over).
+    for (let guard = 0; guard < 4 && !state.result && state.turn === botColor; guard++) {
+      const r = await this.botTurn(state, botColor, m.botLevel);
+      if (!r.actions.length) break;
+      state = r.state;
+      actions.push(...r.actions);
+    }
+    if (actions.length !== m.actions.length) {
+      // Another request on this game got there first: send the stored record instead.
+      if (!(await this.store.updateMatch(m.id, { actions }, m.actions.length))) {
+        return { actions: (await this.store.getMatch(m.id))!.actions };
+      }
+    }
+    return { actions };
+  }
+
+  /**
+   * Finish a match. The result comes from the server's own record of the game
+   * (the player's moves it checked and the bot's moves it played).
+   */
+  async finishMatch(token: string, matchId: string, resigned: boolean): Promise<MatchFinish> {
     const u = await this.auth(token);
     const m = await this.store.getMatch(matchId);
     if (!m || m.userId !== u.id) throw new ApiError(404, 'Матч не знайдено.');
     if (m.status !== 'active') throw new ApiError(409, 'Матч уже завершено.');
-    if (actions.length > 3000) throw new ApiError(400, 'Забагато ходів.');
-    let state = m.color === 'w' ? createMatch(m.playerDeck, m.botDeck) : createMatch(m.botDeck, m.playerDeck);
+    let state: MatchState;
     try {
-      for (const a of actions) {
-        if (state.result) break;
-        state = performAction(state, a);
-      }
+      state = this.replayMatch(m);
     } catch {
       throw new ApiError(400, 'Запис партії не пройшов перевірку правил.');
     }
