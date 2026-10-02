@@ -285,7 +285,7 @@ describe('service', () => {
     expect(again.view.state.history).toEqual(first.view.state.history);
   });
 
-  it('a bot game saved by an older demo (no record of actions) goes on from the start', async () => {
+  it('a bot game saved by an older demo (no record of actions) is closed: a new one starts with the current deck', async () => {
     const { store, svc } = await setup(3);
     const { token } = await svc.register('o@o.com', 'secret1', 'O');
     const [p] = await svc.packs(token);
@@ -297,8 +297,9 @@ describe('service', () => {
     const later = new GameService(new MemoryStore(old), plainHasher, Date.now, seeded(3), scripted);
     await later.init();
     const again = await later.startMatch(token, { ranked: true });
-    expect(again.matchId).toBe(start.matchId);
+    expect(again.matchId).not.toBe(start.matchId);
     expect(again.view.state.ply).toBe(0);
+    expect((await later.history(token)).some((h) => h.id === start.matchId)).toBe(false);
   });
 });
 

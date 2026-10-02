@@ -32,11 +32,14 @@ export const emptyData = (): MemoryData => ({
 const clone = <T,>(x: T): T => JSON.parse(JSON.stringify(x));
 
 /**
- * A bot game saved before the server kept its record has no actions: it goes
- * on from the start, with the same decks and colours.
+ * A bot game saved before the server kept its record has no actions, so it
+ * cannot go on where it stopped. It is closed without a result (like a
+ * training game left open): "Бій" then starts a new game with the current
+ * deck, not the deck that game was started with long ago.
  */
 export function withMatchDefaults(m: MatchRow): MatchRow {
-  return { ...m, mode: m.mode ?? '', actions: Array.isArray(m.actions) ? m.actions : [] };
+  if (Array.isArray(m.actions)) return { ...m, mode: m.mode ?? '' };
+  return { ...m, mode: m.mode ?? '', actions: [], status: 'finished', result: m.status === 'active' ? null : m.result };
 }
 
 /** Fill fields added after the demo data was first saved. */
