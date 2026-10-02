@@ -92,7 +92,15 @@ describe('fuzz', () => {
             const moves = legalMoves(m);
             const captures = moves.filter((x) => x.captures.length);
             const pool = captures.length && r() < 0.5 ? captures : moves;
-            action = { type: 'move', move: pool[Math.floor(r() * pool.length)] };
+            if (pool.length) action = { type: 'move', move: pool[Math.floor(r() * pool.length)] };
+            else {
+              // No move but the game goes on: the turn is played through an ability (Землетрус).
+              const ab = abilityPieces(m, m.turn)
+                .filter((x) => abilityReady(m, x.piece.id))
+                .flatMap((x) => abilityOptions(m, x.piece.id).map((o) => ({ id: x.piece.id, key: o.key })));
+              expect(ab.length, 'a turn with no move, no ability and no result').toBeGreaterThan(0);
+              action = { type: 'ability', pieceId: ab[0].id, key: ab[0].key };
+            }
           }
         }
         m = performAction(m, action);

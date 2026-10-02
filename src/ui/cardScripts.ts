@@ -337,7 +337,8 @@ export const CARD_SCRIPTS: Record<string, ClipScript> = {
         key: /diag:1:/,
         say: "Кнопка: бар'єр на діагональ слона",
       },
-      { marks: 'h3', say: 'Наступним ходом ферзь не може її перетнути' },
+      { move: 'b1 c2', say: 'Хід не витрачено — тепер звичайний хід' },
+      { marks: 'h3', say: 'Наступним ходом ферзь не може перетнути бар’єр' },
     ],
   },
 
@@ -495,6 +496,7 @@ export const CARD_SCRIPTS: Record<string, ClipScript> = {
   },
   'rook-earthquake': {
     pieces: { d1: 'hero!', b6: 'b:bishop', e6: 'b:knight', h6: 'b:pawn' },
+    kings: { w: 'a1' },
     steps: [
       {
         ability: 'd1',
@@ -502,6 +504,7 @@ export const CARD_SCRIPTS: Record<string, ClipScript> = {
         say: 'Кнопка: обираєте лінію без королів…',
         then: '…і всі фігури на ній зсуваються на 1',
       },
+      { move: 'd1 d4', say: 'Хід не витрачено — тура ще й ходить' },
     ],
   },
 
