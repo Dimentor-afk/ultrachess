@@ -58,7 +58,7 @@
 
 1. Локально: `npm run typecheck && npm test && npm run build`. Те саме перевірить CI.
 2. `fly launch --copy-config --no-deploy` (назва застосунку з `fly.toml` має бути вільна).
-3. `fly volumes create ultrachess_data --size 1 --region waw`: база житиме в `/data`.
+3. `fly volumes create ultrachess_data --size 1 --region fra`: база житиме в `/data`.
 4. За бажанням `fly secrets set ADMIN_EMAILS=ваша@пошта`. Так пошту адміна не видно в репозиторії.
    Листи: зареєструватися на resend.com, підтвердити там свій домен (або для тесту слати з
    `onboarding@resend.dev` лише на свою пошту) і задати

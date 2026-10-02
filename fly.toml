@@ -1,7 +1,7 @@
 # Fly.io: `fly launch --copy-config` once, then `fly deploy`.
 # Create the volume first: fly volumes create ultrachess_data --size 1
 app = "ultrachess"
-primary_region = "waw"
+primary_region = "fra"
 
 [build]
 
