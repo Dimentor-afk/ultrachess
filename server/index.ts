@@ -7,7 +7,7 @@ import { type IncomingMessage, type ServerResponse, createServer } from 'node:ht
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { createGzip, gzipSync } from 'node:zlib';
 import { promisify } from 'node:util';
-import { ApiError, GameService } from '../src/economy/service';
+import { ADMIN_EMAILS, ApiError, GameService } from '../src/economy/service';
 import type { Hasher } from '../src/economy/store';
 import { BotPool } from './botPool';
 import { SqliteStore } from './sqliteStore';
@@ -85,7 +85,10 @@ setInterval(() => {
 
 const store = new SqliteStore(DB_FILE);
 const bots = new BotPool();
-const svc = new GameService(store, hasher, Date.now, Math.random, bots.run);
+// ADMIN_EMAILS="a@x.com,b@y.com" overrides the built-in list. A seeded admin account is
+// claimed by its first registration: register it right after the first deploy.
+const admins = process.env.ADMIN_EMAILS ? process.env.ADMIN_EMAILS.split(',').map((e) => e.trim().toLowerCase()).filter(Boolean) : ADMIN_EMAILS;
+const svc = new GameService(store, hasher, Date.now, Math.random, bots.run, admins);
 
 function tokenOf(req: IncomingMessage): string | null {
   const m = /(?:^|;\s*)uc_session=([a-f0-9]+)/.exec(req.headers.cookie ?? '');

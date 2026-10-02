@@ -344,11 +344,13 @@ export class GameService {
     private rng: Rng = Math.random,
     // Loaded on demand: the browser demo passes its web worker and never needs this copy.
     private bot: BotRunner = async (state, color, opts) => (await import('../engine/bot/search')).chooseTurn(state, color, opts),
+    /** E-mails that get the admin role (the server reads them from ADMIN_EMAILS). */
+    private admins: string[] = ADMIN_EMAILS,
   ) {}
 
   /** Seed the admin accounts (no password until their owner registers). */
   async init(): Promise<void> {
-    for (const email of ADMIN_EMAILS) {
+    for (const email of this.admins) {
       const u = await this.store.getUserByEmail(email);
       if (!u) {
         await this.store.insertUser(this.newUser(email, email.split('@')[0], 'admin', null));
@@ -412,7 +414,7 @@ export class GameService {
       await this.store.updateUser(user.id, { passHash: hash, name });
       user = (await this.store.getUser(user.id))!;
     } else {
-      user = this.newUser(email, name, ADMIN_EMAILS.includes(email) ? 'admin' : 'player', hash);
+      user = this.newUser(email, name, this.admins.includes(email) ? 'admin' : 'player', hash);
       await this.store.insertUser(user);
     }
     await this.giveStarter(user);

@@ -38,6 +38,10 @@ SQLite: wins, trophies, history), bots, mobile-playable, plenty of "make it your
    diagram, networking write-up (what is sent, when, why the server is the source of
    truth), how to run, features, known limitations, who did what.
 
+Known gap to fix together with WebSockets (see `docs/pre-deploy.md`): both clients of a
+player game get the full action list, so hidden information (Міраж, illusions, Безсмертна)
+can be read in devtools. The fix is per-player views (`playerView` + own legal moves).
+
 ### Open question for the teacher
 
 Lab 27 is written for real-time action games (20 Hz server tick, interpolation,
