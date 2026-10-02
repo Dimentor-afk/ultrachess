@@ -76,7 +76,6 @@ export function AuthPage({ api, onAuth }: { api: Api; onAuth: (p: Profile) => vo
             autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
           />
         </label>
-        {mode === 'register' && <small className="muted tiny">Щонайменше {PASSWORD_MIN} символів, не «12345678» і не ваша пошта.</small>}
         {error && <p className="error-text">{error}</p>}
         <button className="btn btn-primary btn-lg btn-block-c" disabled={busy}>
           {mode === 'login' ? 'Увійти' : 'Створити акаунт'}
