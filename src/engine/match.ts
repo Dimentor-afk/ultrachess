@@ -47,6 +47,11 @@ export interface MatchState extends Position {
   lastMove: LastMove | null;
   /** How the last action looked (animations and effects). */
   fx: MatchFx | null;
+  /**
+   * The same for the last action the opponent could see: after a hidden
+   * action (Безсмертна, Підказка) their view keeps showing this one.
+   */
+  fxPublic?: MatchFx | null;
 }
 
 export function positionKey(pos: Position): string {
@@ -196,13 +201,15 @@ function record(
     const key = positionKey(next);
     repetition[key] = (repetition[key] ?? 0) + 1;
   }
+  const shown = computeFx(state.history.length + 1, state, next, fx);
   return withStatus({
     ...state,
     ...next,
     history: [...state.history, entry],
     repetition,
     lastMove: lastMove ?? state.lastMove,
-    fx: computeFx(state.history.length + 1, state, next, fx),
+    fx: shown,
+    fxPublic: entry.text === null ? (state.fxPublic ?? null) : shown,
   });
 }
 
