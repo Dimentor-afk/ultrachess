@@ -74,6 +74,32 @@ describe('secure views', () => {
     expect(secureState(m, 'w', opaque).fx!.sprites.some((s) => s.kind === 'mirage')).toBe(true);
   });
 
+  it('Міраж: the opponent and a spectator cannot tell where the real knight went', () => {
+    let m = createMatch(deck({ knight1: 'knight-mirage' }), classicDeck());
+    const mirage = legalMoves(m).find((x) => x.kind === 'mirage' && (x.mirage?.length ?? 0) > 0)!;
+    m = performAction(m, { type: 'move', move: mirage });
+    const real = mirage.to!;
+    const spread = [real, ...m.hiddenState.w.illusions.map((i) => i.square)].sort((a, b) => a - b);
+    for (const viewer of ['b', null] as const) {
+      const v = secureState(m, viewer, opaque);
+      const text = JSON.stringify([v.history, v.lastMove, v.fx]);
+      // Every landing square is shown the same way; the real one is not singled out.
+      expect(v.lastMove).toMatchObject({ from: mirage.from, to: null, target: mirage.from, spread });
+      expect(v.history.at(-1)!.text).toBe(`Кінь ${squareName(mirage.from)} — Міраж`);
+      expect(v.fx!.moves.map((x) => x.to)).toEqual(spread);
+      expect(v.fx!.moves.every((x) => x.from === mirage.from && x.legs.length === 1 && x.legs[0].style === 'hop')).toBe(true);
+      expect(text).not.toContain(squareName(real) + '"');
+      for (const s of spread) expect(v.board[s]).toMatchObject({ color: 'w', cardId: 'knight-mirage' });
+    }
+    // The owner still sees their real move.
+    const own = secureState(m, 'w', opaque);
+    expect(own.history.at(-1)!.text).toBe(`Кінь ${squareName(mirage.from)}–${squareName(real)} (Міраж)`);
+    expect(own.fx!.moves[0]).toMatchObject({ from: mirage.from, to: real });
+    // After black answers, nothing about the Міраж is left to read either.
+    const b = performAction(m, { type: 'move', move: legalMoves(m).find((x) => squareName(x.from) === 'a7')! });
+    expect(secureState(b, 'b', opaque).history.at(-2)!.text).toBe(`Кінь ${squareName(mirage.from)} — Міраж`);
+  });
+
   it('the view is still a playable state for its owner', () => {
     let m = createMatch(deck({ bishop1: 'bishop-illusionist' }), classicDeck());
     m = move(m, 'd2', 'd3');

@@ -410,6 +410,7 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
     lastMove.add(view.lastMove.from);
     lastMove.add(view.lastMove.target);
     if (view.lastMove.to !== null) lastMove.add(view.lastMove.to);
+    for (const sq of view.lastMove.spread ?? []) lastMove.add(sq);
   }
   const shownHint = myTurn && hintMove && hintMove.ply === match.ply ? hintMove.move : null;
   const hint = new Set<Square>(shownHint ? [shownHint.from, shownHint.target] : []);

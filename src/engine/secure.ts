@@ -7,7 +7,8 @@
 // - its piece ids are replaced by opaque ones, so no id says "illusion",
 // - its hidden state (illusions, Безсмертна's shield, the hint) is emptied,
 // - cooldowns of its hidden buttons (Безсмертна, Підказка, Міраж) are dropped,
-// - its hidden actions vanish from the history and from the animations.
+// - its hidden actions vanish from the history and from the animations,
+// - its Міраж shows as all knights hopping at once, with no hint which is real.
 // A hidden action therefore leaves the other side's view exactly as it was.
 
 import { ABILITY_DEFS } from './abilities';
@@ -102,17 +103,20 @@ export function secureState(state: MatchState, viewer: Color | null, opaque: Opa
     const text = historyText(h, viewer);
     if (text !== null) history.push({ ply: h.ply, color: h.color, text });
   }
-  // The last action hidden from this viewer must not show either: they see
-  // the animation of the last action they were allowed to see.
+  // Someone else's last action shows as its public version: a hidden one as
+  // the last action this viewer was allowed to see, Міраж as all its knights.
   const last = state.history[state.history.length - 1];
-  const fxSource = last && historyText(last, viewer) === null ? (state.fxPublic ?? null) : state.fx;
+  const fxSource = last && last.color !== viewer && state.fxPublic !== undefined ? state.fxPublic : state.fx;
+  // Міраж: the start square and every landing square, not the real knight's move.
+  const lm = state.lastMove;
+  const lastMove = lm?.spread && hidden(lm.color) ? { color: lm.color, from: lm.from, to: null, target: lm.from, spread: lm.spread } : lm;
   const fx: MatchFx | null = fxSource && {
     ...fxSource,
     id: history.length,
     sprites: fxSource.sprites.filter((x) => !x.owner || x.owner === viewer),
   };
 
-  const out: MatchState = { ...state, ...pos, history, fx, repetition: {} };
+  const out: MatchState = { ...state, ...pos, history, fx, lastMove, repetition: {} };
   delete out.fxPublic;
   return out;
 }

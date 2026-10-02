@@ -36,6 +36,11 @@ export interface LastMove {
   from: Square;
   to: Square | null;
   target: Square;
+  /**
+   * Міраж: every square a knight landed on (the real one and the illusions),
+   * sorted. The opponent sees all of them and not which one is real.
+   */
+  spread?: Square[];
 }
 
 export interface MatchState extends Position {
@@ -48,8 +53,9 @@ export interface MatchState extends Position {
   /** How the last action looked (animations and effects). */
   fx: MatchFx | null;
   /**
-   * The same for the last action the opponent could see: after a hidden
-   * action (Безсмертна, Підказка) their view keeps showing this one.
+   * The same as the opponent (and a spectator) sees it: after a hidden
+   * action (Безсмертна, Підказка) the last action they could see; after
+   * Міраж every knight hopping out of the start square at once.
    */
   fxPublic?: MatchFx | null;
 }
@@ -202,6 +208,13 @@ function record(
     repetition[key] = (repetition[key] ?? 0) + 1;
   }
   const shown = computeFx(state.history.length + 1, state, next, fx);
+  let fxPublic: MatchFx | null = entry.text === null ? (state.fxPublic ?? null) : shown;
+  if (lastMove?.spread) {
+    // Міраж: the opponent sees the knight split and every copy hop to its square.
+    const from = lastMove.from;
+    const hops = lastMove.spread.map((to) => ({ from, to, legs: [{ to, style: 'hop' as const }] }));
+    fxPublic = { ...shown, moves: [...hops, ...shown.moves.filter((m) => m.from !== from)] };
+  }
   return withStatus({
     ...state,
     ...next,
@@ -209,7 +222,7 @@ function record(
     repetition,
     lastMove: lastMove ?? state.lastMove,
     fx: shown,
-    fxPublic: entry.text === null ? (state.fxPublic ?? null) : shown,
+    fxPublic,
   });
 }
 
@@ -227,13 +240,22 @@ export function performAction(state: MatchState, action: Action): MatchState {
       const legal = typeof from === 'number' ? legalMoves(state, false, { from }).find((m) => sameMove(m, action.move)) : undefined;
       if (!legal) throw new Error('Нелегальний хід');
       const { pos, events } = applyMoveWithEvents(state, legal);
-      const publicBase = moveText(state, legal);
-      const ownBase = legal.kind === 'mirage' ? `${publicBase} (Міраж)` : publicBase;
+      const realText = moveText(state, legal);
+      const last: LastMove = { color, from: legal.from, to: legal.to, target: legal.target };
+      let publicBase = realText;
+      let ownBase = realText;
+      if (legal.kind === 'mirage' && legal.to !== null) {
+        // Where the real knight went is the whole point: the opponent only learns where it came from.
+        const copies = pos.hiddenState[color].illusions.filter((i) => legal.mirage?.includes(i.square)).map((i) => i.square);
+        last.spread = [legal.to, ...copies].sort((a, b) => a - b);
+        publicBase = `${PIECE_NAMES[state.board[legal.from]!.type]} ${squareName(legal.from)} — Міраж`;
+        ownBase = `${realText} (Міраж)`;
+      }
       return record(
         state,
         pos,
         { ply: state.ply, color, text: withEvents(publicBase, events), ownText: withEvents(ownBase, events) },
-        { color, from: legal.from, to: legal.to, target: legal.target },
+        last,
         true,
         { move: legal, events },
       );
