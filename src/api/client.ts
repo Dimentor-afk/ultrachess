@@ -26,6 +26,7 @@ import {
   type LeaderRow,
   type MatchFinish,
   type MatchStart,
+  type MailSent,
   type OpenResult,
   type PackView,
   type Profile,
@@ -52,6 +53,7 @@ export type {
   LeaderRow,
   MatchFinish,
   MatchStart,
+  MailSent,
   OpenResult,
   PackView,
   PlayerCard,
@@ -74,6 +76,17 @@ export interface Api {
   register(email: string, password: string, name: string): Promise<Profile>;
   login(email: string, password: string): Promise<Profile>;
   logout(): Promise<void>;
+  /** "Forgot password": always the same answer (in the demo, with the link). */
+  forgotPassword(email: string): Promise<MailSent>;
+  /** A new password from a reset link; signs in. */
+  resetPassword(token: string, password: string): Promise<Profile>;
+  verifyEmail(token: string): Promise<{ email: string }>;
+  sendVerification(): Promise<MailSent>;
+  changePassword(current: string, next: string): Promise<void>;
+  changeEmail(password: string, email: string): Promise<{ profile: Profile; mail: MailSent }>;
+  /** Sign out on every other device. */
+  logoutOthers(): Promise<void>;
+  deleteAccount(password: string): Promise<void>;
   collection(): Promise<Collection>;
   packs(): Promise<PackView[]>;
   openPack(id: string): Promise<OpenResult>;
@@ -161,6 +174,18 @@ class HttpApi implements Api {
     this.socket?.close();
     this.socket = undefined;
     await this.call<void>('POST', 'auth/logout', {});
+  };
+  forgotPassword = (email: string) => this.call<MailSent>('POST', 'auth/forgot', { email });
+  resetPassword = (token: string, password: string) => this.call<Profile>('POST', 'auth/reset', { token, password });
+  verifyEmail = (token: string) => this.call<{ email: string }>('POST', 'auth/verify', { token });
+  sendVerification = () => this.call<MailSent>('POST', 'account/verify', {});
+  changePassword = (current: string, password: string) => this.call<void>('POST', 'account/password', { current, password });
+  changeEmail = (password: string, email: string) => this.call<{ profile: Profile; mail: MailSent }>('POST', 'account/email', { password, email });
+  logoutOthers = () => this.call<void>('POST', 'auth/logout-others', {});
+  deleteAccount = async (password: string) => {
+    await this.call<void>('POST', 'account/delete', { password });
+    this.socket?.close();
+    this.socket = undefined;
   };
   private socket: LiveSocket | undefined;
   /** Opened on first use (signed in by then: the socket is authenticated by the session cookie). */
@@ -259,6 +284,11 @@ async function derive(password: string, salt: Uint8Array): Promise<string> {
 const toHex = (a: Uint8Array) => [...a].map((b) => b.toString(16).padStart(2, '0')).join('');
 const fromHex = (h: string) => new Uint8Array((h.match(/../g) ?? []).map((x) => parseInt(x, 16)));
 
+/** This page's address without the route: links in letters open the app here. */
+function siteBase(): string {
+  return `${location.origin}${location.pathname}`;
+}
+
 class LocalApi implements Api {
   mode = 'local' as const;
   private svc: GameService;
@@ -271,6 +301,8 @@ class LocalApi implements Api {
     this.store = store;
     // The demo has no server: the bot thinks in a web worker, like before.
     this.svc = new GameService(store, webHasher, Date.now, Math.random, requestBotTurn);
+    // No mail in the demo: the screens show the link from the "letter" instead.
+    this.svc.showLinks = true;
     this.ready = this.svc.init();
     try {
       this.token = localStorage.getItem(TOKEN_KEY);
@@ -314,6 +346,28 @@ class LocalApi implements Api {
     await this.svc.logout(await this.t());
     this.remember(null);
   }
+  forgotPassword = async (email: string) => {
+    await this.t();
+    return this.svc.requestPasswordReset(email, siteBase());
+  };
+  resetPassword = async (token: string, password: string) => {
+    await this.t();
+    const r = await this.svc.resetPassword(token, password);
+    this.remember(r.token);
+    return r.profile;
+  };
+  verifyEmail = async (token: string) => {
+    await this.t();
+    return this.svc.verifyEmail(token);
+  };
+  sendVerification = async () => this.svc.sendVerification(await this.t(), siteBase());
+  changePassword = async (current: string, next: string) => this.svc.changePassword(await this.t(), current, next);
+  changeEmail = async (password: string, email: string) => this.svc.changeEmail(await this.t(), password, email, siteBase());
+  logoutOthers = async () => this.svc.logoutOthers(await this.t());
+  deleteAccount = async (password: string) => {
+    await this.svc.deleteAccount(await this.t(), password);
+    this.remember(null);
+  };
   collection = async () => this.svc.collection(await this.t());
   packs = async () => this.svc.packs(await this.t());
   openPack = async (id: string) => this.svc.openPack(await this.t(), id);

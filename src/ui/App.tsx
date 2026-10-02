@@ -1,6 +1,7 @@
 import { type CSSProperties, Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
 import { type Api, type Profile, createApi } from '../api/client';
 import { AuthPage } from './AuthPage';
+import { LinkPage } from './AccountPages';
 import { DeckPage } from './DeckPage';
 import { HomePage } from './HomePage';
 import { ShopPage } from './ShopPage';
@@ -9,7 +10,7 @@ import { themeById } from '../economy/themes';
 import { cardArt } from './cardArt';
 import { ErrorBoundary } from './ErrorBoundary';
 import { Icon } from './icons';
-import { currentPath, onNavigate } from './router';
+import { currentPath, navigate, onNavigate, useRoutePath } from './router';
 import { LeaguesPage } from './LeaguesPage';
 import { TrialsPage } from './TrialsPage';
 import { type Loaded, SessionProvider, type Toast, errorText, loadAll, useSession } from './state';
@@ -83,6 +84,15 @@ export function App() {
   }, [toast]);
 
   const onAuth = async (p: Profile) => setLoaded(await loadAll(api!, p));
+  // Links from letters (#/reset/…, #/verify/…) open before anything else, signed in or not.
+  const path = useRoutePath();
+  const link = /^\/?(reset|verify)\/([a-f0-9]{64})$/.exec(path);
+  const leaveLink = async (p: Profile | null) => {
+    // Load first, then leave: the session screen starts from this fresh profile (the e-mail now confirmed).
+    const me = p ?? (await api!.me().catch(() => null));
+    setLoaded(me ? await loadAll(api!, me) : 'anon');
+    navigate('/play');
+  };
 
   return (
     <>
@@ -93,6 +103,8 @@ export function App() {
             Ultra<b>chess</b>
           </span>
         </div>
+      ) : link ? (
+        <LinkPage key={path} api={api} kind={link[1] as 'reset' | 'verify'} token={link[2]} onDone={leaveLink} />
       ) : loaded === 'anon' ? (
         <AuthPage api={api} onAuth={onAuth} />
       ) : (

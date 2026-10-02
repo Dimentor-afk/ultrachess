@@ -52,11 +52,27 @@ export interface UserRow {
   leagueRewards: string;
   /** Trial runs by trial id (JSON Record<string, TrialRun>). */
   trials: string;
+  /** The owner opened the link sent to this address. */
+  emailVerified: boolean;
+  /** When the nickname was last changed (0: never). */
+  nameChangedAt: number;
+  /** The account was deleted: personal data is gone, games stay for the opponents. */
+  deleted: boolean;
 }
 
 export interface SessionRow {
   token: string;
   userId: string;
+  expiresAt: number;
+}
+
+/** A one-time link sent by e-mail. Only its hash is stored: a leaked database opens nothing. */
+export interface TokenRow {
+  hash: string;
+  userId: string;
+  kind: 'reset' | 'verify';
+  /** The address the link was sent to (verify: the one it confirms). */
+  email: string;
   expiresAt: number;
 }
 
@@ -164,6 +180,13 @@ export interface Store {
   insertSession(s: SessionRow): Promise<void>;
   getSession(token: string): Promise<SessionRow | null>;
   deleteSession(token: string): Promise<void>;
+  /** Sign the user out everywhere (but on `except`, the session asking). */
+  deleteUserSessions(userId: string, except?: string): Promise<void>;
+
+  insertToken(t: TokenRow): Promise<void>;
+  /** Remove and return a link token: each link works once. */
+  takeToken(hash: string): Promise<TokenRow | null>;
+  deleteUserTokens(userId: string, kind?: TokenRow['kind']): Promise<void>;
 
   listCards(userId: string): Promise<CardRow[]>;
   /** Add a copy: creates the card or adds a duplicate. Returns true if new. */
@@ -185,7 +208,7 @@ export interface Store {
   getMatch(id: string): Promise<MatchRow | null>;
   /** With `expectedActions`, writes only if the stored game has that many actions (false otherwise). */
   updateMatch(id: string, patch: Partial<MatchRow>, expectedActions?: number): Promise<boolean>;
-  /** Drop sessions that expired before `now`. */
+  /** Drop sessions and link tokens that expired before `now`. */
   purgeSessions(now: number): Promise<void>;
   listMatches(userId: string, limit: number): Promise<MatchRow[]>;
 

@@ -1,7 +1,7 @@
 // SQLite implementation of the game Store (Node's built-in node:sqlite).
 
 import { DatabaseSync } from 'node:sqlite';
-import type { CardRow, ChallengeRow, DeckRow, FriendRow, MatchRow, PackRow, PvpRow, SeekRow, SessionRow, Store, UserRow } from '../src/economy/store';
+import type { CardRow, ChallengeRow, DeckRow, FriendRow, MatchRow, PackRow, PvpRow, SeekRow, SessionRow, Store, TokenRow, UserRow } from '../src/economy/store';
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS users (
@@ -35,6 +35,14 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS sessions (
   token TEXT PRIMARY KEY,
   user_id TEXT NOT NULL REFERENCES users(id),
+  expires_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS sessions_user ON sessions(user_id);
+CREATE TABLE IF NOT EXISTS tokens (
+  hash TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id),
+  kind TEXT NOT NULL,
+  email TEXT NOT NULL,
   expires_at INTEGER NOT NULL
 );
 CREATE TABLE IF NOT EXISTS cards (
@@ -151,6 +159,9 @@ const USER_COLS: Record<keyof UserRow, string> = {
   botPacksDay: 'bot_packs_day',
   leagueRewards: 'league_rewards',
   trials: 'trials',
+  emailVerified: 'email_verified',
+  nameChangedAt: 'name_changed_at',
+  deleted: 'deleted',
 };
 
 /** Columns added after the first release, for databases created before them. */
@@ -175,6 +186,9 @@ const USER_MIGRATIONS: [string, string][] = [
   ['bot_packs_day', "TEXT NOT NULL DEFAULT ''"],
   ['league_rewards', "TEXT NOT NULL DEFAULT '{}'"],
   ['trials', "TEXT NOT NULL DEFAULT '{}'"],
+  ['email_verified', 'INTEGER NOT NULL DEFAULT 0'],
+  ['name_changed_at', 'INTEGER NOT NULL DEFAULT 0'],
+  ['deleted', 'INTEGER NOT NULL DEFAULT 0'],
 ];
 
 /** Columns added to other tables after the first release. */
@@ -236,6 +250,9 @@ function user(r: Row | undefined): UserRow | null {
     botPacksDay: (r.bot_packs_day as string | null) ?? '',
     leagueRewards: (r.league_rewards as string | null) ?? '{}',
     trials: (r.trials as string | null) ?? '{}',
+    emailVerified: !!r.email_verified,
+    nameChangedAt: Number(r.name_changed_at ?? 0),
+    deleted: !!r.deleted,
   };
 }
 
@@ -369,9 +386,29 @@ export class SqliteStore implements Store {
   }
   async purgeSessions(now: number) {
     this.db.prepare('DELETE FROM sessions WHERE expires_at < ?').run(now);
+    this.db.prepare('DELETE FROM tokens WHERE expires_at < ?').run(now);
   }
   async deleteSession(token: string) {
     this.db.prepare('DELETE FROM sessions WHERE token = ?').run(token);
+  }
+  async deleteUserSessions(userId: string, except?: string) {
+    this.db.prepare('DELETE FROM sessions WHERE user_id = ? AND token != ?').run(userId, except ?? '');
+  }
+
+  async insertToken(t: TokenRow) {
+    this.db
+      .prepare('INSERT INTO tokens (hash, user_id, kind, email, expires_at) VALUES (?, ?, ?, ?, ?)')
+      .run(t.hash, t.userId, t.kind, t.email, t.expiresAt);
+  }
+  async takeToken(hash: string) {
+    // DELETE … RETURNING: two requests with the same link cannot both get it.
+    const r = this.db.prepare('DELETE FROM tokens WHERE hash = ? RETURNING *').get(hash) as Row | undefined;
+    if (!r) return null;
+    return { hash, userId: r.user_id as string, kind: r.kind as TokenRow['kind'], email: r.email as string, expiresAt: Number(r.expires_at) };
+  }
+  async deleteUserTokens(userId: string, kind?: TokenRow['kind']) {
+    if (kind) this.db.prepare('DELETE FROM tokens WHERE user_id = ? AND kind = ?').run(userId, kind);
+    else this.db.prepare('DELETE FROM tokens WHERE user_id = ?').run(userId);
   }
 
   async listCards(userId: string) {

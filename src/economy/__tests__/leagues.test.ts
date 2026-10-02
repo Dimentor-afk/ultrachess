@@ -53,7 +53,7 @@ async function setup(now: () => number = Date.now) {
   const svc = new GameService(store, hasher, now, seeded(3), scripted);
   await svc.init();
   const reg = async (email: string, name: string) => {
-    const r = await svc.register(email, 'secret1', name);
+    const r = await svc.register(email, 'secret12', `Гравець ${name}`);
     const [p] = await svc.packs(r.token);
     await svc.openPack(r.token, p.id);
     return r;

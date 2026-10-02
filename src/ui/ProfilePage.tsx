@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import type { HistoryRow } from '../api/client';
 import { CARDS, CARD_BY_ID, PIECE_ORDER, RARITY_NAMES, RARITY_ORDER } from '../engine/cards';
 import { Avatar } from './common';
+import { AccountPanel, NAME_HINT } from './AccountPages';
+import { NAME_MAX } from '../economy/account';
 import { Icon } from './icons';
 import { getSettings, onSettings, play, setSettings } from './settings';
 import { errorText, useSession } from './state';
@@ -67,7 +69,7 @@ export function ProfilePage() {
                 void save({ name });
               }}
             >
-              <input value={name} maxLength={24} autoFocus onChange={(e) => setName(e.target.value)} aria-label="Нікнейм" />
+              <input value={name} maxLength={NAME_MAX} autoFocus onChange={(e) => setName(e.target.value)} aria-label="Нікнейм" title={NAME_HINT} />
               <button className="btn btn-primary btn-sm">Зберегти</button>
               <button type="button" className="btn btn-sm btn-ghost" onClick={() => setEditing(false)}>
                 Скасувати
@@ -76,11 +78,20 @@ export function ProfilePage() {
           ) : (
             <h1>
               {p.name}{' '}
-              <button className="icon-btn inline" onClick={() => setEditing(true)} aria-label="Змінити нікнейм">
+              <button
+                className="icon-btn inline"
+                onClick={() => {
+                  if (p.nameChangeAt) return s.toast(`Нікнейм можна змінювати раз на 7 днів: наступна зміна ${new Date(p.nameChangeAt).toLocaleDateString('uk-UA')}.`, 'error');
+                  setName(p.name);
+                  setEditing(true);
+                }}
+                aria-label="Змінити нікнейм"
+              >
                 <Icon name="edit" />
               </button>
             </h1>
           )}
+          {editing && <small className="muted tiny">{NAME_HINT}. Змінити нікнейм можна раз на 7 днів.</small>}
           <div className="profile-tags">
             <span className="tag-chip" title="За цим кодом вас можна знайти в друзях">
               #{p.tag}
@@ -172,6 +183,8 @@ export function ProfilePage() {
       </div>
 
       <SettingsPanel />
+
+      <AccountPanel />
 
       <div className="section-head">
         <h2>Історія матчів</h2>

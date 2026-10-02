@@ -30,13 +30,32 @@ import { BOT_LEVELS, botLevel } from '../engine/bot/levels';
 import type { BotOptions, BotTurn } from '../engine/bot/search';
 import { legalMoves } from '../engine/legal';
 import { type QuestEvent, type QuestView, addProgress, parseQuests, questViews } from './quests';
-import { type Hasher, type MatchRow, type PackRow, type PvpRow, type Role, type Store, type UserRow, randomId } from './store';
+import { type Hasher, type MatchRow, type PackRow, type PvpRow, type Role, type Store, type TokenRow, type UserRow, randomId } from './store';
+import { NAME_CHANGE_MS, cleanName, nameProblem, passwordProblem, sha256 } from './account';
 
 /** Short public code for finding a player (first 6 hex digits of the id). */
 const tagOf = (u: UserRow) => u.id.slice(0, 6).toUpperCase();
 
 export const ADMIN_EMAILS = ['koldmiand@gmail.com'];
 const SESSION_DAYS = 30;
+/** How long the links sent by e-mail work. */
+const LINK_TTL: Record<TokenRow['kind'], number> = { reset: 60 * 60_000, verify: 3 * 864e5 };
+/** At most one letter of a kind to one user in this long (no flooding someone's mailbox). */
+const MAIL_GAP_MS = 60_000;
+
+/** A letter to send. The server sends it through a mail service; the demo shows the link instead. */
+export interface Mail {
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+}
+export type Mailer = (mail: Mail) => Promise<void>;
+/** What an action that sends a letter answers: in the demo (no mail) the link itself. */
+export interface MailSent {
+  sent: boolean;
+  link?: string;
+}
 
 export class ApiError extends Error {
   constructor(
@@ -50,6 +69,10 @@ export class ApiError extends Error {
 export interface Profile {
   id: string;
   email: string;
+  /** The owner opened the confirmation link sent to `email`. */
+  emailVerified: boolean;
+  /** When the nickname may be changed again (0: now). */
+  nameChangeAt: number;
   name: string;
   role: Role;
   trophies: number;
@@ -337,7 +360,45 @@ export interface AdminUser {
   claimed: boolean;
 }
 
-const emailOk = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+const emailOk = (e: string) => e.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+
+// ── Letters ──
+
+const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+
+function letter(to: string, subject: string, lines: string[], link?: { href: string; label: string }): Mail {
+  const text = [...lines, ...(link ? ['', link.href] : []), '', '— Ultrachess'].join('\n');
+  const html = `<div style="font-family:system-ui,sans-serif;font-size:15px;line-height:1.5;color:#1d2433;max-width:520px">
+${lines.map((l) => `<p>${esc(l)}</p>`).join('\n')}
+${link ? `<p><a href="${esc(link.href)}" style="display:inline-block;padding:10px 18px;background:#e0a526;color:#1d2433;border-radius:8px;text-decoration:none;font-weight:700">${esc(link.label)}</a></p>
+<p style="font-size:13px;color:#667">Якщо кнопка не працює, скопіюйте посилання: ${esc(link.href)}</p>` : ''}
+<p style="color:#667">— Ultrachess</p></div>`;
+  return { to, subject, text, html };
+}
+
+function resetMail(name: string, to: string, href: string): Mail {
+  return letter(to, 'Ultrachess: новий пароль', [
+    `Привіт, ${name}!`,
+    'Хтось (сподіваємось, ви) попросив змінити пароль до вашого акаунта Ultrachess.',
+    'Посилання працює одну годину й лише один раз. Якщо ви нічого не просили, просто проігноруйте цей лист: пароль лишиться тим самим.',
+  ], { href, label: 'Задати новий пароль' });
+}
+
+function verifyMail(name: string, to: string, href: string): Mail {
+  return letter(to, 'Ultrachess: підтвердіть пошту', [
+    `Привіт, ${name}!`,
+    'Підтвердіть, що це ваша пошта: так ви зможете відновити пароль, якщо його забудете.',
+    'Посилання працює 3 дні.',
+  ], { href, label: 'Підтвердити пошту' });
+}
+
+function emailChangedMail(name: string, to: string, next: string): Mail {
+  return letter(to, 'Ultrachess: пошту акаунта змінено', [
+    `Привіт, ${name}!`,
+    `Пошту вашого акаунта Ultrachess щойно змінено на ${next}.`,
+    'Якщо це були не ви, негайно напишіть адміністратору гри: ми повернемо акаунт на цю адресу.',
+  ]);
+}
 
 /**
  * A deck as the client sent it, reduced to the known fields with the right
@@ -431,17 +492,30 @@ export class GameService {
       botPacksDay: '',
       leagueRewards: '{}',
       trials: '{}',
+      emailVerified: false,
+      nameChangedAt: 0,
+      deleted: false,
     };
   }
 
   // ── Accounts ──
 
-  async register(emailRaw: string, password: string, nameRaw: string): Promise<{ token: string; profile: Profile }> {
+  /** `base` (the site's address): where the confirmation link in the welcome letter points. */
+  async register(emailRaw: string, password: string, nameRaw: string, base?: string): Promise<{ token: string; profile: Profile }> {
     const email = emailRaw.trim().toLowerCase();
-    const name = nameRaw.trim() || email.split('@')[0];
     if (!emailOk(email)) throw new ApiError(400, 'Вкажіть коректну пошту.');
-    if (password.length < 6) throw new ApiError(400, 'Пароль має містити щонайменше 6 символів.');
-    if (name.length > 24) throw new ApiError(400, 'Нікнейм — до 24 символів.');
+    const typed = cleanName(nameRaw);
+    let name = typed;
+    if (typed) {
+      const bad = nameProblem(typed);
+      if (bad) throw new ApiError(400, bad);
+    } else {
+      // No nickname typed: the start of the e-mail, if it makes a fine one.
+      const local = cleanName(email.split('@')[0].replace(/[^\p{L}\p{N}_.-]/gu, '')).slice(0, 24);
+      name = nameProblem(local) ? 'Гравець' : local;
+    }
+    const weak = passwordProblem(password, email);
+    if (weak) throw new ApiError(400, weak);
     let user = await this.store.getUserByEmail(email);
     const hash = await this.hasher.hash(password);
     if (user && user.passHash) throw new ApiError(409, 'Акаунт з цією поштою вже існує. Увійдіть.');
@@ -454,16 +528,189 @@ export class GameService {
       await this.store.insertUser(user);
     }
     await this.giveStarter(user);
+    // The confirmation letter must not stand in the way of playing: a failure is only logged.
+    if (base) await this.sendLink(user, 'verify', email, base).catch((e) => console.error('Verification mail failed:', e));
     return { token: await this.newSession(user.id), profile: await this.profileOf(user.id) };
   }
 
   async login(emailRaw: string, password: string): Promise<{ token: string; profile: Profile }> {
     const email = emailRaw.trim().toLowerCase();
     const user = await this.store.getUserByEmail(email);
-    if (!user || !user.passHash || !(await this.hasher.verify(password, user.passHash))) {
-      throw new ApiError(401, 'Неправильна пошта або пароль.');
-    }
+    // No such account: check the password against a dummy hash anyway, so the
+    // answer takes as long and the timing does not tell which e-mails exist.
+    const ok = await this.hasher.verify(password.slice(0, 1024), user?.passHash ?? (await this.dummyHash()));
+    if (!user || !user.passHash || user.deleted || !ok) throw new ApiError(401, 'Неправильна пошта або пароль.');
     return { token: await this.newSession(user.id), profile: await this.profileOf(user.id) };
+  }
+
+  private dummy: Promise<string> | null = null;
+  private dummyHash(): Promise<string> {
+    return (this.dummy ??= this.hasher.hash(randomId(8)));
+  }
+
+  // ── Account: letters, settings, deletion ──
+
+  /** Set by the server (a mail service) or the demo; without one, letters are only logged. */
+  mailer: Mailer | null = null;
+  /** The browser demo has no mail: actions answer with the link itself. */
+  showLinks = false;
+  private lastMail = new Map<string, number>();
+
+  /** A one-time link of `kind` for `u`, sent to `email`. `base` is the site's address. */
+  private async sendLink(u: UserRow, kind: TokenRow['kind'], email: string, base: string): Promise<MailSent> {
+    const key = `${kind}:${u.id}`;
+    if (this.now() - (this.lastMail.get(key) ?? 0) < MAIL_GAP_MS) {
+      throw new ApiError(429, 'Лист уже надіслано. Зачекайте хвилину, перш ніж просити ще один.');
+    }
+    if (this.lastMail.size > 10_000) this.lastMail.clear();
+    this.lastMail.set(key, this.now());
+    // A new link replaces the old ones of the same kind.
+    await this.store.deleteUserTokens(u.id, kind);
+    const token = randomId(32);
+    await this.store.insertToken({ hash: await sha256(token), userId: u.id, kind, email, expiresAt: this.now() + LINK_TTL[kind] });
+    const link = `${base}#/${kind}/${token}`;
+    const mail = kind === 'reset' ? resetMail(u.name, email, link) : verifyMail(u.name, email, link);
+    if (this.mailer) await this.mailer(mail);
+    else if (!this.showLinks) console.log(`[mail to ${email}] ${mail.subject}: ${link}`);
+    return this.showLinks ? { sent: true, link } : { sent: true };
+  }
+
+  /** The valid link token of `kind`, used up; null when it is unknown, expired or of another kind. */
+  private async takeLink(token: string, kind: TokenRow['kind']): Promise<{ t: TokenRow; u: UserRow } | null> {
+    if (!/^[a-f0-9]{64}$/.test(token)) return null;
+    const t = await this.store.takeToken(await sha256(token));
+    if (!t || t.kind !== kind || t.expiresAt < this.now()) return null;
+    const u = await this.store.getUser(t.userId);
+    // The address changed since the link was sent: it no longer proves anything.
+    if (!u || u.deleted || u.email !== t.email) return null;
+    return { t, u };
+  }
+
+  /**
+   * "Forgot password": a reset link to the address, if an account has it.
+   * The answer is the same either way, so nobody can test which e-mails are registered.
+   */
+  async requestPasswordReset(emailRaw: string, base: string): Promise<MailSent> {
+    const email = emailRaw.trim().toLowerCase();
+    if (!emailOk(email)) throw new ApiError(400, 'Вкажіть коректну пошту.');
+    const u = await this.store.getUserByEmail(email);
+    if (!u || u.deleted) return { sent: true };
+    const sending = this.sendLink(u, 'reset', email, base).catch((e) => {
+      // Too soon or the mail service failed: still the same answer to the asker.
+      if (!(e instanceof ApiError)) console.error('Reset mail failed:', e);
+      return { sent: true } as MailSent;
+    });
+    // The demo shows the link, so it waits. A real letter goes out in the background:
+    // waiting for the mail service would make known addresses answer slower than unknown ones.
+    return this.showLinks ? sending : { sent: true };
+  }
+
+  /** A new password from a reset link: every other session ends, this browser is signed in. */
+  async resetPassword(token: string, password: string): Promise<{ token: string; profile: Profile }> {
+    const weak = passwordProblem(password);
+    if (weak) throw new ApiError(400, weak);
+    const link = await this.takeLink(token, 'reset');
+    if (!link) throw new ApiError(400, 'Посилання недійсне або застаріло. Попросіть новий лист.');
+    const { u } = link;
+    const again = passwordProblem(password, u.email);
+    if (again) throw new ApiError(400, again);
+    // Opening the letter proves the address too.
+    await this.store.updateUser(u.id, { passHash: await this.hasher.hash(password), emailVerified: true });
+    await this.store.deleteUserSessions(u.id);
+    await this.store.deleteUserTokens(u.id, 'reset');
+    return { token: await this.newSession(u.id), profile: await this.profileOf(u.id) };
+  }
+
+  /** Send (again) the link that confirms the account's e-mail. */
+  async sendVerification(token: string, base: string): Promise<MailSent> {
+    const u = await this.auth(token);
+    if (u.emailVerified) throw new ApiError(409, 'Пошту вже підтверджено.');
+    return this.sendLink(u, 'verify', u.email, base);
+  }
+
+  /** The confirmation link was opened (signed in or not). */
+  async verifyEmail(token: string): Promise<{ email: string }> {
+    const link = await this.takeLink(token, 'verify');
+    if (!link) throw new ApiError(400, 'Посилання недійсне або застаріло. Надішліть новий лист із профілю.');
+    await this.store.updateUser(link.u.id, { emailVerified: true });
+    this.emit({ type: 'nudge', users: [link.u.id] });
+    return { email: link.u.email };
+  }
+
+  private async checkPassword(u: UserRow, password: string): Promise<void> {
+    if (!u.passHash || !(await this.hasher.verify(password.slice(0, 1024), u.passHash))) {
+      throw new ApiError(403, 'Неправильний поточний пароль.');
+    }
+  }
+
+  /** New password (knowing the current one): other devices are signed out, this one stays. */
+  async changePassword(token: string, current: string, next: string): Promise<void> {
+    const u = await this.auth(token);
+    await this.checkPassword(u, current);
+    const weak = passwordProblem(next, u.email);
+    if (weak) throw new ApiError(400, weak);
+    await this.store.updateUser(u.id, { passHash: await this.hasher.hash(next) });
+    await this.store.deleteUserSessions(u.id, token);
+    await this.store.deleteUserTokens(u.id, 'reset');
+  }
+
+  /** Move the account to another address; it has to be confirmed again. */
+  async changeEmail(token: string, password: string, emailRaw: string, base: string): Promise<{ profile: Profile; mail: MailSent }> {
+    const u = await this.auth(token);
+    await this.checkPassword(u, password);
+    const email = emailRaw.trim().toLowerCase();
+    if (!emailOk(email)) throw new ApiError(400, 'Вкажіть коректну пошту.');
+    if (email === u.email) throw new ApiError(400, 'Це ваша поточна пошта.');
+    if (await this.store.getUserByEmail(email)) throw new ApiError(409, 'Ця пошта вже зайнята іншим акаунтом.');
+    const old = u.email;
+    await this.store.updateUser(u.id, { email, emailVerified: false });
+    await this.store.deleteUserTokens(u.id);
+    this.lastMail.delete(`verify:${u.id}`);
+    const moved = { ...u, email, emailVerified: false };
+    let mail: MailSent = { sent: false };
+    try {
+      mail = await this.sendLink(moved, 'verify', email, base);
+      // The old address learns about it: if it was not its owner, they know at once.
+      if (this.mailer) await this.mailer(emailChangedMail(u.name, old, email)).catch(() => undefined);
+    } catch (e) {
+      console.error('Verification mail failed:', e);
+    }
+    return { profile: await this.profileOf(u.id), mail };
+  }
+
+  /** Sign out everywhere else (a lost phone, a shared computer). */
+  async logoutOthers(token: string): Promise<void> {
+    const u = await this.auth(token);
+    await this.store.deleteUserSessions(u.id, token);
+  }
+
+  /**
+   * Delete the account: open games are resigned, friends and challenges go,
+   * the e-mail, name and password are erased. Finished games stay in the
+   * opponents' history under "Видалений гравець".
+   */
+  async deleteAccount(token: string, password: string): Promise<void> {
+    const u = await this.auth(token);
+    await this.checkPassword(u, password);
+    for (const p of await this.store.listPvp(u.id, 200)) {
+      if (p.status === 'active') await this.pvpResign(token, p.id).catch(() => undefined);
+    }
+    await this.store.deleteSeek(u.id);
+    for (const f of await this.store.listFriends(u.id)) await this.store.deleteFriend(f.id);
+    for (const c of await this.store.listChallenges(u.id)) {
+      if (c.status === 'pending') await this.store.updateChallenge(c.id, { status: 'cancelled' });
+    }
+    await this.store.updateUser(u.id, {
+      // Not an e-mail at all: nobody can register it and claim the account.
+      email: `deleted:${u.id}`,
+      name: 'Видалений гравець',
+      passHash: null,
+      emailVerified: false,
+      avatar: 'pawn-classic',
+      deleted: true,
+    });
+    await this.store.deleteUserTokens(u.id);
+    await this.store.deleteUserSessions(u.id);
   }
 
   async logout(token: string): Promise<void> {
@@ -481,7 +728,7 @@ export class GameService {
     const s = await this.store.getSession(token);
     if (!s || s.expiresAt < this.now()) throw new ApiError(401, 'Сесія завершилась. Увійдіть знову.');
     const u = await this.store.getUser(s.userId);
-    if (!u) throw new ApiError(401, 'Акаунт не знайдено.');
+    if (!u || u.deleted) throw new ApiError(401, 'Акаунт не знайдено.');
     // Presence for friends: refresh at most every 30 seconds.
     if (this.now() - u.lastSeen > 30_000) {
       u.lastSeen = this.now();
@@ -501,6 +748,8 @@ export class GameService {
     return {
       id: u.id,
       email: u.email,
+      emailVerified: u.emailVerified,
+      nameChangeAt: u.nameChangedAt && u.nameChangedAt + NAME_CHANGE_MS > this.now() ? u.nameChangedAt + NAME_CHANGE_MS : 0,
       name: u.name,
       role: u.role,
       trophies: u.trophies,
@@ -1267,10 +1516,16 @@ export class GameService {
   async updateProfile(token: string, patch: { name?: string; avatar?: string }): Promise<Profile> {
     const u = await this.auth(token);
     const next: Partial<UserRow> = {};
-    if (patch.name !== undefined) {
-      const name = patch.name.trim();
-      if (!name || name.length > 24) throw new ApiError(400, 'Нікнейм — від 1 до 24 символів.');
+    if (patch.name !== undefined && cleanName(patch.name) !== u.name) {
+      const name = cleanName(patch.name);
+      const bad = nameProblem(name);
+      if (bad) throw new ApiError(400, bad);
+      const wait = u.nameChangedAt + NAME_CHANGE_MS - this.now();
+      if (u.nameChangedAt && wait > 0) {
+        throw new ApiError(429, `Нікнейм можна змінювати раз на 7 днів. Наступна зміна — через ${Math.ceil(wait / 864e5)} дн.`);
+      }
       next.name = name;
+      next.nameChangedAt = this.now();
     }
     if (patch.avatar !== undefined) {
       if (!(await this.ownedSet(u.id)).has(patch.avatar)) throw new ApiError(400, 'Аватаром може бути лише ваша картка.');
@@ -1756,7 +2011,7 @@ export class GameService {
 
   async adminUsers(token: string): Promise<AdminUser[]> {
     await this.admin(token);
-    const users = await this.store.listUsers(500);
+    const users = (await this.store.listUsers(500)).filter((u) => !u.deleted);
     const out: AdminUser[] = [];
     for (const u of users) {
       out.push({

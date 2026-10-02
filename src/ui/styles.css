@@ -8394,3 +8394,68 @@ button.hb-slot {
 .live-vs small {
   flex-basis: 100%;
 }
+
+/* ── Account: links from letters, profile → Акаунт ── */
+.warn-text {
+  color: var(--gold);
+}
+.auth-card h2 {
+  margin: 0 0 0.25rem;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+}
+.mail-note {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-2);
+  font-size: 0.9rem;
+}
+.mail-note p {
+  margin: 0;
+}
+.account .setting-row {
+  cursor: default;
+}
+.account .setting-row small span {
+  display: inline;
+}
+.account .setting-row .account-actions {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+.account-form {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.6rem;
+  margin: 0.6rem 0 0.4rem;
+  padding: 0.8rem;
+  border-radius: 10px;
+  background: var(--bg-2);
+}
+.account-form .btn {
+  align-self: flex-start;
+}
+.danger-zone {
+  border: 1px solid var(--danger);
+}
+.danger-zone p {
+  margin: 0;
+}
+.field small {
+  margin-top: 0.2rem;
+}
+@media (max-width: 520px) {
+  .account .setting-row {
+    flex-wrap: wrap;
+  }
+}

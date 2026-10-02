@@ -8,6 +8,9 @@ primary_region = "waw"
 [env]
   PORT = "8080"
   DB_FILE = "/data/ultrachess.db"
+  # Links in letters point here; set the mail key with
+  # `fly secrets set RESEND_API_KEY=... MAIL_FROM="Ultrachess <no-reply@your-domain>"`.
+  # PUBLIC_URL = "https://ultrachess.fly.dev"
 
 # The server with one bot thread uses ~160 MB; 256 MB (the default) leaves too little headroom.
 [[vm]]

@@ -1,7 +1,7 @@
 // In-memory Store. The browser demo persists it to localStorage; tests use
 // it as is.
 
-import type { CardRow, ChallengeRow, DeckRow, FriendRow, MatchRow, PackRow, PvpRow, SeekRow, SessionRow, Store, UserRow } from './store';
+import type { CardRow, ChallengeRow, DeckRow, FriendRow, MatchRow, PackRow, PvpRow, SeekRow, SessionRow, Store, TokenRow, UserRow } from './store';
 
 export interface MemoryData {
   users: UserRow[];
@@ -14,6 +14,7 @@ export interface MemoryData {
   challenges: ChallengeRow[];
   pvp: PvpRow[];
   seeks: SeekRow[];
+  tokens: TokenRow[];
 }
 
 export const emptyData = (): MemoryData => ({
@@ -27,6 +28,7 @@ export const emptyData = (): MemoryData => ({
   challenges: [],
   pvp: [],
   seeks: [],
+  tokens: [],
 });
 
 const clone = <T,>(x: T): T => JSON.parse(JSON.stringify(x));
@@ -66,6 +68,9 @@ export function withUserDefaults(u: UserRow): UserRow {
     botPacksDay: u.botPacksDay ?? '',
     leagueRewards: u.leagueRewards ?? '{}',
     trials: u.trials ?? '{}',
+    emailVerified: u.emailVerified ?? false,
+    nameChangedAt: u.nameChangedAt ?? 0,
+    deleted: u.deleted ?? false,
   };
 }
 
@@ -121,10 +126,31 @@ export class MemoryStore implements Store {
   }
   async purgeSessions(now: number) {
     this.data.sessions = this.data.sessions.filter((s) => s.expiresAt >= now);
+    this.data.tokens = this.data.tokens.filter((t) => t.expiresAt >= now);
     this.save();
   }
   async deleteSession(token: string) {
     this.data.sessions = this.data.sessions.filter((s) => s.token !== token);
+    this.save();
+  }
+  async deleteUserSessions(userId: string, except?: string) {
+    this.data.sessions = this.data.sessions.filter((s) => s.userId !== userId || s.token === except);
+    this.save();
+  }
+
+  async insertToken(t: TokenRow) {
+    this.data.tokens.push(clone(t));
+    this.save();
+  }
+  async takeToken(hash: string) {
+    const t = this.data.tokens.find((x) => x.hash === hash);
+    if (!t) return null;
+    this.data.tokens = this.data.tokens.filter((x) => x !== t);
+    this.save();
+    return clone(t);
+  }
+  async deleteUserTokens(userId: string, kind?: TokenRow['kind']) {
+    this.data.tokens = this.data.tokens.filter((t) => t.userId !== userId || (kind !== undefined && t.kind !== kind));
     this.save();
   }
 

@@ -21,8 +21,8 @@ async function twoPlayers() {
   const store = new MemoryStore();
   const svc = new GameService(store, hasher, Date.now, seeded(5));
   await svc.init();
-  const a = await svc.register('a@a.com', 'secret1', 'Анна');
-  const b = await svc.register('b@b.com', 'secret1', 'Богдан');
+  const a = await svc.register('a@a.com', 'secret12', 'Анна');
+  const b = await svc.register('b@b.com', 'secret12', 'Богдан');
   // Open the starter packs so both have a deck.
   for (const t of [a.token, b.token]) {
     const [p] = await svc.packs(t);
@@ -133,7 +133,7 @@ describe('watching and hidden information', () => {
   /** A friend game between A and B (both with Безсмертна), and C who only watches. */
   async function game() {
     const { svc, store, a, b } = await twoPlayers();
-    const c = await svc.register('c@c.com', 'secret1', 'Глядач');
+    const c = await svc.register('c@c.com', 'secret12', 'Глядач');
     for (const pl of [a, b]) {
       for (const id of ['pawn-classic', 'knight-classic', 'bishop-classic', 'rook-classic', 'queen-immortal', 'king-classic']) {
         await store.addCard(pl.profile.id, id);

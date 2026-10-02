@@ -116,15 +116,15 @@ describe('service', () => {
   it('seeds the admin account, claimable by registering', async () => {
     const { svc } = await setup();
     await expect(svc.login('koldmiand@gmail.com', 'whatever')).rejects.toThrow();
-    const { token, profile } = await svc.register('KoldMiand@gmail.com', 'secret1', 'Admin');
+    const { token, profile } = await svc.register('KoldMiand@gmail.com', 'secret12', 'Власник');
     expect(profile.role).toBe('admin');
-    await expect(svc.register('koldmiand@gmail.com', 'other12', 'x')).rejects.toThrow();
+    await expect(svc.register('koldmiand@gmail.com', 'other123', 'Хтось')).rejects.toThrow();
     expect((await svc.adminUsers(token)).length).toBe(1);
   });
 
   it('new players get a starter pack that builds a playable deck', async () => {
     const { svc } = await setup(5);
-    const { token, profile } = await svc.register('a@b.com', 'secret1', 'Гравець');
+    const { token, profile } = await svc.register('a@b.com', 'secret12', 'Гравець');
     expect(profile.role).toBe('player');
     await expect(svc.adminUsers(token)).rejects.toThrow();
     const packs = await svc.packs(token);
@@ -145,7 +145,7 @@ describe('service', () => {
 
   it('duplicates turn into shards, and shards buy packs', async () => {
     const { svc, store } = await setup();
-    const { token, profile } = await svc.register('d@d.com', 'secret1', 'D');
+    const { token, profile } = await svc.register('d@d.com', 'secret12', 'Гравець D');
     await store.addCard(profile.id, 'bishop-piercer'); // epic
     await store.setDupes(profile.id, 'bishop-piercer', 4);
     expect((await svc.collection(token)).owned['bishop-piercer'].dupes).toBe(0);
@@ -167,7 +167,7 @@ describe('service', () => {
 
   it('board themes are bought with gold, only from the daily offer', async () => {
     const { svc } = await setup();
-    const { token, profile } = await svc.register('g@g.com', 'secret1', 'G');
+    const { token, profile } = await svc.register('g@g.com', 'secret12', 'Гравець G');
     expect(profile.themes).toEqual(['classic']);
     const offer = await svc.shop(token);
     expect(offer.themes).toHaveLength(3);
@@ -176,7 +176,7 @@ describe('service', () => {
     const notToday = BOARD_THEMES.find((t) => t.price > 0 && !offer.themes.includes(t.id))!.id;
     await expect(svc.buyTheme(token, id)).rejects.toThrow(/золота/);
     await expect(svc.setBoardTheme(token, id)).rejects.toThrow();
-    const admin = await svc.register('koldmiand@gmail.com', 'secret1', 'A');
+    const admin = await svc.register('koldmiand@gmail.com', 'secret12', 'Гравець A');
     await svc.adminGrantCurrency(admin.token, profile.id, 5000, 0);
     await expect(svc.buyTheme(token, notToday)).rejects.toThrow(/сьогодні немає/);
     const p = await svc.buyTheme(token, id);
@@ -188,9 +188,9 @@ describe('service', () => {
 
   it('capture effects are bought only from the daily offer', async () => {
     const { svc } = await setup();
-    const { token, profile } = await svc.register('f@f.com', 'secret1', 'F');
+    const { token, profile } = await svc.register('f@f.com', 'secret12', 'Гравець F');
     const offer = await svc.shop(token);
-    const admin = await svc.register('koldmiand@gmail.com', 'secret1', 'A');
+    const admin = await svc.register('koldmiand@gmail.com', 'secret12', 'Гравець A');
     await svc.adminGrantCurrency(admin.token, profile.id, 5000, 0);
     const notToday = CAPTURE_FX.find((f) => f.price > 0 && !offer.fx.includes(f.id))!.id;
     await expect(svc.buyCaptureFx(token, notToday)).rejects.toThrow(/сьогодні немає/);
@@ -204,7 +204,7 @@ describe('service', () => {
 
   it('ranked win is verified by replay and rewards trophies and a pack', async () => {
     const { svc, store } = await setup();
-    const { token, profile } = await svc.register('w@w.com', 'secret1', 'W');
+    const { token, profile } = await svc.register('w@w.com', 'secret12', 'Гравець W');
     await svc.adminGrantAllCards(token, profile.id).catch(() => undefined);
     // Insert a known match: the player is white with classic decks.
     await store.insertMatch({
@@ -250,7 +250,7 @@ describe('service', () => {
 
   it('the server plays the bot: the client cannot choose its moves', async () => {
     const { svc, store } = await setup();
-    const { token, profile } = await svc.register('c@c.com', 'secret1', 'C');
+    const { token, profile } = await svc.register('c@c.com', 'secret12', 'Гравець C');
     await store.insertMatch({ id: 'c1', userId: profile.id, ranked: true, mode: 'bot', color: 'w', botLevel: 1, playerDeck: classicDeck(), botDeck: classicDeck(), status: 'active', result: null, createdAt: Date.now(), actions: [] });
     const mate = scholarsMate();
     // The bot answers 1.e4 with its own move (here 1…e6, not the 1…e5 the mate needs).
@@ -273,7 +273,7 @@ describe('service', () => {
     };
     const svc = new GameService(store, plainHasher, Date.now, seeded(2), broken);
     await svc.init();
-    const { token } = await svc.register('r@r.com', 'secret1', 'R');
+    const { token } = await svc.register('r@r.com', 'secret12', 'Гравець R');
     const [p] = await svc.packs(token);
     await svc.openPack(token, p.id);
     const start = await svc.startMatch(token, { ranked: true });
@@ -287,7 +287,7 @@ describe('service', () => {
 
   it('a bot game saved by an older demo (no record of actions) is closed: a new one starts with the current deck', async () => {
     const { store, svc } = await setup(3);
-    const { token } = await svc.register('o@o.com', 'secret1', 'O');
+    const { token } = await svc.register('o@o.com', 'secret12', 'Гравець O');
     const [p] = await svc.packs(token);
     await svc.openPack(token, p.id);
     const start = await svc.startMatch(token, { ranked: true });
@@ -320,7 +320,7 @@ describe('bot-ladder rewards', () => {
     const store = new MemoryStore();
     const svc = new GameService(store, plainHasher, () => now, seeded(9), scripted);
     await svc.init();
-    const { token, profile } = await svc.register('t@t.com', 'secret1', 'T');
+    const { token, profile } = await svc.register('t@t.com', 'secret12', 'Гравець T');
     const mate = scholarsMate();
     const win = async (id: string) => {
       await store.insertMatch({ id, userId: profile.id, ranked: true, mode: 'bot', color: 'w', botLevel: 1, playerDeck: classicDeck(), botDeck: classicDeck(), status: 'active', result: null, createdAt: now, actions: [] });
@@ -365,7 +365,7 @@ describe('daily quests', () => {
     const store = new MemoryStore();
     const svc = new GameService(store, plainHasher, () => now, seeded(4), scripted);
     await svc.init();
-    const { token, profile } = await svc.register('q@q.com', 'secret1', 'Q');
+    const { token, profile } = await svc.register('q@q.com', 'secret12', 'Гравець Q');
     const play3 = profile.quests.find((q) => q.id === 'play3')!;
     expect(play3).toMatchObject({ progress: 0, target: 3, claimed: false });
     await expect(svc.claimQuest(token, 'play3')).rejects.toThrow(/не виконано/);
@@ -387,7 +387,7 @@ describe('daily quests', () => {
 describe('training games', () => {
   it('a new training game closes the old ones, so an open ranked game is always found', async () => {
     const { svc } = await setup(11);
-    const { token } = await svc.register('tr@tr.com', 'secret1', 'Tr');
+    const { token } = await svc.register('tr@tr.com', 'secret12', 'Гравець Tr');
     const [p] = await svc.packs(token);
     await svc.openPack(token, p.id);
     const ranked = await svc.startMatch(token, { ranked: true });
@@ -399,7 +399,7 @@ describe('training games', () => {
 describe('deck input', () => {
   it('a malformed deck is a clear 400, not a crash, and extra fields are dropped', async () => {
     const { svc } = await setup(12);
-    const { token } = await svc.register('dk@dk.com', 'secret1', 'Dk');
+    const { token } = await svc.register('dk@dk.com', 'secret12', 'Гравець Dk');
     const [p] = await svc.packs(token);
     await svc.openPack(token, p.id);
     const [deck] = await svc.decks(token);

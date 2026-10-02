@@ -11,6 +11,7 @@ import { ADMIN_EMAILS, ApiError, GameService } from '../src/economy/service';
 import type { Hasher } from '../src/economy/store';
 import { BotPool } from './botPool';
 import { Hub } from './hub';
+import { resendMailer } from './mailer';
 import { SqliteStore } from './sqliteStore';
 
 const PORT = Number(process.env.PORT ?? 8080);
@@ -23,7 +24,13 @@ const SECURITY_HEADERS = {
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'same-origin',
   'X-Frame-Options': 'SAMEORIGIN',
+  // Pages of other sites cannot frame this one or keep a handle to its window.
+  'Content-Security-Policy': "frame-ancestors 'self'",
+  'Cross-Origin-Opener-Policy': 'same-origin',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
 };
+/** Behind HTTPS (Fly, Render): browsers must keep using it for this site. */
+const HSTS = 'max-age=31536000';
 
 const scryptAsync = promisify(scrypt) as (pw: string, salt: Buffer, len: number) => Promise<Buffer>;
 
@@ -55,6 +62,10 @@ const LIMITS = {
   authIp: { max: 300, windowMs: 10 * 60_000 },
   /** Moves in bot games (each one may start a bot search). */
   bot: { max: 60, windowMs: 60_000 },
+  /** Letters asked for from one address (password reset, confirmation, new e-mail). */
+  mail: { max: 10, windowMs: 60 * 60_000 },
+  /** Actions that check a password while signed in (change password or e-mail, delete). */
+  password: { max: 10, windowMs: 10 * 60_000 },
   /** Everything else. */
   api: { max: 1200, windowMs: 60_000 },
 };
@@ -90,6 +101,17 @@ const bots = new BotPool();
 // claimed by its first registration: register it right after the first deploy.
 const admins = process.env.ADMIN_EMAILS ? process.env.ADMIN_EMAILS.split(',').map((e) => e.trim().toLowerCase()).filter(Boolean) : ADMIN_EMAILS;
 const svc = new GameService(store, hasher, Date.now, Math.random, bots.run, admins);
+svc.mailer = resendMailer();
+if (!svc.mailer) console.log('No RESEND_API_KEY: links from letters (password reset, confirmation) go to this log.');
+// PUBLIC_URL="https://ultrachess.fly.dev" — where links in letters point. Without it, the
+// request's Host is used; set it in production so a forged Host cannot redirect the links.
+const PUBLIC_URL = process.env.PUBLIC_URL ? process.env.PUBLIC_URL.replace(/\/*$/, '/') : null;
+if (!PUBLIC_URL && svc.mailer) console.warn('PUBLIC_URL is not set: links in letters use the Host of each request.');
+
+/** The site's address for links in letters. */
+function siteBase(req: IncomingMessage): string {
+  return PUBLIC_URL ?? `${isSecure(req) ? 'https' : 'http'}://${req.headers.host ?? 'localhost'}/`;
+}
 
 function tokenOf(req: IncomingMessage): string | null {
   const m = /(?:^|;\s*)uc_session=([a-f0-9]+)/.exec(req.headers.cookie ?? '');
@@ -158,7 +180,7 @@ const routes: [string, RegExp, Handler][] = [
     'POST',
     /^auth\/register$/,
     async ({ req, res, body }) => {
-      const r = await svc.register(String(body.email ?? ''), String(body.password ?? ''), String(body.name ?? ''));
+      const r = await svc.register(String(body.email ?? ''), String(body.password ?? ''), String(body.name ?? ''), siteBase(req));
       setCookie(res, r.token, isSecure(req));
       return r.profile;
     },
@@ -177,6 +199,29 @@ const routes: [string, RegExp, Handler][] = [
     /^auth\/logout$/,
     async ({ req, res, token }) => {
       await svc.logout(token);
+      setCookie(res, null, isSecure(req));
+    },
+  ],
+  ['POST', /^auth\/logout-others$/, ({ token }) => svc.logoutOthers(token)],
+  ['POST', /^auth\/forgot$/, ({ req, body }) => svc.requestPasswordReset(String(body.email ?? ''), siteBase(req))],
+  [
+    'POST',
+    /^auth\/reset$/,
+    async ({ req, res, body }) => {
+      const r = await svc.resetPassword(String(body.token ?? ''), String(body.password ?? ''));
+      setCookie(res, r.token, isSecure(req));
+      return r.profile;
+    },
+  ],
+  ['POST', /^auth\/verify$/, ({ body }) => svc.verifyEmail(String(body.token ?? ''))],
+  ['POST', /^account\/verify$/, ({ req, token }) => svc.sendVerification(token, siteBase(req))],
+  ['POST', /^account\/password$/, ({ token, body }) => svc.changePassword(token, String(body.current ?? ''), String(body.password ?? ''))],
+  ['POST', /^account\/email$/, ({ req, token, body }) => svc.changeEmail(token, String(body.password ?? ''), String(body.email ?? ''), siteBase(req))],
+  [
+    'POST',
+    /^account\/delete$/,
+    async ({ req, res, token, body }) => {
+      await svc.deleteAccount(token, String(body.password ?? ''));
       setCookie(res, null, isSecure(req));
     },
   ],
@@ -311,6 +356,7 @@ function serveStatic(req: IncomingMessage, res: ServerResponse): void {
 }
 
 const server = createServer(async (req, res) => {
+  if (isSecure(req)) res.setHeader('Strict-Transport-Security', HSTS);
   const path = (req.url ?? '/').split('?')[0];
   if (!path.startsWith('/api/')) return serveStatic(req, res);
   const sub = path.slice(5);
@@ -325,10 +371,12 @@ const server = createServer(async (req, res) => {
   if (sub.startsWith('matches/') && sub.endsWith('/action') && !allow('bot', who)) return tooMany();
   try {
     const body = req.method === 'GET' || req.method === 'DELETE' ? {} : await readBody(req);
-    if (sub === 'auth/login' || sub === 'auth/register') {
-      const email = String(body.email ?? '').trim().toLowerCase();
+    if (sub === 'auth/login' || sub === 'auth/register' || sub === 'auth/reset') {
+      const email = String(body.email ?? body.token ?? '').trim().toLowerCase();
       if (!allow('authIp', ip) || !allow('auth', `${ip}|${email}`)) return tooMany();
     }
+    if ((sub === 'auth/forgot' || sub === 'account/verify' || sub === 'account/email') && !allow('mail', ip)) return tooMany();
+    if (sub.startsWith('account/') && sub !== 'account/verify' && !allow('password', who)) return tooMany();
     const params = route[1].exec(sub)!.slice(1);
     const out = await route[2]({ req, res, token, body, params });
     send(res, 200, out === undefined ? undefined : out, req);
