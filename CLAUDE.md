@@ -23,24 +23,20 @@ client cannot play the bot's side and a bot game resumes after a reload),
 matchmaking → game → results loop, names/avatars/side colours, persistent stats (auth +
 SQLite: wins, trophies, history), bots, mobile-playable, plenty of "make it yours".
 
-### Still to do for the lab
+### Lab status
 
-1. **WebSockets** for live games (friend games and the player ladder). Today moves go
-   by HTTP and the opponent polls every 1.5 s — the lab requires WebSockets in the
-   Basic level and graders check the Network tab. Keep the server as the authority.
-2. **Public deploy** (Render / Fly.io): a URL that works from any device. Config is ready
-   (`Dockerfile`, `fly.toml`, `render.yaml`); what is left is running `fly deploy` with the author's account.
-3. **Game rooms with a shareable link** (`/game/<id>`) and **spectator mode**.
-4. **Reconnection**: drop Wi-Fi, come back to the same game (and a clear state while
-   reconnecting). Bot games already resume from the server's record; friend/ladder games
-   still need it with WebSockets.
-5. **README in the lab's format**: play link, GIF of two players, architecture
-   diagram, networking write-up (what is sent, when, why the server is the source of
-   truth), how to run, features, known limitations, who did what.
+Done: **WebSockets** for games with people (`server/hub.ts`, `src/api/live.ts`; HTTP stays as
+the fallback), per-viewer views so hidden information reaches only its owner
+(`src/engine/secure.ts`), **rooms** `#/game/<id>` with **spectators**, **reconnection**, and the
+**README in the lab's format** (plus `docs/networking.md` for the Reflection questions and
+`docs/two-players.gif`).
 
-Known gap to fix together with WebSockets (see `docs/pre-deploy.md`): both clients of a
-player game get the full action list, so hidden information (Міраж, illusions, Безсмертна)
-can be read in devtools. The fix is per-player views (`playerView` + own legal moves).
+Still to do:
+
+1. **Public deploy** (Fly.io / Render): config is ready (`Dockerfile`, `fly.toml`,
+   `render.yaml`); what is left is running `fly deploy` with the author's account and putting
+   the URL into the README (it has a placeholder).
+2. **"Who did what"** in the README: the author's name (placeholder `[Ім'я автора]`).
 
 ### Open question for the teacher
 

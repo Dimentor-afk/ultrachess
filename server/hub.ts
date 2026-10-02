@@ -37,7 +37,15 @@ const HEARTBEAT_MS = 25_000;
 const MSG_BUDGET = 120;
 
 export class Hub {
-  private wss = new WebSocketServer({ noServer: true, perMessageDeflate: true, maxPayload: 256 * 1024 });
+  private wss = new WebSocketServer({
+    noServer: true,
+    maxPayload: 256 * 1024,
+    // A view is ~7 KB of JSON. The compressor remembers the previous message, so
+    // each next view of a game costs ~150 bytes on the wire. An 8 KB window does
+    // that just as well as the default 32 KB, with ~100 KB of zlib memory per
+    // connection instead of ~300 KB.
+    perMessageDeflate: { serverMaxWindowBits: 13, zlibDeflateOptions: { memLevel: 7 } },
+  });
   private conns = new Set<Conn>();
   private byUser = new Map<string, Set<Conn>>();
   private byGame = new Map<string, Set<Conn>>();
