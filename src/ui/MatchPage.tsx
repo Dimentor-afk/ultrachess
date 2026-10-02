@@ -112,13 +112,26 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
     serverChain.current = serverChain.current.then(async () => {
       const started = Date.now();
       try {
-        await catchUp(await onAction(action, expected), started);
-        if (alive.current) setError(null);
-      } catch (e) {
-        // fetch() fails with a TypeError when the network is down.
-        const offline = e instanceof TypeError;
-        if (alive.current) setError(offline ? 'Немає зв’язку з сервером — пробуємо ще раз…' : e instanceof Error ? e.message : String(e));
-        await resyncBot();
+        for (let attempt = 0; alive.current; attempt++) {
+          try {
+            await catchUp(await onAction(action, expected), started);
+            if (alive.current) setError(null);
+            return;
+          } catch (e) {
+            if (!alive.current) return;
+            // fetch() fails with a TypeError when the network is down: keep the
+            // move and send it again (a repeat is safe, `expected` makes the
+            // server ignore a move it already has).
+            if (e instanceof TypeError && attempt < 10) {
+              setError('Немає зв’язку з сервером — надішлемо хід, щойно зв’язок повернеться…');
+              await sleep(Math.min(10_000, 1000 * 2 ** attempt));
+              continue;
+            }
+            setError(e instanceof TypeError ? 'Немає зв’язку з сервером.' : e instanceof Error ? e.message : String(e));
+            await resyncBot();
+            return;
+          }
+        }
       } finally {
         inflight.current--;
         if (alive.current) setServerTick((n) => n + 1);
