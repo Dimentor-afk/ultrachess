@@ -8340,3 +8340,15 @@ button.hb-slot {
   cursor: pointer;
   color: var(--muted, #9aa3ad);
 }
+
+.cm-clip .clip-loading {
+  aspect-ratio: 1 / 1.16;
+  background: linear-gradient(110deg, #17112a 30%, #221a3a 50%, #17112a 70%) 0 0 / 200% 100%;
+  animation: clip-shimmer 1.2s linear infinite;
+}
+
+@keyframes clip-shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}

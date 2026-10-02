@@ -299,7 +299,7 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
     if (!remote) return;
     let stop = false;
     const tick = async () => {
-      if (stop || sending.current) return;
+      if (stop || sending.current || document.hidden) return;
       try {
         const r = await remote.poll();
         if (stop || sending.current) return;
@@ -320,9 +320,12 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
       }
     };
     const t = setInterval(tick, 1500);
+    const onShow = () => void tick();
+    document.addEventListener('visibilitychange', onShow);
     return () => {
       stop = true;
       clearInterval(t);
+      document.removeEventListener('visibilitychange', onShow);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [remote]);

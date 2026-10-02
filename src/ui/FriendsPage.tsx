@@ -40,8 +40,13 @@ export function FriendsPage() {
   useEffect(() => {
     if (playing) return;
     void load();
-    const t = setInterval(load, 8000);
-    return () => clearInterval(t);
+    const t = setInterval(() => !document.hidden && void load(), 8000);
+    const onShow = () => !document.hidden && void load();
+    document.addEventListener('visibilitychange', onShow);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener('visibilitychange', onShow);
+    };
   }, [load, playing]);
 
   const run = async (fn: () => Promise<unknown>, ok?: string) => {

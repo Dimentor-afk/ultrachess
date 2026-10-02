@@ -5,7 +5,7 @@ import { randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { type IncomingMessage, type ServerResponse, createServer } from 'node:http';
 import { extname, join, normalize, resolve, sep } from 'node:path';
-import { createGzip } from 'node:zlib';
+import { createGzip, gzipSync } from 'node:zlib';
 import { promisify } from 'node:util';
 import { ApiError, GameService } from '../src/economy/service';
 import type { Hasher } from '../src/economy/store';
@@ -41,6 +41,48 @@ const hasher: Hasher = {
   },
 };
 
+// ── Rate limits ──
+// A fixed window per key and bucket: enough to stop password guessing and
+// someone keeping the bot threads busy, invisible to normal play. Signed-in
+// requests count per session, not per address: a whole class on one school
+// Wi-Fi shares an IP.
+
+const LIMITS = {
+  /** Login/registration attempts for one e-mail from one address. */
+  auth: { max: 10, windowMs: 10 * 60_000 },
+  /** All login/registration attempts from one address. */
+  authIp: { max: 300, windowMs: 10 * 60_000 },
+  /** Moves in bot games (each one may start a bot search). */
+  bot: { max: 60, windowMs: 60_000 },
+  /** Everything else. */
+  api: { max: 1200, windowMs: 60_000 },
+};
+const hits = new Map<string, { n: number; until: number }>();
+
+function clientIp(req: IncomingMessage): string {
+  // Fly.io and Render put the visitor's address in these headers.
+  const fwd = String(req.headers['fly-client-ip'] ?? req.headers['x-forwarded-for'] ?? '').split(',')[0].trim();
+  return fwd || req.socket.remoteAddress || '?';
+}
+
+/** False when `who` used up the bucket's window. */
+function allow(bucket: keyof typeof LIMITS, who: string): boolean {
+  const { max, windowMs } = LIMITS[bucket];
+  const key = `${bucket}:${who}`;
+  const now = Date.now();
+  const h = hits.get(key);
+  if (!h || h.until < now) {
+    hits.set(key, { n: 1, until: now + windowMs });
+    return true;
+  }
+  return ++h.n <= max;
+}
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, h] of hits) if (h.until < now) hits.delete(k);
+}, 60_000).unref();
+
 const store = new SqliteStore(DB_FILE);
 const bots = new BotPool();
 const svc = new GameService(store, hasher, Date.now, Math.random, bots.run);
@@ -55,13 +97,33 @@ function setCookie(res: ServerResponse, token: string | null, secure: boolean): 
   res.setHeader('Set-Cookie', token ? `${COOKIE}=${token}; Max-Age=${30 * 86400}; ${attrs}` : `${COOKIE}=; Max-Age=0; ${attrs}`);
 }
 
-function send(res: ServerResponse, status: number, data?: unknown): void {
+function send(res: ServerResponse, status: number, data?: unknown, req?: IncomingMessage): void {
   if (data === undefined) {
-    res.writeHead(status === 200 ? 204 : status).end();
+    res.writeHead(status === 200 ? 204 : status, SECURITY_HEADERS).end();
     return;
   }
-  const body = JSON.stringify(data);
-  res.writeHead(status, { ...SECURITY_HEADERS, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }).end(body);
+  const json = JSON.stringify(data);
+  const headers: Record<string, string> = { ...SECURITY_HEADERS, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', Vary: 'Accept-Encoding' };
+  // Game records grow with every move: compress the bigger answers.
+  if (json.length > 1024 && req && /\bgzip\b/.test(String(req.headers['accept-encoding'] ?? ''))) {
+    res.writeHead(status, { ...headers, 'Content-Encoding': 'gzip' }).end(gzipSync(json));
+    return;
+  }
+  res.writeHead(status, headers).end(json);
+}
+
+/**
+ * Requests that change something must come from this site (a second line of
+ * defence after the SameSite cookie): a browser always sends Origin on them.
+ */
+function sameOrigin(req: IncomingMessage): boolean {
+  const origin = req.headers.origin;
+  if (!origin) return true;
+  try {
+    return new URL(origin).host === req.headers.host;
+  } catch {
+    return false;
+  }
 }
 
 async function readBody(req: IncomingMessage): Promise<Record<string, unknown>> {
@@ -73,11 +135,15 @@ async function readBody(req: IncomingMessage): Promise<Record<string, unknown>> 
     chunks.push(chunk as Buffer);
   }
   if (!chunks.length) return {};
+  let data: unknown;
   try {
-    return JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    data = JSON.parse(Buffer.concat(chunks).toString('utf8'));
   } catch {
     throw new ApiError(400, 'Некоректний JSON.');
   }
+  // Handlers read fields of an object: `null`, a number or an array would crash them.
+  if (!data || typeof data !== 'object' || Array.isArray(data)) throw new ApiError(400, 'Очікується JSON-об’єкт.');
+  return data as Record<string, unknown>;
 }
 
 type Handler = (ctx: { req: IncomingMessage; res: ServerResponse; token: string; body: Record<string, unknown>; params: string[] }) => Promise<unknown>;
@@ -217,6 +283,7 @@ function serveStatic(req: IncomingMessage, res: ServerResponse): void {
   if (file !== DIST && !file.startsWith(DIST + sep)) return void res.writeHead(403).end();
   if (!existsSync(file) || statSync(file).isDirectory()) file = join(DIST, 'index.html');
   if (!existsSync(file)) return void res.writeHead(404).end('Run `npm run build` first.');
+  if (req.method !== 'GET' && req.method !== 'HEAD') return void res.writeHead(405, { Allow: 'GET, HEAD' }).end();
   // Hashed bundles never change; sprites and the page itself are revalidated.
   const cache = /[\\/]assets[\\/][\w.]+-[\w-]{8}\.(js|css)$/.test(file);
   const ext = extname(file);
@@ -228,7 +295,10 @@ function serveStatic(req: IncomingMessage, res: ServerResponse): void {
     Vary: 'Accept-Encoding',
     ...(gzip ? { 'Content-Encoding': 'gzip' } : {}),
   });
+  if (req.method === 'HEAD') return void res.end();
   const stream = createReadStream(file);
+  // A file removed mid-read (a deploy) must not crash the server.
+  stream.on('error', () => res.destroy());
   if (gzip) stream.pipe(createGzip()).pipe(res);
   else stream.pipe(res);
 }
@@ -239,11 +309,22 @@ const server = createServer(async (req, res) => {
   const sub = path.slice(5);
   const route = routes.find(([m, re]) => m === req.method && re.test(sub));
   if (!route) return send(res, 404, { error: 'Не знайдено.' });
+  if (req.method !== 'GET' && !sameOrigin(req)) return send(res, 403, { error: 'Запит з іншого сайту.' });
+  const token = tokenOf(req) ?? '';
+  const ip = clientIp(req);
+  const who = token || ip;
+  const tooMany = () => send(res, 429, { error: 'Забагато запитів. Спробуйте трохи згодом.' });
+  if (!allow('api', who)) return tooMany();
+  if (sub.startsWith('matches/') && sub.endsWith('/action') && !allow('bot', who)) return tooMany();
   try {
     const body = req.method === 'GET' || req.method === 'DELETE' ? {} : await readBody(req);
+    if (sub === 'auth/login' || sub === 'auth/register') {
+      const email = String(body.email ?? '').trim().toLowerCase();
+      if (!allow('authIp', ip) || !allow('auth', `${ip}|${email}`)) return tooMany();
+    }
     const params = route[1].exec(sub)!.slice(1);
-    const out = await route[2]({ req, res, token: tokenOf(req) ?? '', body, params });
-    send(res, 200, out === undefined ? undefined : out);
+    const out = await route[2]({ req, res, token, body, params });
+    send(res, 200, out === undefined ? undefined : out, req);
   } catch (e) {
     if (e instanceof ApiError) return send(res, e.status, { error: e.message });
     console.error(e);
@@ -252,6 +333,9 @@ const server = createServer(async (req, res) => {
 });
 
 await svc.init();
+// Expired sessions pile up otherwise: clean them at start and once a day.
+await store.purgeSessions(Date.now());
+setInterval(() => void store.purgeSessions(Date.now()), 864e5).unref();
 server.listen(PORT, () => {
   console.log(`Ultrachess: http://localhost:${PORT}  (db: ${DB_FILE})`);
 });

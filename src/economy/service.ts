@@ -26,7 +26,7 @@ import { BOARD_THEMES, DEFAULT_THEME, themeById } from './themes';
 import { CAPTURE_FX, DEFAULT_CAPTURE_FX, captureFxById } from './captureFx';
 import { type ShopOffer, shopOffer } from './dailyShop';
 import { BOT_LEVELS, botLevel } from '../engine/bot/levels';
-import { type BotOptions, type BotTurn, chooseTurn } from '../engine/bot/search';
+import type { BotOptions, BotTurn } from '../engine/bot/search';
 import { legalMoves } from '../engine/legal';
 import { type QuestEvent, type QuestView, addProgress, parseQuests, questViews } from './quests';
 import { type Hasher, type MatchRow, type PackRow, type PvpRow, type Role, type Store, type UserRow, randomId } from './store';
@@ -283,6 +283,8 @@ const ONLINE_MS = 2 * 60_000;
 const SEEK_TTL = 12_000;
 /** A player-ladder opponent who does not move for this long can be timed out. */
 export const CLAIM_MS = 90_000;
+/** Games whose last replayed state the service keeps (a state is tens of kilobytes). */
+const REPLAY_CACHE = 300;
 
 export interface AdminUser {
   id: string;
@@ -301,13 +303,47 @@ export interface AdminUser {
 
 const emailOk = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
+/**
+ * A deck as the client sent it, reduced to the known fields with the right
+ * types (anything else in the request is dropped, a wrong type is an error).
+ */
+function cleanDeck(input: unknown): Deck {
+  const d = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>;
+  const str = (v: unknown, field: string) => {
+    if (typeof v !== 'string') throw new ApiError(400, `Колода: поле «${field}» має бути рядком.`);
+    return v;
+  };
+  const id = str(d.id, 'id');
+  if (!/^[\w-]{1,40}$/.test(id)) throw new ApiError(400, 'Колода: некоректний id.');
+  const name = str(d.name, 'name').trim();
+  if (name.length > 32) throw new ApiError(400, 'Назва колоди — до 32 символів.');
+  if (!Array.isArray(d.pawnVersions) || d.pawnVersions.length > 2) throw new ApiError(400, 'Для пішаків потрібно обрати 1 або 2 версії.');
+  const deck: Deck = {
+    id,
+    name,
+    pawnVersions: d.pawnVersions.map((v) => str(v, 'pawnVersions')),
+    pawnFormation: str(d.pawnFormation ?? '11111111', 'pawnFormation'),
+    rook1: '',
+    rook2: '',
+    bishop1: '',
+    bishop2: '',
+    knight1: '',
+    knight2: '',
+    queen: '',
+    king: '',
+  };
+  for (const s of DECK_SLOTS) (deck as unknown as Record<string, string>)[s.key] = str(d[s.key], s.key);
+  return deck;
+}
+
 export class GameService {
   constructor(
     private store: Store,
     private hasher: Hasher,
     private now: () => number = Date.now,
     private rng: Rng = Math.random,
-    private bot: BotRunner = async (state, color, opts) => chooseTurn(state, color, opts),
+    // Loaded on demand: the browser demo passes its web worker and never needs this copy.
+    private bot: BotRunner = async (state, color, opts) => (await import('../engine/bot/search')).chooseTurn(state, color, opts),
   ) {}
 
   /** Seed the admin accounts (no password until their owner registers). */
@@ -804,8 +840,9 @@ export class GameService {
     return (await this.store.listDecks(u.id)).sort((a, b) => a.updatedAt - b.updatedAt).map((d) => d.deck);
   }
 
-  async saveDeck(token: string, deck: Deck): Promise<Deck[]> {
+  async saveDeck(token: string, input: Deck): Promise<Deck[]> {
     const u = await this.auth(token);
+    const deck = cleanDeck(input);
     const errors = validateDeck(deck);
     if (errors.length) throw new ApiError(400, errors[0]);
     const owned = await this.ownedSet(u.id);
@@ -881,10 +918,14 @@ export class GameService {
       mode = `trial:${t.id}`;
       trialInfo = { id: t.id, name: t.name, round: run.wins + 1, rounds: t.opponents.length };
     } else {
+      const recent = (await this.store.listMatches(u.id, 50)).filter((x) => x.status === 'active');
       if (opts.ranked) {
         // An unfinished bot-ladder game goes on: leaving a lost game must not save the trophies.
-        const open = (await this.store.listMatches(u.id, 20)).find((x) => x.status === 'active' && this.modeOf(x) === 'bot');
+        const open = recent.find((x) => this.modeOf(x) === 'bot');
         if (open) return this.matchStart(open);
+      } else {
+        // Training has no stakes: a new game closes the ones left open (no result, not in history).
+        for (const x of recent) if (this.modeOf(x) === 'training') await this.store.updateMatch(x.id, { status: 'finished' });
       }
       const decks = await this.store.listDecks(u.id);
       const d = decks.find((x) => x.id === (opts.deckId ?? u.activeDeckId)) ?? decks[0];
@@ -942,8 +983,27 @@ export class GameService {
   }
 
   private replayMatch(m: MatchRow): MatchState {
-    let state = m.color === 'w' ? createMatch(m.playerDeck, m.botDeck) : createMatch(m.botDeck, m.playerDeck);
-    for (const a of m.actions) state = performAction(state, a);
+    return this.replay(`match:${m.id}`, m.actions, () =>
+      m.color === 'w' ? createMatch(m.playerDeck, m.botDeck) : createMatch(m.botDeck, m.playerDeck),
+    );
+  }
+
+  /**
+   * Replaying a long game costs a few hundred milliseconds (every action is
+   * checked with the engine), and the server would do it on every poll. Game
+   * records only ever grow, so the last state of each game is kept and only
+   * the new actions are played on top of it.
+   */
+  private replays = new Map<string, { n: number; state: MatchState }>();
+
+  private replay(key: string, actions: Action[], fresh: () => MatchState): MatchState {
+    const hit = this.replays.get(key);
+    let state = hit && hit.n <= actions.length ? hit.state : fresh();
+    for (let i = hit && hit.n <= actions.length ? hit.n : 0; i < actions.length; i++) state = performAction(state, actions[i]);
+    // Most recently used last; the oldest entries go first.
+    this.replays.delete(key);
+    this.replays.set(key, { n: actions.length, state });
+    if (this.replays.size > REPLAY_CACHE) this.replays.delete(this.replays.keys().next().value!);
     return state;
   }
 
@@ -1274,16 +1334,17 @@ export class GameService {
     const games: PvpSummary[] = [];
     for (const p of await this.store.listPvp(me.id, 30)) {
       const color: Color = p.whiteId === me.id ? 'w' : 'b';
-      const state = this.replayPvp(p);
+      // Only a game in progress needs replaying (whose turn is it); a finished one just counts its moves.
+      const state = p.status === 'active' ? this.replayPvp(p) : null;
       const r = p.result ? (JSON.parse(p.result) as { winner: Color | null }) : null;
       games.push({
         id: p.id,
         opponent: await this.cardOf(color === 'w' ? p.blackId : p.whiteId),
         color,
-        yourTurn: p.status === 'active' && state.turn === color,
+        yourTurn: !!state && state.turn === color,
         status: p.status,
         outcome: !r ? null : r.winner === null ? 'draw' : r.winner === color ? 'win' : 'loss',
-        moves: state.history.length,
+        moves: state ? state.history.length : (JSON.parse(p.actions) as unknown[]).length,
         updatedAt: p.updatedAt,
         ranked: !!p.ranked,
       });
@@ -1332,10 +1393,8 @@ export class GameService {
   }
 
   private replayPvp(p: PvpRow): MatchState {
-    let state = createMatch(p.whiteDeck, p.blackDeck);
-    for (const a of JSON.parse(p.actions) as Action[]) state = performAction(state, a);
-    if (p.resignedBy && !state.result) state = resign(state, p.resignedBy);
-    return state;
+    const state = this.replay(`pvp:${p.id}`, JSON.parse(p.actions) as Action[], () => createMatch(p.whiteDeck, p.blackDeck));
+    return p.resignedBy && !state.result ? resign(state, p.resignedBy) : state;
   }
 
   private async pvpFor(userId: string, id: string): Promise<{ row: PvpRow; color: Color }> {

@@ -8,7 +8,7 @@ import { CARD_BY_ID, PIECE_NAMES, RARITY_NAMES } from '../engine/cards';
 import { cardArt, packArt } from './cardArt';
 import { navigate } from './router';
 import type { FxName } from './fxSprites';
-import { Game } from './MatchPage';
+import { Game } from './LazyGame';
 import { errorText, useSession } from './state';
 
 const DIFFICULTY: Record<1 | 2 | 3, string> = { 1: 'Легке', 2: 'Середнє', 3: 'Дуже складне' };

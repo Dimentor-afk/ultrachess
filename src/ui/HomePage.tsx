@@ -5,7 +5,7 @@ import { LADDER_NAMES, LADDER_PACK_LIMIT, LADDER_TROPHIES, LADDER_WIN_GOLD, LEAG
 import { PvpGame } from './PvpGame';
 import { RARITY_NAMES } from '../engine/cards';
 import type { Rarity } from '../engine/types';
-import { Game } from './MatchPage';
+import { Game } from './LazyGame';
 import { PackOpening } from './PackOpening';
 import { Sheet } from './Sheet';
 import { MiniBoard } from './DeckPage';

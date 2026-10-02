@@ -3,7 +3,8 @@ import type { MatchFinish, PvpState } from '../api/client';
 import { captureFxById } from '../economy/captureFx';
 import type { Action } from '../engine/match';
 import type { FxName } from './fxSprites';
-import { Game, type RemoteGame } from './MatchPage';
+import { Game } from './LazyGame';
+import type { RemoteGame } from './MatchPage';
 import { useSession } from './state';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));

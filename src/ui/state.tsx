@@ -75,8 +75,14 @@ export function SessionProvider({
   }, [api]);
   useEffect(() => {
     void refreshInbox();
-    const t = setInterval(refreshInbox, 12_000);
-    return () => clearInterval(t);
+    // No polling in a hidden tab; catch up as soon as it is shown again.
+    const t = setInterval(() => !document.hidden && void refreshInbox(), 12_000);
+    const onShow = () => !document.hidden && void refreshInbox();
+    document.addEventListener('visibilitychange', onShow);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener('visibilitychange', onShow);
+    };
   }, [refreshInbox]);
   const value: Session = {
     api,

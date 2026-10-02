@@ -1,9 +1,10 @@
-import { useEffect, type ReactNode } from 'react';
+import { Suspense, lazy, useEffect, type ReactNode } from 'react';
 import { CLASSIC_CARD, EFFECT_NAMES, PIECE_NAMES, RARITY_NAMES } from '../engine/cards';
 import type { Card } from '../engine/types';
 import { Emblem } from './art';
 import { cardArt } from './cardArt';
-import { CardClip } from './CardClip';
+// The clip (scripts and their player) loads with the first opened card.
+const CardClip = lazy(() => import('./CardClip').then((m) => ({ default: m.CardClip })));
 import { CARD_SPECS, SPEC_KINDS } from './cardSpec';
 import { Icon } from './icons';
 
@@ -110,7 +111,9 @@ export function CardModal({
             <h3 className="cm-sub">
               <span className="cm-play">▶</span> У грі
             </h3>
-            <CardClip cardId={card.id} />
+            <Suspense fallback={<div className="clip clip-loading" aria-hidden />}>
+              <CardClip cardId={card.id} />
+            </Suspense>
           </section>
 
           {spec && (

@@ -362,3 +362,30 @@ describe('daily quests', () => {
     expect((await svc.me(token)).quests.find((q) => q.id === 'play3')).toMatchObject({ progress: 0, claimed: false });
   });
 });
+
+describe('training games', () => {
+  it('a new training game closes the old ones, so an open ranked game is always found', async () => {
+    const { svc } = await setup(11);
+    const { token } = await svc.register('tr@tr.com', 'secret1', 'Tr');
+    const [p] = await svc.packs(token);
+    await svc.openPack(token, p.id);
+    const ranked = await svc.startMatch(token, { ranked: true });
+    for (let i = 0; i < 25; i++) await svc.startMatch(token, { ranked: false, level: 0 });
+    expect((await svc.startMatch(token, { ranked: true })).matchId).toBe(ranked.matchId);
+  });
+});
+
+describe('deck input', () => {
+  it('a malformed deck is a clear 400, not a crash, and extra fields are dropped', async () => {
+    const { svc } = await setup(12);
+    const { token } = await svc.register('dk@dk.com', 'secret1', 'Dk');
+    const [p] = await svc.packs(token);
+    await svc.openPack(token, p.id);
+    const [deck] = await svc.decks(token);
+    await expect(svc.saveDeck(token, null as never)).rejects.toMatchObject({ status: 400 });
+    await expect(svc.saveDeck(token, { ...deck, pawnVersions: 'x' } as never)).rejects.toMatchObject({ status: 400 });
+    await expect(svc.saveDeck(token, { ...deck, name: 'x'.repeat(40) })).rejects.toThrow(/32/);
+    const saved = await svc.saveDeck(token, { ...deck, name: 'Нова', junk: 'x'.repeat(1000) } as never);
+    expect(saved.find((d) => d.id === deck.id)).not.toHaveProperty('junk');
+  });
+});
