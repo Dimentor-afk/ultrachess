@@ -154,6 +154,9 @@ describe('service', () => {
     // Four epic duplicates are a good part of an epic pack, but not all of it.
     expect(me.shards).toBeLessThan(PACK_SHARD_PRICE.epic);
     await expect(svc.buyPack(token, 'epic')).rejects.toThrow(/уламків/);
+    // Names of Object.prototype are not packs (they once made the balance NaN).
+    await expect(svc.buyPack(token, 'toString' as never)).rejects.toThrow(/немає/);
+    expect((await svc.me(token)).shards).toBe(4 * SHARDS_PER_DUPE.epic);
     const bought = await svc.buyPack(token, 'common');
     expect(bought.pack.type).toBe('common');
     expect(bought.profile.shards).toBe(4 * SHARDS_PER_DUPE.epic - PACK_SHARD_PRICE.common);
@@ -283,6 +286,23 @@ describe('service', () => {
     const again = await svc.startMatch(token, { ranked: true });
     expect(again.matchId).toBe(start.matchId);
     expect(again.view.state.history).toEqual(first.view.state.history);
+  });
+
+  it('stores the engine\'s form of a move, not the extra fields a client sent', async () => {
+    const { store, svc } = await setup(4);
+    const { token } = await svc.register('x@x.com', 'secret12', 'Гравець X');
+    const [p] = await svc.packs(token);
+    await svc.openPack(token, p.id);
+    const start = await svc.startMatch(token, { ranked: false, level: Number('abc') });
+    expect(Number.isFinite(start.botLevel)).toBe(true);
+    bot.line = [];
+    let view = (await svc.matchAction(token, start.matchId, null, '')).view;
+    if (view.state.turn !== start.color) return;
+    const move = { ...view.legal[0], junk: 'x'.repeat(10_000) };
+    view = (await svc.matchAction(token, start.matchId, { type: 'move', move, extra: 1 } as never, view.v)).view;
+    const saved = JSON.stringify((await store.getMatch(start.matchId))!.actions[0]);
+    expect(saved).not.toContain('junk');
+    expect(saved).not.toContain('extra');
   });
 
   it('a bot game saved by an older demo (no record of actions) is closed: a new one starts with the current deck', async () => {

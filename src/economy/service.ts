@@ -3,7 +3,7 @@
 
 import { CARDS, CARD_BY_ID } from '../engine/cards';
 import { DECK_SLOTS, classicDeck, deckPositions, validateDeck } from '../engine/deck';
-import { type Action, type MatchState, createMatch, performAction, resign } from '../engine/match';
+import { type Action, type MatchState, canonicalAction, createMatch, performAction, resign } from '../engine/match';
 import { secureState } from '../engine/secure';
 import type { Color, Deck, Move, PieceType, Rarity } from '../engine/types';
 import { PACK_SHARD_PRICE, type PackType, RARITIES, type Rng, SHARDS_PER_DUPE, packGold, packName, rollPack } from './packs';
@@ -956,7 +956,7 @@ export class GameService {
   /** Admin testing: pick the ranked bot's level (null = by arena). */
   async setBotOverride(token: string, level: number | null): Promise<Profile> {
     const u = await this.admin(token);
-    await this.store.updateUser(u.id, { botOverride: level === null ? -1 : Math.max(0, Math.min(BOT_LEVELS.length - 1, Math.round(level))) });
+    await this.store.updateUser(u.id, { botOverride: level === null || !Number.isFinite(level) ? -1 : Math.max(0, Math.min(BOT_LEVELS.length - 1, Math.round(level))) });
     return this.profileOf(u.id);
   }
 
@@ -1081,7 +1081,7 @@ export class GameService {
   /** Buy a pack for shards; it lands with the other ready packs. */
   async buyPack(token: string, type: PackType): Promise<{ pack: PackView; profile: Profile }> {
     const u = await this.auth(token);
-    if (type === 'starter' || !(type in PACK_SHARD_PRICE)) throw new ApiError(400, 'Такого паку в магазині немає.');
+    if (type === 'starter' || !Object.hasOwn(PACK_SHARD_PRICE, type)) throw new ApiError(400, 'Такого паку в магазині немає.');
     const price = PACK_SHARD_PRICE[type];
     if (u.shards < price) throw new ApiError(400, `Потрібно ${price} уламків, у вас ${u.shards}.`);
     await this.store.updateUser(u.id, { shards: u.shards - price });
@@ -1226,7 +1226,7 @@ export class GameService {
       if (deckPositions(d.deck).some((id) => !owned.has(id))) throw new ApiError(400, 'У колоді є картки, яких немає в колекції.');
       playerDeck = d.deck;
       const league = BOT_LEAGUES[leagueIndex('bot', u.botTrophies)];
-      botLevel = opts.ranked ? this.rankedBot(u) : Math.max(0, Math.min(BOT_LEVELS.length - 1, opts.level ?? 2));
+      botLevel = opts.ranked ? this.rankedBot(u) : Math.max(0, Math.min(BOT_LEVELS.length - 1, Math.round(Number.isFinite(opts.level) ? opts.level! : 2)));
       botDeck = opts.ranked ? this.botDeck(league.botMaxRarity!) : classicDeck('bot', 'Класична колода');
       mode = opts.ranked ? 'bot' : 'training';
     }
@@ -1416,12 +1416,14 @@ export class GameService {
     if (action) {
       if (state.result) throw new ApiError(409, 'Партію завершено.');
       if (state.turn !== m.color) throw new ApiError(409, 'Зараз хід бота.');
+      let clean: Action;
       try {
-        state = performAction(state, action);
+        clean = canonicalAction(state, action);
+        state = performAction(state, clean);
       } catch {
         throw new ApiError(400, 'Такий хід неможливий.');
       }
-      actions.push(action);
+      actions.push(clean);
     }
     // The bot answers until it is the player's turn again (or the game is over).
     for (let guard = 0; guard < 4 && !state.result && state.turn === botColor; guard++) {
@@ -1924,12 +1926,15 @@ export class GameService {
     const state = this.replayPvp(row);
     if (state.turn !== color) throw new ApiError(409, 'Зараз хід суперника.');
     let next: MatchState;
+    let clean: Action;
     try {
-      next = performAction(state, action);
+      // The record keeps the engine's own form of the action, not what the client sent.
+      clean = canonicalAction(state, action);
+      next = performAction(state, clean);
     } catch {
       throw new ApiError(400, 'Такий хід неможливий.');
     }
-    actions.push(action);
+    actions.push(clean);
     // A hidden action (Безсмертна, Підказка) must not even show as "the opponent did something".
     const hidden = next.history[next.history.length - 1]?.text === null;
     const patch: Partial<PvpRow> = { actions: JSON.stringify(actions), updatedAt: hidden ? row.updatedAt : this.now() };
@@ -2035,17 +2040,21 @@ export class GameService {
   async adminGrantPack(token: string, userId: string, type: PackType): Promise<void> {
     await this.admin(token);
     if (!(await this.store.getUser(userId))) throw new ApiError(404, 'Гравця не знайдено.');
+    if (!Object.hasOwn(PACK_SHARD_PRICE, type) && type !== 'starter') throw new ApiError(400, 'Такого паку немає.');
     await this.createPack(userId, type, 'Подарунок адміністратора');
   }
 
   async adminGrantAllCards(token: string, userId: string): Promise<void> {
     await this.admin(token);
+    if (!(await this.store.getUser(userId))) throw new ApiError(404, 'Гравця не знайдено.');
     const owned = await this.ownedSet(userId);
     for (const c of CARDS) if (!owned.has(c.id)) await this.store.addCard(userId, c.id);
   }
 
   async adminSetTrophies(token: string, userId: string, trophies: number, ladder: Ladder = 'pvp'): Promise<void> {
     await this.admin(token);
+    if (!Number.isFinite(trophies)) throw new ApiError(400, 'Вкажіть число кубків.');
+    if (!(await this.store.getUser(userId))) throw new ApiError(404, 'Гравця не знайдено.');
     const t = Math.max(0, Math.round(trophies));
     await this.store.updateUser(userId, ladder === 'bot' ? { botTrophies: t } : { trophies: t });
   }
@@ -2061,8 +2070,8 @@ export class GameService {
     const u = await this.store.getUser(userId);
     if (!u) throw new ApiError(404, 'Гравця не знайдено.');
     await this.store.updateUser(userId, {
-      gold: Math.max(0, u.gold + Math.round(gold || 0)),
-      shards: Math.max(0, u.shards + Math.round(shards || 0)),
+      gold: Math.max(0, u.gold + (Number.isFinite(gold) ? Math.round(gold) : 0)),
+      shards: Math.max(0, u.shards + (Number.isFinite(shards) ? Math.round(shards) : 0)),
     });
   }
 }

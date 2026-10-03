@@ -35,6 +35,8 @@ type ClientMsg =
 const HEARTBEAT_MS = 25_000;
 /** Messages a connection may send per heartbeat window (a game needs a handful). */
 const MSG_BUDGET = 120;
+/** Games one connection may watch at once (a player has a few tabs, not hundreds). */
+const MAX_WATCHED = 20;
 
 export class Hub {
   private wss = new WebSocketServer({
@@ -104,7 +106,11 @@ export class Hub {
     const req = 'req' in msg ? msg.req : undefined;
     try {
       if (msg.t === 'watch') {
-        if (!conn.games.has(id)) conn.games.set(id, '');
+        if (!conn.games.has(id) && conn.games.size >= MAX_WATCHED) throw new ApiError(429, 'Забагато відкритих партій.');
+        // The game must exist before the connection is listed under it: made-up ids would pile up.
+        const first = !conn.games.has(id);
+        if (first) await this.svc.pvpState(conn.token, id);
+        conn.games.set(id, conn.games.get(id) ?? '');
         this.index(this.byGame, id, conn);
         await this.push(conn, id, true);
         // A new spectator changes the count everybody sees.

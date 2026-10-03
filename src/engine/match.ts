@@ -130,6 +130,26 @@ export function sameMove(a: Move, b: Move): boolean {
   );
 }
 
+/**
+ * The action as the engine itself would write it: a move becomes the legal
+ * move it matches, the other kinds keep only their own fields. The server
+ * stores this, not what the client sent (extra fields would bloat the record).
+ * Throws when the action is malformed or the move is not legal.
+ */
+export function canonicalAction(state: MatchState, action: unknown): Action {
+  const a = (action && typeof action === 'object' ? action : {}) as Record<string, unknown>;
+  if (a.type === 'move') {
+    const move = a.move as Move | undefined;
+    const from = move?.from;
+    const legal = typeof from === 'number' && Array.isArray(move?.captures) ? legalMoves(state, false, { from }).find((m) => sameMove(m, move!)) : undefined;
+    if (!legal) throw new Error('Нелегальний хід');
+    return { type: 'move', move: legal };
+  }
+  if (a.type === 'ability' && typeof a.pieceId === 'string' && typeof a.key === 'string') return { type: 'ability', pieceId: a.pieceId, key: a.key };
+  if (a.type === 'choose' && Number.isInteger(a.square)) return { type: 'choose', square: a.square as Square };
+  throw new Error('Некоректна дія');
+}
+
 const PLAIN_LABELS = new Set(['Хід', 'Взяти', 'Хід на 2']);
 
 function moveText(pos: Position, m: Move): string {
