@@ -32,14 +32,12 @@ import {
   type Profile,
 } from '../economy/service';
 import type { Hasher, Role } from '../economy/store';
-import { type PurchaseView, type ShardProduct, TestPayments } from '../economy/payments';
 import type { Action } from '../engine/match';
 import type { Deck } from '../engine/types';
 import { requestBotTurn } from '../ui/botClient';
 import { LiveSocket, liveUrl } from './live';
 
 export { ApiError };
-export type { PurchaseView, ShardProduct };
 export type {
   GameView,
   LiveGameRow,
@@ -89,15 +87,6 @@ export interface Api {
   /** Sign out on every other device. */
   logoutOthers(): Promise<void>;
   deleteAccount(password: string): Promise<void>;
-  /** Shard bundles for real money and whether they are on sale. */
-  shardOffer(): Promise<{ products: ShardProduct[]; enabled: boolean; test: boolean }>;
-  /** Start a purchase: the page where the player pays. */
-  buyShards(product: string): Promise<{ purchaseId: string; pageUrl: string }>;
-  purchase(id: string): Promise<{ purchase: PurchaseView; profile: Profile }>;
-  purchases(): Promise<PurchaseView[]>;
-  /** The test payment page (demo and PAYMENTS=test only). */
-  completeTestPayment(id: string, ok: boolean): Promise<{ purchase: PurchaseView; profile: Profile }>;
-  adminPurchases(): Promise<(PurchaseView & { email: string; name: string; price: string })[]>;
   collection(): Promise<Collection>;
   packs(): Promise<PackView[]>;
   openPack(id: string): Promise<OpenResult>;
@@ -198,12 +187,6 @@ class HttpApi implements Api {
     this.socket?.close();
     this.socket = undefined;
   };
-  shardOffer = () => this.call<{ products: ShardProduct[]; enabled: boolean; test: boolean }>('GET', 'shop/shards');
-  buyShards = (product: string) => this.call<{ purchaseId: string; pageUrl: string }>('POST', 'shop/shards', { product });
-  purchase = (id: string) => this.call<{ purchase: PurchaseView; profile: Profile }>('GET', `purchases/${id}`);
-  purchases = () => this.call<PurchaseView[]>('GET', 'purchases');
-  completeTestPayment = (id: string, ok: boolean) => this.call<{ purchase: PurchaseView; profile: Profile }>('POST', `payments/test/${id}`, { ok });
-  adminPurchases = () => this.call<(PurchaseView & { email: string; name: string; price: string })[]>('GET', 'admin/purchases');
   private socket: LiveSocket | undefined;
   /** Opened on first use (signed in by then: the socket is authenticated by the session cookie). */
   get live(): LiveSocket {
@@ -320,8 +303,6 @@ class LocalApi implements Api {
     this.svc = new GameService(store, webHasher, Date.now, Math.random, requestBotTurn);
     // No mail in the demo: the screens show the link from the "letter" instead.
     this.svc.showLinks = true;
-    // No money in the demo either: purchases go through the test payment page.
-    this.svc.payments = new TestPayments();
     this.ready = this.svc.init();
     try {
       this.token = localStorage.getItem(TOKEN_KEY);
@@ -383,15 +364,6 @@ class LocalApi implements Api {
   changePassword = async (current: string, next: string) => this.svc.changePassword(await this.t(), current, next);
   changeEmail = async (password: string, email: string) => this.svc.changeEmail(await this.t(), password, email, siteBase());
   logoutOthers = async () => this.svc.logoutOthers(await this.t());
-  shardOffer = async () => {
-    await this.t();
-    return this.svc.shardOffer();
-  };
-  buyShards = async (product: string) => this.svc.buyShards(await this.t(), product, siteBase());
-  purchase = async (id: string) => this.svc.purchase(await this.t(), id);
-  purchases = async () => this.svc.purchases(await this.t());
-  completeTestPayment = async (id: string, ok: boolean) => this.svc.completeTestPayment(await this.t(), id, ok);
-  adminPurchases = async () => this.svc.adminPurchases(await this.t());
   deleteAccount = async (password: string) => {
     await this.svc.deleteAccount(await this.t(), password);
     this.remember(null);

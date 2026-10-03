@@ -12,8 +12,6 @@ import type { Hasher } from '../src/economy/store';
 import { BotPool } from './botPool';
 import { Hub } from './hub';
 import { resendMailer } from './mailer';
-import { MonoPayments } from './monobank';
-import { TestPayments } from '../src/economy/payments';
 import { SqliteStore } from './sqliteStore';
 
 const PORT = Number(process.env.PORT ?? 8080);
@@ -109,32 +107,6 @@ if (!svc.mailer) console.log('No RESEND_API_KEY: links from letters (password re
 // request's Host is used; set it in production so a forged Host cannot redirect the links.
 const PUBLIC_URL = process.env.PUBLIC_URL ? process.env.PUBLIC_URL.replace(/\/*$/, '/') : null;
 if (!PUBLIC_URL && svc.mailer) console.warn('PUBLIC_URL is not set: links in letters use the Host of each request.');
-
-// Payments: MONO_TOKEN → monobank; PAYMENTS=test → test payments (no money: never in
-// production, anyone could "pay"); neither → shards are not on sale.
-const mono = process.env.MONO_TOKEN ? new MonoPayments(process.env.MONO_TOKEN) : null;
-svc.payments = mono ?? (process.env.PAYMENTS === 'test' ? new TestPayments() : null);
-if (svc.payments?.id === 'test') console.warn('PAYMENTS=test: purchases need no money. Never use this in production.');
-else if (!svc.payments) console.log('No MONO_TOKEN: shards are not on sale.');
-
-/** monobank's notice about an invoice: the raw body is needed to check its signature. */
-async function monoWebhook(req: IncomingMessage, res: ServerResponse): Promise<void> {
-  const chunks: Buffer[] = [];
-  let size = 0;
-  for await (const c of req) {
-    size += (c as Buffer).length;
-    if (size > 64 * 1024) return void res.writeHead(413).end();
-    chunks.push(c as Buffer);
-  }
-  const notice = mono ? await mono.verifyWebhook(Buffer.concat(chunks), String(req.headers['x-sign'] ?? '')).catch(() => null) : null;
-  if (!notice) {
-    console.warn('monobank webhook with a bad or missing signature, ignored.');
-    return void res.writeHead(400).end();
-  }
-  await svc.paymentNotice('mono', notice.purchaseId, notice.providerId, notice.state);
-  // 200 tells monobank the notice arrived; anything else and it tries again later.
-  res.writeHead(200).end();
-}
 
 /** The site's address for links in letters. */
 function siteBase(req: IncomingMessage): string {
@@ -259,12 +231,6 @@ const routes: [string, RegExp, Handler][] = [
   ['GET', /^packs$/, ({ token }) => svc.packs(token)],
   ['POST', /^packs\/(\w+)\/open$/, ({ token, params }) => svc.openPack(token, params[0])],
   ['GET', /^shop$/, ({ token }) => svc.shop(token)],
-  ['GET', /^shop\/shards$/, async () => svc.shardOffer()],
-  ['POST', /^shop\/shards$/, ({ req, token, body }) => svc.buyShards(token, String(body.product ?? ''), siteBase(req))],
-  ['GET', /^purchases$/, ({ token }) => svc.purchases(token)],
-  ['GET', /^purchases\/(\w+)$/, ({ token, params }) => svc.purchase(token, params[0])],
-  ['POST', /^payments\/test\/(\w+)$/, ({ token, params, body }) => svc.completeTestPayment(token, params[0], !!body.ok)],
-  ['GET', /^admin\/purchases$/, ({ token }) => svc.adminPurchases(token)],
   ['POST', /^shop\/pack$/, ({ token, body }) => svc.buyPack(token, String(body.type) as never)],
   ['POST', /^shop\/theme$/, ({ token, body }) => svc.buyTheme(token, String(body.id ?? ''))],
   ['POST', /^profile\/theme$/, ({ token, body }) => svc.setBoardTheme(token, String(body.id ?? ''))],
@@ -393,13 +359,6 @@ const server = createServer(async (req, res) => {
   if (isSecure(req)) res.setHeader('Strict-Transport-Security', HSTS);
   const path = (req.url ?? '/').split('?')[0];
   if (!path.startsWith('/api/')) return serveStatic(req, res);
-  if (path === '/api/payments/mono/webhook' && req.method === 'POST') {
-    if (!allow('api', clientIp(req))) return void res.writeHead(429).end();
-    return void monoWebhook(req, res).catch((e) => {
-      console.error('monobank webhook failed:', e);
-      if (!res.headersSent) res.writeHead(500).end();
-    });
-  }
   const sub = path.slice(5);
   const route = routes.find(([m, re]) => m === req.method && re.test(sub));
   if (!route) return send(res, 404, { error: 'Не знайдено.' });

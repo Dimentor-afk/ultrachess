@@ -1,7 +1,6 @@
 // In-memory Store. The browser demo persists it to localStorage; tests use
 // it as is.
 
-import type { PurchaseRow, PurchaseStatus } from './payments';
 import type { CardRow, ChallengeRow, DeckRow, FriendRow, MatchRow, PackRow, PvpRow, SeekRow, SessionRow, Store, TokenRow, UserRow } from './store';
 
 export interface MemoryData {
@@ -16,7 +15,6 @@ export interface MemoryData {
   pvp: PvpRow[];
   seeks: SeekRow[];
   tokens: TokenRow[];
-  purchases: PurchaseRow[];
 }
 
 export const emptyData = (): MemoryData => ({
@@ -31,7 +29,6 @@ export const emptyData = (): MemoryData => ({
   pvp: [],
   seeks: [],
   tokens: [],
-  purchases: [],
 });
 
 const clone = <T,>(x: T): T => JSON.parse(JSON.stringify(x));
@@ -139,36 +136,6 @@ export class MemoryStore implements Store {
   async deleteUserSessions(userId: string, except?: string) {
     this.data.sessions = this.data.sessions.filter((s) => s.userId !== userId || s.token === except);
     this.save();
-  }
-
-  async insertPurchase(p: PurchaseRow) {
-    this.data.purchases.push(clone(p));
-    this.save();
-  }
-  async getPurchase(id: string) {
-    const p = this.data.purchases.find((x) => x.id === id);
-    return p ? clone(p) : null;
-  }
-  async updatePurchase(id: string, patch: Partial<PurchaseRow>) {
-    const p = this.data.purchases.find((x) => x.id === id);
-    if (p) Object.assign(p, clone(patch));
-    this.save();
-  }
-  async listPurchases(userId: string, limit: number) {
-    return clone(this.data.purchases.filter((p) => p.userId === userId).slice(-limit).reverse());
-  }
-  async listAllPurchases(limit: number) {
-    return clone(this.data.purchases.slice(-limit).reverse());
-  }
-  async settlePurchase(id: string, from: PurchaseStatus, to: PurchaseStatus, shards: number, now: number) {
-    const p = this.data.purchases.find((x) => x.id === id);
-    if (!p || p.status !== from) return false;
-    p.status = to;
-    p.updatedAt = now;
-    const u = this.data.users.find((x) => x.id === p.userId);
-    if (u) u.shards += shards;
-    this.save();
-    return true;
   }
 
   async insertToken(t: TokenRow) {

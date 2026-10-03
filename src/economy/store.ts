@@ -4,7 +4,6 @@
 import type { Action } from '../engine/match';
 import type { Deck } from '../engine/types';
 import type { PackType } from './packs';
-import type { PurchaseRow, PurchaseStatus } from './payments';
 
 export type Role = 'player' | 'admin';
 
@@ -228,19 +227,6 @@ export interface Store {
   insertPvp(p: PvpRow): Promise<void>;
   /** Write `patch` only if the game still has `expectedActions` actions (optimistic lock). */
   updatePvp(id: string, patch: Partial<PvpRow>, expectedActions?: number): Promise<boolean>;
-
-  insertPurchase(p: PurchaseRow): Promise<void>;
-  getPurchase(id: string): Promise<PurchaseRow | null>;
-  updatePurchase(id: string, patch: Partial<PurchaseRow>): Promise<void>;
-  listPurchases(userId: string, limit: number): Promise<PurchaseRow[]>;
-  /** Newest first, everyone's (admin). */
-  listAllPurchases(limit: number): Promise<PurchaseRow[]>;
-  /**
-   * In one transaction: move the purchase from `from` to `to` and add
-   * `shards` (negative for a refund) to its buyer. False when the purchase
-   * was not in `from` any more — someone else settled it first, nothing changed.
-   */
-  settlePurchase(id: string, from: PurchaseStatus, to: PurchaseStatus, shards: number, now: number): Promise<boolean>;
 
   listSeeks(): Promise<SeekRow[]>;
   putSeek(s: SeekRow): Promise<void>;

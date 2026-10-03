@@ -135,62 +135,6 @@ export function AdminPage() {
           </div>
         )}
       </div>
-      <AdminPurchases />
     </section>
-  );
-}
-
-const STATUS: Record<string, string> = { pending: 'очікує', paid: 'оплачено', failed: 'не пройшла', expired: 'прострочено', refunded: 'повернено' };
-
-/** The journal of real-money purchases, newest first. */
-function AdminPurchases() {
-  const s = useSession();
-  const [rows, setRows] = useState<Awaited<ReturnType<typeof s.api.adminPurchases>> | null>(null);
-  useEffect(() => {
-    s.api.adminPurchases().then(setRows, () => setRows([]));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  if (!rows) return null;
-  const paid = rows.filter((r) => r.status === 'paid');
-  const total = paid.reduce((sum, r) => sum + r.amount, 0) / 100;
-  return (
-    <div className="panel">
-      <div className="section-head">
-        <h2>Покупки</h2>
-        <span className="muted small">
-          оплачено {paid.length} на {total.toLocaleString('uk-UA')} ₴ (останні {rows.length})
-        </span>
-      </div>
-      {rows.length === 0 ? (
-        <p className="muted">Покупок ще не було.</p>
-      ) : (
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Коли</th>
-                <th>Гравець</th>
-                <th>Осколки</th>
-                <th>Сума</th>
-                <th>Статус</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.id}>
-                  <td className="muted tiny">{new Date(r.createdAt).toLocaleString('uk-UA', { dateStyle: 'short', timeStyle: 'short' })}</td>
-                  <td>
-                    {r.name} <small className="muted">{r.email}</small>
-                  </td>
-                  <td>💎 {r.shards}</td>
-                  <td>{r.price}</td>
-                  <td>{STATUS[r.status] ?? r.status}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
   );
 }
