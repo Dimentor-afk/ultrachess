@@ -3377,7 +3377,7 @@ th.num {
 
 /* ── Leaderboard & admin ── */
 
-.leaders tr.me td {
+.leaders tr.leader-me td {
   background: rgba(245, 196, 81, 0.08);
 }
 
@@ -8458,4 +8458,185 @@ button.hb-slot {
   .account .setting-row {
     flex-wrap: wrap;
   }
+}
+
+/* ── Leaderboard on phones: name + league in one cell, no sideways scroll ── */
+.leader-name {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.2;
+}
+.leader-name b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.leader-league-sm {
+  display: none;
+  font-size: 0.75rem;
+}
+@media (max-width: 560px) {
+  .leaders .hide-sm {
+    display: none;
+  }
+  .leader-league-sm {
+    display: block;
+  }
+  .leaders td,
+  .leaders th {
+    padding: 0.5rem 0.4rem;
+  }
+  .leaders td:nth-child(2) {
+    white-space: normal;
+    max-width: 0;
+    width: 100%;
+  }
+  .leaders .place {
+    width: 2rem;
+  }
+}
+
+/* ── Pack odds: a card per pack (fits a phone) ── */
+.sheet,
+.sheet-body {
+  max-width: 100vw;
+  min-width: 0;
+  overflow-x: hidden;
+}
+.odds-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 0.7rem;
+  margin: 0.5rem 0 1rem;
+}
+.odds-card {
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel-2);
+}
+.odds-card header {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 0.55rem;
+  align-items: center;
+}
+.odds-card header .odds-pack {
+  grid-row: span 2;
+  width: 20px;
+  height: 36px;
+  margin: 0;
+}
+.odds-card p {
+  margin: 0.45rem 0 0;
+}
+.odds-bar {
+  display: flex;
+  height: 8px;
+  margin: 0.6rem 0 0.45rem;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--bg-2);
+}
+.odds-seg {
+  min-width: 3px;
+}
+.seg-common { background: var(--r-common); }
+.seg-rare { background: var(--r-rare); }
+.seg-epic { background: var(--r-epic); }
+.seg-legendary { background: var(--r-legendary); }
+.seg-mythological { background: var(--r-mythological); }
+.odds-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.15rem 0.8rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.85rem;
+}
+.odds-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.odds-list b {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+.odds-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+
+/* ── Pawn kinds: numbers 1/2 on the chips, the board and the formation dots ── */
+.pawn-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.pawn-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.pawn-panel p {
+  margin: 0;
+}
+.version-chip b.pv-1,
+.pv-badge.pv-1,
+.fdot.pv-1 {
+  background: #4f8cff;
+  color: #fff;
+}
+.version-chip b.pv-2,
+.pv-badge.pv-2,
+.fdot.pv-2 {
+  background: #f5a142;
+  color: #1b1405;
+}
+.pv-badge {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 0.62rem;
+  font-weight: 800;
+  pointer-events: none;
+}
+.formation-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+.pawn-panel .formation {
+  display: inline-flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  width: auto;
+  gap: 3px;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+  cursor: pointer;
+}
+.pawn-panel .formation.on {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 1px var(--gold);
+}
+.pawn-panel .fdot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
 }

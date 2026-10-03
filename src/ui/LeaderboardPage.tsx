@@ -43,8 +43,8 @@ export function LeaderboardPage() {
                 <tr>
                   <th>#</th>
                   <th>Гравець</th>
-                  <th>Ліга</th>
-                  <th className="num">Перемоги</th>
+                  <th className="hide-sm">Ліга</th>
+                  <th className="num hide-sm">Перемоги</th>
                   <th className="num">Кубки</th>
                 </tr>
               </thead>
@@ -52,16 +52,20 @@ export function LeaderboardPage() {
                 {[...rows]
                   .sort((a, b) => (ladder === 'bot' ? b.botTrophies - a.botTrophies : b.trophies - a.trophies))
                   .map((r, i) => (
-                  <tr key={r.id} className={`clickable ${r.id === s.profile.id ? 'me' : ''}`} onClick={() => setViewing(r.id)}>
+                  <tr key={r.id} className={`clickable ${r.id === s.profile.id ? 'leader-me' : ''}`} onClick={() => setViewing(r.id)}>
                     <td className={`place place-${i + 1}`}>{i + 1}</td>
                     <td>
                       <span className="leader-who">
                         <Avatar card={r.avatar} size="sm" />
-                        <b>{r.name}</b>
+                        <span className="leader-name">
+                          <b>{r.name}</b>
+                          {/* On a phone the league sits under the name instead of in its own column. */}
+                          <small className="muted leader-league-sm">{ladder === 'bot' ? r.botLeague : r.arena}</small>
+                        </span>
                       </span>
                     </td>
-                    <td className="muted">{ladder === 'bot' ? r.botLeague : r.arena}</td>
-                    <td className="num">{r.wins}</td>
+                    <td className="muted hide-sm">{ladder === 'bot' ? r.botLeague : r.arena}</td>
+                    <td className="num hide-sm">{r.wins}</td>
                     <td className="num gold">🏆 {ladder === 'bot' ? r.botTrophies : r.trophies}</td>
                   </tr>
                 ))}

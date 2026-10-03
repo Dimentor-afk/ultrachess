@@ -493,63 +493,53 @@ function QuestList({ quests, onClaim }: { quests: QuestView[]; onClaim: (id: str
 }
 
 function OddsTable() {
+  const pct = (n: number) => `${String(n).replace('.', ',')}%`;
   return (
-    <div className="panel odds">
-      <h2>Шанси випадіння (на кожну картку в паку)</h2>
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Пак</th>
-              <th>Карток</th>
-              {RARITIES.map((r) => (
-                <th key={r} className={`r-${r}`}>
-                  {RARITY_NAMES[r]}
-                </th>
+    <div className="odds">
+      <p className="muted small">Шанс рідкості — для кожної картки в паку окремо.</p>
+      <div className="odds-cards">
+        <article className="odds-card">
+          <header>
+            <img className="odds-pack" src={packArt('starter')} alt="" />
+            <b>{STARTER_PACK.name}</b>
+            <span className="muted small">6 карток · 🪙 {STARTER_PACK.gold}</span>
+          </header>
+          <p className="small muted">{STARTER_PACK.description}</p>
+        </article>
+        {Object.values(PACKS).map((p) => (
+          <article key={p.type} className="odds-card">
+            <header>
+              <img className="odds-pack" src={packArt(p.type)} alt="" />
+              <b>{p.name}</b>
+              <span className="muted small">
+                {p.cards} карток · 🪙 {p.gold} · 💎 {PACK_SHARD_PRICE[p.type as keyof typeof PACK_SHARD_PRICE]}
+              </span>
+            </header>
+            {/* One bar split by rarity, then the exact numbers. */}
+            <div className="odds-bar" aria-hidden="true">
+              {RARITIES.filter((r) => p.odds[r] > 0).map((r) => (
+                <span key={r} className={`odds-seg seg-${r}`} style={{ flexGrow: p.odds[r] }} />
               ))}
-              <th>Гарантія</th>
-              <th>Ліміт у паку</th>
-              <th>Золото</th>
-              <th>У магазині</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>
-                <img className="odds-pack" src={packArt('starter')} alt="" /> {STARTER_PACK.name}
-              </td>
-              <td>6</td>
-              <td colSpan={5} className="muted">
-                {STARTER_PACK.description}
-              </td>
-              <td>—</td>
-              <td className="small">без лег і міфів</td>
-              <td>🪙 {STARTER_PACK.gold}</td>
-              <td>—</td>
-            </tr>
-            {Object.values(PACKS).map((p) => (
-              <tr key={p.type}>
-                <td>
-                  <img className="odds-pack" src={packArt(p.type)} alt="" /> {p.name}
-                </td>
-                <td>{p.cards}</td>
-                {RARITIES.map((r) => (
-                  <td key={r} className="num">
-                    {p.odds[r]}%
-                  </td>
-                ))}
-                <td>{p.guarantee ? RARITY_NAMES[p.guarantee] : '—'}</td>
-                <td className="small">
-                  {Object.entries(p.limits)
-                    .map(([r, n]) => `${RARITY_NAMES[r as Rarity].toLowerCase()}${r === 'mythological' ? '' : '+'} ≤ ${n}`)
-                    .join(', ')}
-                </td>
-                <td>🪙 {p.gold}</td>
-                <td>💎 {PACK_SHARD_PRICE[p.type as keyof typeof PACK_SHARD_PRICE]}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+            </div>
+            <ul className="odds-list">
+              {RARITIES.filter((r) => p.odds[r] > 0).map((r) => (
+                <li key={r}>
+                  <span className={`odds-dot seg-${r}`} />
+                  <span className={`r-${r}`}>{RARITY_NAMES[r]}</span>
+                  <b>{pct(p.odds[r])}</b>
+                </li>
+              ))}
+            </ul>
+            <p className="small muted">
+              {p.guarantee ? `Гарантовано: ${RARITY_NAMES[p.guarantee].toLowerCase()} або краща. ` : ''}
+              Ліміт:{' '}
+              {Object.entries(p.limits)
+                .map(([r, n]) => `${RARITY_NAMES[r as Rarity].toLowerCase()}${r === 'mythological' ? '' : ' і вище'} — не більше ${n}`)
+                .join(', ')}
+              .
+            </p>
+          </article>
+        ))}
       </div>
       <p className="muted small">
         Ліміт обмежує кількість сильних карток в одному паку: якщо випадає більше, зайві стають на рівень нижчими. Наприклад, міфічний пак

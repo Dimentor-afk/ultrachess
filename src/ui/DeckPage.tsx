@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CARDS, CARD_BY_ID, PIECE_NAMES, PIECE_ORDER, RARITY_ORDER } from '../engine/cards';
-import { cardAt, deckPositions, placeCard, slotType, validateDeck } from '../engine/deck';
+import { FORMATION_PRESETS, cardAt, deckPositions, placeCard, slotType, validateDeck } from '../engine/deck';
 import type { Card, Deck, PieceType } from '../engine/types';
 import { Emblem } from './art';
 import { CardModal } from './CardModal';
@@ -176,6 +176,12 @@ function DeckHub({ deck }: { deck: Deck }) {
     setSelected(index);
     setArmed(null);
     const name = CARD_BY_ID[cardId].name;
+    // Only two kinds of pawns: a third one takes over every square of the kind it was dropped on.
+    const lost = draft.pawnVersions.filter((v) => !res.deck!.pawnVersions.includes(v) && v !== cardId);
+    if (!allPawns && lost.length && res.deck.pawnVersions.length === 2) {
+      setMessage({ text: `У колоді лише 2 види пішаків: «${name}» замінив «${CARD_BY_ID[lost[0]].name}» на всіх його клітинках.`, bad: false });
+      return;
+    }
     setMessage({ text: allPawns ? `«${name}» на всіх 8 пішаках.` : `«${name}» стоїть на ${squareName(index)}.`, bad: false });
   };
 
@@ -256,6 +262,9 @@ function DeckHub({ deck }: { deck: Deck }) {
           )}
         </span>
         <span className="deck-sq-name">{card.name}</span>
+        {index >= 8 && draft.pawnVersions.length === 2 && (
+          <span className={`pv-badge pv-${draft.pawnVersions.indexOf(card.id) + 1}`}>{draft.pawnVersions.indexOf(card.id) + 1}</span>
+        )}
       </button>
     );
   };
@@ -382,14 +391,48 @@ function DeckHub({ deck }: { deck: Deck }) {
           </div>
 
           <div className="builder-under">
-            <div className="pawn-versions">
-              <span className="muted small">Пішаки:</span>
-              {pawnVersions.map((c, i) => (
-                <span key={c.id} className={`version-chip r-${c.rarity}`}>
-                  <b>{i + 1}</b> {c.name}
-                </span>
-              ))}
-              {pawnVersions.length === 2 && <span className="mono muted small">формація {draft.pawnFormation}</span>}
+            <div className="pawn-panel">
+              <div className="pawn-head">
+                <b>Пішаки</b>
+                <span className="muted small">до 2 видів у колоді, у будь-якому порядку</span>
+              </div>
+              <div className="pawn-versions">
+                {pawnVersions.map((c, i) => (
+                  <span key={c.id} className={`version-chip r-${c.rarity}`}>
+                    {pawnVersions.length === 2 && <b className={`pv-${i + 1}`}>{i + 1}</b>} {c.name}
+                    <small className="muted">×{pawnVersions.length === 1 ? 8 : [...draft.pawnFormation].filter((d) => d === String(i + 1)).length}</small>
+                  </span>
+                ))}
+              </div>
+              {pawnVersions.length === 1 ? (
+                <p className="muted tiny">
+                  Другий вид: поставте іншого пішака на будь-яку клітинку 2-го ряду. Решта клітинок лишиться за «{pawnVersions[0].name}».
+                </p>
+              ) : (
+                <div className="formation-row">
+                  <span className="muted small">Розстановка:</span>
+                  {FORMATION_PRESETS.map((f) => (
+                    <button
+                      key={f}
+                      type="button"
+                      className={`formation ${draft.pawnFormation === f ? 'on' : ''}`}
+                      onClick={() => update({ ...draft, pawnFormation: f })}
+                      aria-label={`Розстановка ${f}`}
+                    >
+                      {[...f].map((d, i) => (
+                        <span key={i} className={`fdot pv-${d}`} />
+                      ))}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-ghost"
+                    onClick={() => update({ ...draft, pawnFormation: [...draft.pawnFormation].map((d) => (d === '1' ? '2' : '1')).join('') })}
+                  >
+                    ⇄ Поміняти
+                  </button>
+                </div>
+              )}
             </div>
             <div
               data-drop="all-pawns"
