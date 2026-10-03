@@ -94,9 +94,6 @@ export function ShopPage() {
     <section className="page shop">
       <div className="page-head">
         <h1>{t('Магазин')}</h1>
-        <p className="muted">
-          {t('Щодня тут нові три дошки й три ефекти взяття за золото 🪙. Паки купуються за уламки 💎: вони дають повторки карт, а ще їх можна купити.')}
-        </p>
       </div>
 
       {paid && <PaymentReturn id={paid} />}
@@ -150,7 +147,7 @@ export function ShopPage() {
         <a className="showcase-foot" href="#/deck/style">
           <Icon name="edit" />
           <span>
-            {t('Куплене залишається назавжди. Змінити дошку чи ефект — у розділі')}{' '}<b>{t('Колода → Стиль')}</b>.
+            {t('Змінити дошку чи ефект:')}{' '}<b>{t('Колода → Стиль')}</b>
           </span>
         </a>
       </div>

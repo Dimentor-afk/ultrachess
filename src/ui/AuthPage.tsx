@@ -90,7 +90,6 @@ export function AuthPage({ api, onAuth }: { api: Api; onAuth: (p: Profile) => vo
             {t('Забули пароль?')}
           </button>
         )}
-        {mode === 'register' && <p className="muted small center">{t('Після реєстрації — стартовий пак: по одній картці кожної фігури.')}</p>}
         <p className="muted tiny center legal-links">
           <a href="#/terms">{t('Умови продажу')}</a> · <a href="#/privacy">{t('Конфіденційність')}</a>
         </p>

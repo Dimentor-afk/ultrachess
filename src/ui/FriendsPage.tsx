@@ -87,7 +87,7 @@ export function FriendsPage() {
         <div>
           <h1>{t('Друзі')}</h1>
           <p className="muted">
-            {t('Ваш код:')} <span className="tag-chip">#{s.profile.tag}</span> {t('— дайте його другу, щоб він вас знайшов.')}
+            {t('Ваш код:')} <span className="tag-chip">#{s.profile.tag}</span>
           </p>
         </div>
       </div>
@@ -225,7 +225,7 @@ export function FriendsPage() {
       ) : friends.friends.length === 0 ? (
         <div className="panel empty-friends">
           <Icon name="users" />
-          <p className="muted">{t('Поки порожньо. Знайдіть друга за нікнеймом або кодом і надішліть заявку.')}</p>
+          <p className="muted">{t('Поки порожньо.')}</p>
         </div>
       ) : (
         <div className="player-list">

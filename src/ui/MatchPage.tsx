@@ -663,9 +663,7 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
                 {selectedPiece.platformTurnsLeft !== null && <li>{t('На платформі: зникне через {0} ход. суперника', selectedPiece.platformTurnsLeft)}</li>}
               </ul>
             </div>
-          ) : (
-            <p className="muted small">{t('Натисніть на фігуру, щоб побачити її картку.')}</p>
-          )}
+          ) : null}
         </div>
 
         <div className="panel history">
@@ -746,7 +744,7 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
             <p>
               {t('{0} · ходів: {1}', tr(match.result.reason), match.result.moves)}
             </p>
-            {remote && !remote.ranked && !spectator && <p className="muted">{t('Дружня гра: кубки не змінюються, партія є в історії обох гравців.')}</p>}
+            {remote && !remote.ranked && !spectator && <p className="muted">{t('Дружня гра без кубків.')}</p>}
             {onFinish && !verdict && !verdictError && <p className="muted">{remote ? t('Рахуємо кубки…') : t('Перевіряємо партію…')}</p>}
             {verdictError && <p className="error-text">{verdictError}</p>}
             {verdict?.ladder && (

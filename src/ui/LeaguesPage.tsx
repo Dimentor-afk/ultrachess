@@ -32,9 +32,6 @@ export function LeaguesPage() {
     <section className="page leagues">
       <div className="page-head">
         <h1>{t('Ліги')}</h1>
-        <p className="muted">
-          {t('Дві окремі драбини з власними кубками. Ліга ботів — тренувальна: суперники-боти від ~250 Elo, скромніші нагороди. Ліга гравців — живі суперники й повні нагороди. За перший вихід у кожну лігу — бонус.')}
-        </p>
       </div>
 
       <div className="ladder-switch" role="tablist" aria-label={t('Драбина')}>

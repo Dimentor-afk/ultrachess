@@ -57,11 +57,9 @@ export function ForgotForm({ api, initialEmail, onBack }: { api: Api; initialEma
           ) : (
             <MailNote mail={sent} what={t('посилання для нового пароля, діє 1 годину')} />
           )}
-          {api.mode === 'server' && <p className="muted small">{t('Лист приходить, лише якщо акаунт із цією поштою існує.')}</p>}
         </>
       ) : (
         <>
-          <p className="muted small">{t('Вкажіть пошту акаунта: ми надішлемо посилання, за яким можна задати новий пароль.')}</p>
           <label className="field">
             <span>{t('Пошта')}</span>
             <input id="forgot-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
@@ -132,7 +130,6 @@ export function LinkPage({ api, kind, token, onDone }: { api: Api; kind: 'reset'
         }}
       >
         <h2>{t('Новий пароль')}</h2>
-        <p className="muted small">{t('Після зміни пароля всі інші пристрої вийдуть з акаунта.')}</p>
         <label className="field">
           <span>{t('Новий пароль')}</span>
           <input id="reset-password" type="password" required minLength={PASSWORD_MIN} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />
@@ -219,7 +216,6 @@ export function AccountPanel() {
         </span>
       </div>
       {mail && <MailNote mail={mail} what={t('підтвердження пошти')} />}
-      {!p.emailVerified && !mail && <p className="muted tiny">{t('Підтверджена пошта потрібна, щоб відновити пароль, якщо ви його забудете.')}</p>}
 
       {open === 'email' && (
         <form
@@ -253,7 +249,6 @@ export function AccountPanel() {
       <div className="setting-row">
         <span>
           <b>{t('Пароль')}</b>
-          <small className="muted">{t('Після зміни інші пристрої вийдуть з акаунта')}</small>
         </span>
         <button className="btn btn-sm btn-ghost" onClick={() => toggle('password')}>
           {t('Змінити')}
@@ -289,7 +284,6 @@ export function AccountPanel() {
       <div className="setting-row">
         <span>
           <b>{t('Інші пристрої')}</b>
-          <small className="muted">{t('Загубили телефон чи входили на чужому комп’ютері')}</small>
         </span>
         <button
           className="btn btn-sm btn-ghost"

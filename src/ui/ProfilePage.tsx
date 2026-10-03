@@ -276,7 +276,6 @@ function SettingsPanel() {
         </span>
         <LangSelect />
       </div>
-      <p className="muted tiny">{t('Налаштування зберігаються на цьому пристрої.')}</p>
     </div>
   );
 }

@@ -146,7 +146,7 @@ function DeckHub({ deck }: { deck: Deck }) {
     try {
       s.setDecks(await s.api.saveDeck(copy));
       s.setProfile(await s.api.setActiveDeck(copy.id));
-      s.toast(t('«{0}» створено — це копія попередньої, змінюйте як хочете.', copy.name));
+      s.toast(t('«{0}» створено.', copy.name));
     } catch (e) {
       s.toast(errorText(e), 'error');
     }

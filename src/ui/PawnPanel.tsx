@@ -109,7 +109,6 @@ export function PawnPanel({
               </button>
             ))}
           </div>
-          <p className="pawn-hint">{t('Натисніть пішака, щоб змінити його вид.')}</p>
         </>
       )}
     </div>

@@ -285,7 +285,7 @@ function NoticeSheet() {
       <div className="notice-sheet">
         <p>{t('Адміністратор змінив ваш нікнейм «{0}» на «{1}», бо він порушує правила гри.', n.from, n.to)}</p>
         {n.reason && <p className="notice-reason">{t('Причина: {0}', n.reason)}</p>}
-        <p className="muted small">{t('Вибрати інший нікнейм можна в профілі через 7 днів. Повторне порушення може закінчитися баном.')}</p>
+        <p className="muted small">{t('Змінити нікнейм можна буде через 7 днів.')}</p>
         <button className="btn btn-primary" onClick={() => void close()}>
           {t('Зрозуміло')}
         </button>

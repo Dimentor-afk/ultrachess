@@ -19,7 +19,6 @@ export function HelpPage() {
     <section className="page help">
       <div className="page-head">
         <h1>{t('Як грати')}</h1>
-        <p className="muted">{t('Шахи, де кожна фігура — картка зі своїм ходом. Усе, що треба знати, на одній сторінці.')}</p>
       </div>
 
       <div className="help-grid">

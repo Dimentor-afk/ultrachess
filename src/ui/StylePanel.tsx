@@ -124,11 +124,7 @@ export function StylePanel() {
                 {t('Скасувати примірку')}
               </button>
             </>
-          ) : (
-            <p className="muted small">
-              {t('Натисніть свою дошку чи ефект, щоб поставити. Чужі можна приміряти. Ваш ефект взяття бачить і суперник у грі з другом чи в лізі гравців.')}
-            </p>
-          )}
+          ) : null}
           <a className="btn btn-sm btn-primary" href="#/shop">
             <Icon name="shop" /> {t('Щоденна вітрина')}
           </a>

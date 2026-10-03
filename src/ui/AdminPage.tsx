@@ -85,10 +85,6 @@ export function AdminPage() {
     <section className="page">
       <div className="page-head">
         <h1>{t('Адмін-панель')}</h1>
-        <p className="muted">
-          {s.profile.owner ? t('Ви власник гри: можете призначати й знімати адміністраторів.') : t('Ви адміністратор.')}{' '}
-          {t('Режим: {0}.', s.api.mode === 'server' ? t('сервер (спільна база даних)') : t('демо в браузері'))}
-        </p>
       </div>
 
       {users && (
@@ -286,7 +282,6 @@ function PlayerSheet({ u, run, onClose }: { u: AdminUser; run: (fn: () => Promis
         ) : (
           <>
             <h3>{t('Нікнейм')}</h3>
-            <p className="muted small">{t('Гравець побачить, що його перейменовано, і причину, коли наступного разу зайде в гру.')}</p>
             <div className="admin-row">
               <input type="text" maxLength={24} placeholder={t('Новий нікнейм')} value={newName} onChange={(e) => setNewName(e.target.value)} aria-label={t('Новий нікнейм')} />
               <input type="text" maxLength={200} placeholder={t('Причина (гравець її побачить)')} value={renameWhy} onChange={(e) => setRenameWhy(e.target.value)} aria-label={t('Причина перейменування')} />
@@ -317,7 +312,6 @@ function PlayerSheet({ u, run, onClose }: { u: AdminUser; run: (fn: () => Promis
               </>
             ) : (
               <>
-                <p className="muted small">{t('Гравця буде виведено з усіх пристроїв, його партії зараховано як поразки. Під час входу він побачить строк і причину.')}</p>
                 <div className="chip-row">
                   {BAN_LENGTHS.map((b) => (
                     <button key={String(b.hours)} className={`chip ${banHours === b.hours ? 'on' : ''}`} onClick={() => setBanHours(b.hours)}>
@@ -339,7 +333,6 @@ function PlayerSheet({ u, run, onClose }: { u: AdminUser; run: (fn: () => Promis
               <button className="btn btn-sm" onClick={() => run(() => s.api.adminLogout(u.id), t('{0} виведено з усіх пристроїв', u.name))}>
                 {t('Вийти на всіх пристроях')}
               </button>
-              <span className="muted small">{t('Наприклад, якщо пароль гравця вкрали.')}</span>
             </div>
 
             {me.owner && (
@@ -356,7 +349,7 @@ function PlayerSheet({ u, run, onClose }: { u: AdminUser; run: (fn: () => Promis
 
             <div className="panel danger-zone admin-delete">
               <h3>{t('Видалити акаунт')}</h3>
-              <p className="muted small">{t('Пошту, нікнейм і пароль буде стерто, відкриті партії зараховано як поразки. Скасувати не можна.')}</p>
+              <p className="muted small">{t('Скасувати не можна.')}</p>
               <div className="admin-row">
                 <input type="text" placeholder={t('Нікнейм для підтвердження')} value={confirm} onChange={(e) => setConfirm(e.target.value)} aria-label={t('Нікнейм для підтвердження')} />
                 <button

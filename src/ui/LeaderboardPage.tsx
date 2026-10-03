@@ -36,7 +36,7 @@ export function LeaderboardPage() {
         {!rows ? (
           <p className="muted">{t('Завантаження…')}</p>
         ) : rows.length === 0 ? (
-          <p className="muted">{t('Поки порожньо — зіграйте перший бій у лізі.')}</p>
+          <p className="muted">{t('Поки порожньо.')}</p>
         ) : (
           <div className="table-wrap">
             <table className="leaders">
