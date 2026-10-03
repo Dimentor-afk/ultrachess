@@ -1,3 +1,4 @@
+import { PACKS, PACK_SHARD_PRICE } from '../economy/packs';
 import { formatPrice, SHARD_PRODUCTS } from '../economy/payments';
 import { t } from '../i18n';
 
@@ -13,7 +14,9 @@ const CONTACT = {
   date: '03.10.2026',
 };
 
-export function LegalPage({ page }: { page: 'terms' | 'privacy' }) {
+export type LegalPageId = 'terms' | 'privacy' | 'refunds' | 'pricing';
+
+export function LegalPage({ page }: { page: LegalPageId }) {
   return (
     <div className="legal-screen">
       <article className="panel legal">
@@ -22,11 +25,17 @@ export function LegalPage({ page }: { page: 'terms' | 'privacy' }) {
           <a href="#/terms" className={page === 'terms' ? 'on' : ''}>
             {t('Умови продажу')}
           </a>
+          <a href="#/pricing" className={page === 'pricing' ? 'on' : ''}>
+            {t('Ціни')}
+          </a>
+          <a href="#/refunds" className={page === 'refunds' ? 'on' : ''}>
+            {t('Повернення коштів')}
+          </a>
           <a href="#/privacy" className={page === 'privacy' ? 'on' : ''}>
             {t('Конфіденційність')}
           </a>
         </nav>
-        {page === 'terms' ? <Terms /> : <Privacy />}
+        {page === 'terms' ? <Terms /> : page === 'pricing' ? <Pricing /> : page === 'refunds' ? <Refunds /> : <Privacy />}
         <footer className="muted tiny">{t('Питання щодо гри й покупок: {0}.', CONTACT.email)}</footer>
       </article>
     </div>
@@ -67,6 +76,49 @@ function Terms() {
       <p>
         {t('Акаунт може бути заблоковано за шахрайство з оплатами (наприклад, оскарження оплати після отримання уламків) або порушення правил гри. Якщо гру буде закрито, про це буде повідомлено щонайменше за 30 днів.')}
       </p>
+    </>
+  );
+}
+
+/** What costs money and what the shards buy: open without signing in (Paddle checks it). */
+function Pricing() {
+  return (
+    <>
+      <h1>{t('Ціни')}</h1>
+      <p>{t('Грати в Ultrachess можна безкоштовно. За гроші можна лише купити уламки — ігрову валюту, за яку в магазині гри купуються паки з картками.')}</p>
+      <h2>{t('Набори уламків')}</h2>
+      <ul>
+        {SHARD_PRODUCTS.map((p) => (
+          <li key={p.id}>
+            {t('{0} уламків — {1}', p.shards, formatPrice(p.price))}
+          </li>
+        ))}
+      </ul>
+      <p>{t('Ціни в доларах США, податки можуть додатися на сторінці оплати. Ціни можуть змінюватись; оплачені покупки це не зачіпає.')}</p>
+      <h2>{t('Що купують уламки')}</h2>
+      <ul>
+        {(Object.keys(PACK_SHARD_PRICE) as (keyof typeof PACK_SHARD_PRICE)[]).map((type) => (
+          <li key={type}>
+            {t('{0} — {1} уламків', PACKS[type].name, PACK_SHARD_PRICE[type])}
+          </li>
+        ))}
+      </ul>
+      <p>{t('Склад паку випадковий; шанси кожної рідкості показано в магазині біля кожного паку. Уламки також даються безкоштовно за повторки карток. Купити уламки можна в магазині гри після входу в акаунт.')}</p>
+    </>
+  );
+}
+
+/** The refund policy on its own page (Paddle asks for a link to it). */
+function Refunds() {
+  return (
+    <>
+      <h1>{t('Повернення коштів')}</h1>
+      <p className="muted small">{t('Редакція від {0}.', CONTACT.date)}</p>
+      <p>
+        {t('Уламки — цифровий товар, який надається одразу після оплати. Повернення можливе, якщо уламки не зараховано або оплату списано помилково чи двічі: напишіть протягом 14 днів. У разі повернення коштів зараховані за цю оплату уламки списуються з акаунта (баланс може стати від’ємним).')}
+      </p>
+      <p>{t('Як попросити повернення: напишіть на {0} з пошти акаунта й додайте номер замовлення з листа Paddle. Відповідаємо протягом 3 робочих днів.', CONTACT.email)}</p>
+      <p>{t('Гроші повертає Paddle на ту саму картку чи рахунок, з якого була оплата.')}</p>
     </>
   );
 }

@@ -2,7 +2,7 @@ import { type CSSProperties, Suspense, lazy, useCallback, useEffect, useRef, use
 import { type Api, type Profile, createApi } from '../api/client';
 import { AuthPage } from './AuthPage';
 import { LinkPage } from './AccountPages';
-import { LegalPage } from './LegalPage';
+import { LegalPage, type LegalPageId } from './LegalPage';
 import { DeckPage } from './DeckPage';
 import { HomePage } from './HomePage';
 import { ShopPage } from './ShopPage';
@@ -92,7 +92,7 @@ export function App() {
   const path = useRoutePath();
   const link = /^\/?(reset|verify)\/([a-f0-9]{64})$/.exec(path);
   // The offer and privacy policy are public: the bank checks them without an account.
-  const legal = /^\/?(terms|privacy)$/.exec(path)?.[1] as 'terms' | 'privacy' | undefined;
+  const legal = /^\/?(terms|privacy|refunds|pricing)$/.exec(path)?.[1] as LegalPageId | undefined;
   const leaveLink = async (p: Profile | null) => {
     // Load first, then leave: the session screen starts from this fresh profile (the e-mail now confirmed).
     const me = p ?? (await api!.me().catch(() => null));

@@ -384,6 +384,9 @@ function serveStatic(req: IncomingMessage, res: ServerResponse): void {
   // A game's address typed or shared without the # (example.com/game/<id>): the app routes by hash.
   const room = /^\/game\/([\w-]+)\/?$/.exec(url);
   if (room) return void res.writeHead(302, { Location: `/#/game/${room[1]}` }).end();
+  // Plain addresses of the public pages (the payment service asks for them): the app routes by hash.
+  const page = /^\/(terms|privacy|refunds|pricing)\/?$/.exec(url);
+  if (page) return void res.writeHead(302, { Location: `/#/${page[1]}` }).end();
   let file = normalize(join(DIST, url));
   if (file !== DIST && !file.startsWith(DIST + sep)) return void res.writeHead(403).end();
   if (!existsSync(file) || statSync(file).isDirectory()) file = join(DIST, 'index.html');
