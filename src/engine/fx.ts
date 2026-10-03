@@ -117,7 +117,13 @@ export function computeFx(
     if (m.promotion && m.to !== null) sprites.push({ kind: 'promote', square: m.to });
     if (m.to === null) sprites.push({ kind: 'explode', square: m.from });
     if (m.levitate && m.to !== null) sprites.push({ kind: 'levitate', square: m.to });
-    if (m.to !== null && (m.kind === 'teleport' || /портал/i.test(m.label))) sprites.push({ kind: 'portal', square: m.to });
+    if (m.to !== null && (m.kind === 'teleport' || /портал/i.test(m.label))) {
+      // A gate where the piece leaves the board and one where it comes back,
+      // each opening as the piece reaches it; a plain teleport has one, at the end.
+      const w = moverLegs.findIndex((l) => l.style === 'warp');
+      if (w > 0) sprites.push({ kind: 'portal', square: moverLegs[w - 1].to, leg: w - 1 }, { kind: 'portal', square: moverLegs[w].to, leg: w });
+      else sprites.push({ kind: 'portal', square: m.to });
+    }
     if (m.kind === 'dash' && m.to !== null) {
       sprites.push({ kind: 'dust', square: m.from }, { kind: 'sparkle', square: m.to });
     }

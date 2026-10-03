@@ -40,7 +40,7 @@ function dist(a: Square, b: Square): number {
 }
 
 function legMs(style: Leg['style'], d: number): number {
-  if (style === 'warp') return 460;
+  if (style === 'warp') return 640;
   if (style === 'hop') return Math.min(560, 300 + 45 * d);
   return Math.min(480, 120 + 50 * d);
 }
@@ -50,6 +50,12 @@ interface Timed {
   from: Square;
   start: number;
   end: number;
+}
+
+/** How long a move's animation runs (the legs from `skip` on), in ms. */
+export function legsMs(from: Square, legs: Leg[], skip = 0): number {
+  const timed = timeLegs(skip ? legs[skip - 1].to : from, legs.slice(skip));
+  return timed.length ? timed[timed.length - 1].end : 0;
 }
 
 /** Start and end times of each leg, starting at `from`. */
@@ -215,6 +221,12 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
       // Quake and eclipse ripple along their line; a capture plays when the
       // mover arrives (each one in turn for a chain).
       let delay = x.kind === 'quake' || x.kind === 'eclipse' ? i * 45 : x.kind === 'explode' ? 180 : 0;
+      if (x.kind === 'portal' && x.leg !== undefined) {
+        // The gate opens a little before the piece gets there.
+        if (x.leg < moverSkip) return;
+        const t = moverTimed[x.leg - moverSkip];
+        delay = t ? Math.max(0, t.end - 260) : 0;
+      }
       if (x.kind === 'capture') {
         if (x.leg !== undefined && x.leg < moverSkip) return;
         const t = x.leg !== undefined ? moverTimed[x.leg - moverSkip] : undefined;

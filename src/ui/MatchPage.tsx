@@ -10,7 +10,8 @@ import type { GameView, MatchFinish, MatchStart, PlayerCard } from '../api/clien
 import type { LiveStatus } from '../api/live';
 import { packArt, pieceSprite } from './cardArt';
 import { playerView } from '../engine/view';
-import { Board, type Mark, boardRing, squareCenter } from './Board';
+import { Board, type Mark, boardRing, legsMs, squareCenter } from './Board';
+import { moveLegs } from '../engine/fx';
 import { type Stage, advanceStage, nextStops, stageAt, startStage, stayMoves, stopsOf } from './stage';
 import { getSettings, play } from './settings';
 import { LADDER_NAMES } from '../economy/leagues';
@@ -108,6 +109,8 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
 
   // Actions go to the server one after another; `chain` ends when all are answered.
   const chain = useRef<Promise<void>>(Promise.resolve());
+  // How long our last move takes to play out on the board: the bot's answer waits for it.
+  const landing = useRef(0);
   const inflight = useRef(0);
   const [sending, setSending] = useState(0);
   const send = (action: Action | null) => {
@@ -126,8 +129,9 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
               setError(null);
             } else {
               const r = await onAction!(action, v);
-              // Let the player's own move land before the bot's answer.
-              if (action) await sleep(Math.max(0, 450 - (Date.now() - started)));
+              // Let the player's own move land before the bot's answer: a chain of
+              // jumps or a portal would be cut short and look like a teleport.
+              if (action) await sleep(Math.max(0, Math.max(450, landing.current) - (Date.now() - started)));
               receive(r.view);
               setError(r.stale && action ? t('Позиція оновилась — зробіть хід ще раз.') : null);
             }
@@ -197,6 +201,8 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
   // A move is chosen on the board stop by stop: the piece stands on the
   // current stop, and the squares where it may go on are marked.
   const [stage, setStage] = useState<Stage | null>(null);
+  const stageRef = useRef<Stage | null>(null);
+  stageRef.current = stage;
   // Variants that end on the same square (promotion, …) pick from a small
   // popover over that square.
   const [popover, setPopover] = useState<{ square: Square; moves: Move[] } | null>(null);
@@ -284,6 +290,16 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
   const act = useCallback(
     (action: Action) => {
       if (spectator) return;
+      landing.current = 0;
+      if (action.type === 'move') {
+        const m = action.move;
+        const legs = moveLegs(m, matchRef.current.board[m.from]?.type);
+        // Legs up to the stop the piece already stands on have been shown.
+        const st = stageRef.current;
+        const shown = st && stayMoves(st).length ? legs.findIndex((l) => l.stop && l.to === stageAt(st)) + 1 : 0;
+        // Pushed pieces move after the mover; a capture plays its blow at the end.
+        landing.current = legsMs(m.from, legs, shown) + (m.displaced?.length ? 260 : 0) + (m.captures.length ? 300 : 120);
+      }
       // Shown at once; the server's answer replaces it (it may differ: an illusion taken, …).
       try {
         setMatch(performAction(matchRef.current, action));

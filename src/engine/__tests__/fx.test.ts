@@ -5,6 +5,8 @@ import { type MatchState, createMatch, performAction } from '../match';
 import { legalMoves } from '../legal';
 import { parseSquare } from '../coords';
 import { playerView } from '../view';
+import { computeFx } from '../fx';
+import { build, movesFrom, play, S } from './helpers';
 
 const mv = (m: MatchState, uci: string) => {
   const move = legalMoves(m).find((x) => x.from === parseSquare(uci.slice(0, 2)) && x.target === parseSquare(uci.slice(2)))!;
@@ -42,5 +44,17 @@ describe('match fx', () => {
     n = performAction(n, { type: 'ability', pieceId: queen.id, key: 'arm' });
     expect(playerView(n, 'w').fx!.sprites).toHaveLength(1);
     expect(playerView(n, 'b').fx!.sprites).toHaveLength(0);
+  });
+
+  it('Портальний слон: a gate where it leaves the board and one where it comes back, each on its leg', () => {
+    const pos = build({ f1: 'w:bishop-portal', d7: 'b:pawn-classic', e1: 'w:king-classic', h8: 'b:king-classic' });
+    const move = movesFrom(pos, 'f1').find((m) => m.label.includes('портал') && m.target === S('d7'))!;
+    const fx = computeFx(1, pos, play(pos, 'f1', 'd7', 'портал'), { move });
+    const legs = fx.moves[0].legs;
+    const w = legs.findIndex((l) => l.style === 'warp');
+    expect(fx.sprites.filter((x) => x.kind === 'portal')).toEqual([
+      { kind: 'portal', square: S('a6'), leg: w - 1 },
+      { kind: 'portal', square: S('h3'), leg: w },
+    ]);
   });
 });
