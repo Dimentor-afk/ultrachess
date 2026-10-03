@@ -7,15 +7,17 @@ import { hasAnyLegalTurn, inCheck } from '../status';
 import { S, at, build, findMove, kingShuffle, movesFrom, play, targets } from './helpers';
 
 describe('jumpers', () => {
-  it('Стрибун and Стрибуча тура jump only after their first move and stop right behind', () => {
-    for (const [card, at0, block, land] of [
-      ['bishop-jumper', 'c1', 'e3', 'f4'],
-      ['rook-jumper', 'd1', 'd3', 'd4'],
+  it('Стрибун and Стрибуча тура jump with a run-up only, and land right behind', () => {
+    for (const [card, at0, near, far, land] of [
+      ['bishop-jumper', 'c1', 'd2', 'e3', 'f4'],
+      ['rook-jumper', 'd1', 'd2', 'd3', 'd4'],
     ] as const) {
-      const pos = build({ [at0]: `w:${card}`, [block]: 'w:pawn-classic', h1: 'w:king-classic', a8: 'b:king-classic' });
-      expect(movesFrom(pos, at0).some((m) => m.label.includes('Перестрибнути')), card).toBe(false);
-      const moved = { ...pos, board: pos.board.map((p) => (p?.cardId === card ? { ...p, moveCount: 1 } : p)) };
-      const jumps = movesFrom(moved, at0).filter((m) => m.label.includes('Перестрибнути'));
+      // A piece right next to it (the pawns at the start): no jump, first move or not.
+      const close = build({ [at0]: `w:${card}`, [near]: 'w:pawn-classic', h1: 'w:king-classic', a8: 'b:king-classic' });
+      expect(movesFrom(close, at0).some((m) => m.label.includes('Перестрибнути')), card).toBe(false);
+      // One empty square before it: the jump is there, even on the first move.
+      const runUp = build({ [at0]: `w:${card}`, [far]: 'w:pawn-classic', h1: 'w:king-classic', a8: 'b:king-classic' });
+      const jumps = movesFrom(runUp, at0).filter((m) => m.label.includes('Перестрибнути'));
       expect(jumps.map((m) => m.target), card).toEqual([S(land)]);
     }
   });
@@ -49,12 +51,12 @@ describe('bishop cards', () => {
     expect(targets(moved, 'c1')).toEqual(['b2', 'a3'].sort());
   });
 
-  it('Стрибун jumps over the first piece once it has moved', () => {
+  it('Стрибун needs a gap before the piece it jumps', () => {
     const pos = build({ c1: 'w:bishop-jumper', d2: 'b:pawn-classic', h1: 'w:king-classic', e8: 'b:king-classic' });
     expect(targets(pos, 'c1')).not.toContain('e3');
-    pos.board[pos.board.findIndex((p) => p?.cardId === 'bishop-jumper')]!.moveCount = 1;
-    expect(targets(pos, 'c1')).toContain('e3');
     expect(targets(pos, 'c1')).toContain('d2');
+    const gap = build({ c1: 'w:bishop-jumper', e3: 'b:pawn-classic', h1: 'w:king-classic', e8: 'b:king-classic' });
+    expect(targets(gap, 'c1')).toContain('f4');
   });
 
   it('Мученик freezes its killer for two turns', () => {

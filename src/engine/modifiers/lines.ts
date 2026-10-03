@@ -38,12 +38,15 @@ export function jumpOverMoves(
   from: Square,
   dirs: Dir[],
   extra: Partial<Move>,
+  /** Empty squares needed before the piece it jumps (Стрибун needs a run-up; the paratrooper does not). */
+  runUp = 0,
 ): Move[] {
   const out: Move[] = [];
   if (ctx.attack) return out;
   for (const [df, dr] of dirs) {
     const { steps, block } = walk(ctx, from, df, dr, 9, defaultPassOwn(p));
     if (!block || block.ring || !block.piece) continue;
+    if (steps.length < runUp) continue;
     const beyond = offset(block.s, df, dr);
     if (!isEmptyBoard(ctx, beyond)) continue;
     out.push(
