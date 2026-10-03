@@ -8,6 +8,8 @@ import { packArt } from './cardArt';
 import { FxSwatch, ThemeSwatch, priceTier, useCountdown, useShopOffer } from './cosmetics';
 import { Icon } from './icons';
 import { errorText, useSession } from './state';
+import { PackOdds, PaymentReturn, ShardStore } from './Payments';
+import { useRoutePath } from './router';
 
 type ShopPack = Exclude<PackType, 'starter'>;
 
@@ -24,6 +26,8 @@ export function ShopPage() {
   const [busy, setBusy] = useState<string | null>(null);
   // Gold buys take two taps: the first asks "Купити?", so a stray tap costs nothing.
   const [confirm, setConfirm] = useState<string | null>(null);
+  // Back from a payment page: #/shop/paid/<purchase>.
+  const paid = /^\/shop\/paid\/(\w+)$/.exec(useRoutePath())?.[1];
 
   const run = async (key: string, fn: () => Promise<void>) => {
     setBusy(key);
@@ -90,9 +94,11 @@ export function ShopPage() {
       <div className="page-head">
         <h1>Магазин</h1>
         <p className="muted">
-          Щодня тут нові три дошки й три ефекти взяття за золото 🪙. Паки купуються за осколки 💎, які дають повторки карт.
+          Щодня тут нові три дошки й три ефекти взяття за золото 🪙. Паки купуються за осколки 💎: вони дають повторки карт, а ще їх можна купити.
         </p>
       </div>
+
+      {paid && <PaymentReturn id={paid} />}
 
       <div className="showcase panel">
         <div className="showcase-head">
@@ -148,6 +154,8 @@ export function ShopPage() {
         </a>
       </div>
 
+      <ShardStore />
+
       <div className="section-head">
         <h2>💎 Паки за осколки</h2>
         <span className="muted small">
@@ -170,6 +178,7 @@ export function ShopPage() {
                 <div className="bar small-bar" aria-hidden="true">
                   <span style={{ width: `${Math.min(100, (profile.shards / price) * 100)}%` }} />
                 </div>
+                <PackOdds type={type} />
               </div>
               <button className="btn btn-primary btn-price" disabled={!can || busy === type} onClick={() => buyPack(type)}>
                 💎 {price}
@@ -181,6 +190,9 @@ export function ShopPage() {
       <p className="muted small">
         Осколки за одну повторку:{' '}
         {(Object.entries(SHARDS_PER_DUPE) as [Rarity, number][]).map(([r, n]) => `${RARITY_NAMES[r].toLowerCase()} ${n}`).join(' · ')}.
+      </p>
+      <p className="muted tiny legal-links">
+        <a href="#/terms">Публічна оферта</a> · <a href="#/privacy">Конфіденційність</a>
       </p>
     </section>
   );

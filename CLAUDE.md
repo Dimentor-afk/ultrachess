@@ -38,6 +38,14 @@ Still to do:
    Mac with `fly deploy`. Left: Resend secrets (`RESEND_API_KEY`, `MAIL_FROM`, `PUBLIC_URL`) and
    `min_machines_running = 1` before the defense.
 2. **"Who did what"** in the README: the author's name (placeholder `[Ім'я автора]`).
+3. **Payments** (shards for money, `docs/payments.md`): code is done (purchase journal, credit-once,
+   refunds, monobank invoices + signed webhooks, test payments via `PAYMENTS=test`, pack odds in the
+   shop, offer/privacy templates at `#/terms`, `#/privacy`). Left for the author: ФОП details in
+   `src/ui/LegalPage.tsx`, monobank acquiring contract, `MONO_TOKEN` + `PUBLIC_URL` secrets.
+4. **Scale:** load test in `scripts/load`; 1000 online measured on 4 cores (see docs/networking.md).
+   Production machine for that: ≥1 GB RAM and dedicated cores (fly.toml comment).
+
+The author asked to test changes locally first: commit locally, do not push until they say so.
 
 ### Open question for the teacher
 
