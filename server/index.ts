@@ -12,6 +12,8 @@ import type { Hasher } from '../src/economy/store';
 import { BotPool } from './botPool';
 import { Hub } from './hub';
 import { resendMailer } from './mailer';
+import { LemonPayments, lemonConfig } from './lemonsqueezy';
+import { TestPayments } from '../src/economy/payments';
 import { SqliteStore } from './sqliteStore';
 import de from '../src/i18n/de';
 import en from '../src/i18n/en';
@@ -121,6 +123,36 @@ svc.localize = (lang) => {
 
 function langOf(req: IncomingMessage): string {
   return String(req.headers['x-lang'] ?? '').slice(0, 5);
+}
+
+// Payments: LEMON_* → Lemon Squeezy (Merchant of Record); PAYMENTS=test → test payments
+// (no money: never in production, anyone could "pay"); neither → shards are not on sale.
+const lemonCfg = lemonConfig(process.env);
+const lemon = lemonCfg ? new LemonPayments(lemonCfg) : null;
+svc.payments = lemon ?? (process.env.PAYMENTS === 'test' ? new TestPayments() : null);
+if (svc.payments?.id === 'test') console.warn('PAYMENTS=test: purchases need no money. Never use this in production.');
+else if (!svc.payments) console.log('No LEMON_* settings: shards are not on sale.');
+
+/** Lemon Squeezy's notice about an order: the raw body is needed to check its signature. */
+async function lemonWebhook(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const chunks: Buffer[] = [];
+  let size = 0;
+  for await (const c of req) {
+    size += (c as Buffer).length;
+    if (size > 256 * 1024) return void res.writeHead(413).end();
+    chunks.push(c as Buffer);
+  }
+  const raw = Buffer.concat(chunks);
+  const signature = String(req.headers['x-signature'] ?? '');
+  if (!lemon || !lemon.signed(raw, signature)) {
+    console.warn('Lemon Squeezy webhook with a bad or missing signature, ignored.');
+    return void res.writeHead(400).end();
+  }
+  // Signed but about something else (another event, someone else's order): nothing to do.
+  const notice = lemon.verifyWebhook(raw, signature);
+  if (notice) await svc.paymentNotice('lemon', notice.purchaseId, null, notice.state);
+  // 200 tells Lemon Squeezy the notice arrived; anything else and it tries again later.
+  res.writeHead(200).end();
 }
 
 /** The site's address for links in letters. */
@@ -246,6 +278,12 @@ const routes: [string, RegExp, Handler][] = [
   ['GET', /^packs$/, ({ token }) => svc.packs(token)],
   ['POST', /^packs\/(\w+)\/open$/, ({ token, params }) => svc.openPack(token, params[0])],
   ['GET', /^shop$/, ({ token }) => svc.shop(token)],
+  ['GET', /^shop\/shards$/, async () => svc.shardOffer()],
+  ['POST', /^shop\/shards$/, ({ req, token, body }) => svc.buyShards(token, String(body.product ?? ''), siteBase(req))],
+  ['GET', /^purchases$/, ({ token }) => svc.purchases(token)],
+  ['GET', /^purchases\/(\w+)$/, ({ token, params }) => svc.purchase(token, params[0])],
+  ['POST', /^payments\/test\/(\w+)$/, ({ token, params, body }) => svc.completeTestPayment(token, params[0], !!body.ok)],
+  ['GET', /^admin\/purchases$/, ({ token }) => svc.adminPurchases(token)],
   ['POST', /^shop\/pack$/, ({ token, body }) => svc.buyPack(token, String(body.type) as never)],
   ['POST', /^shop\/theme$/, ({ token, body }) => svc.buyTheme(token, String(body.id ?? ''))],
   ['POST', /^profile\/theme$/, ({ token, body }) => svc.setBoardTheme(token, String(body.id ?? ''))],
@@ -374,6 +412,13 @@ const server = createServer(async (req, res) => {
   if (isSecure(req)) res.setHeader('Strict-Transport-Security', HSTS);
   const path = (req.url ?? '/').split('?')[0];
   if (!path.startsWith('/api/')) return serveStatic(req, res);
+  if (path === '/api/payments/lemon/webhook' && req.method === 'POST') {
+    if (!allow('api', clientIp(req))) return void res.writeHead(429).end();
+    return void lemonWebhook(req, res).catch((e) => {
+      console.error('Lemon Squeezy webhook failed:', e);
+      if (!res.headersSent) res.writeHead(500).end();
+    });
+  }
   const sub = path.slice(5);
   const route = routes.find(([m, re]) => m === req.method && re.test(sub));
   if (!route) return send(res, 404, { error: 'Не знайдено.' });

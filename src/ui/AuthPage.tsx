@@ -91,6 +91,9 @@ export function AuthPage({ api, onAuth }: { api: Api; onAuth: (p: Profile) => vo
           </button>
         )}
         {mode === 'register' && <p className="muted small center">{t('Після реєстрації — стартовий пак: по одній картці кожної фігури.')}</p>}
+        <p className="muted tiny center legal-links">
+          <a href="#/terms">{t('Умови продажу')}</a> · <a href="#/privacy">{t('Конфіденційність')}</a>
+        </p>
         {api.mode === 'local' && (
           <p className="muted small center demo-note">{t('Демо без сервера: акаунти й колекція зберігаються лише в цьому браузері.')}</p>
         )}

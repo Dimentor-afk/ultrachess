@@ -2,6 +2,7 @@ import { type CSSProperties, Suspense, lazy, useCallback, useEffect, useRef, use
 import { type Api, type Profile, createApi } from '../api/client';
 import { AuthPage } from './AuthPage';
 import { LinkPage } from './AccountPages';
+import { LegalPage } from './LegalPage';
 import { DeckPage } from './DeckPage';
 import { HomePage } from './HomePage';
 import { ShopPage } from './ShopPage';
@@ -23,8 +24,9 @@ const FriendsPage = lazy(() => import('./FriendsPage').then((m) => ({ default: m
 const ProfilePage = lazy(() => import('./ProfilePage').then((m) => ({ default: m.ProfilePage })));
 const HelpPage = lazy(() => import('./HelpPage').then((m) => ({ default: m.HelpPage })));
 const GamePage = lazy(() => import('./GamePage').then((m) => ({ default: m.GamePage })));
+const TestPayPage = lazy(() => import('./Payments').then((m) => ({ default: m.TestPayPage })));
 
-type Route = 'play' | 'leagues' | 'trials' | 'deck' | 'shop' | 'friends' | 'top' | 'admin' | 'profile' | 'help' | 'game';
+type Route = 'play' | 'leagues' | 'trials' | 'deck' | 'shop' | 'friends' | 'top' | 'admin' | 'profile' | 'help' | 'game' | 'pay';
 
 const ROUTES: { id: Route; label: string; icon: string; admin?: boolean }[] = [
   { id: 'play', label: t('Грати'), icon: 'play' },
@@ -56,7 +58,7 @@ const ARENA: { id: Route; label: string }[] = [
 function readRoute(): Route {
   const h = currentPath().replace(/^\/?/, '').split('/')[0];
   if (h === 'cards') return 'deck'; // the old collection page lives on the deck page now
-  if (h === 'profile' || h === 'help' || h === 'game') return h;
+  if (h === 'profile' || h === 'help' || h === 'game' || h === 'pay') return h;
   return ROUTES.find((r) => r.id === h)?.id ?? 'play';
 }
 
@@ -88,6 +90,8 @@ export function App() {
   // Links from letters (#/reset/…, #/verify/…) open before anything else, signed in or not.
   const path = useRoutePath();
   const link = /^\/?(reset|verify)\/([a-f0-9]{64})$/.exec(path);
+  // The offer and privacy policy are public: the bank checks them without an account.
+  const legal = /^\/?(terms|privacy)$/.exec(path)?.[1] as 'terms' | 'privacy' | undefined;
   const leaveLink = async (p: Profile | null) => {
     // Load first, then leave: the session screen starts from this fresh profile (the e-mail now confirmed).
     const me = p ?? (await api!.me().catch(() => null));
@@ -104,6 +108,8 @@ export function App() {
             Ultra<b>chess</b>
           </span>
         </div>
+      ) : legal ? (
+        <LegalPage page={legal} />
       ) : link ? (
         <LinkPage key={path} api={api} kind={link[1] as 'reset' | 'verify'} token={link[2]} onDone={leaveLink} />
       ) : loaded === 'anon' ? (
@@ -247,6 +253,7 @@ function Shell() {
           {route === 'profile' && <ProfilePage />}
           {route === 'help' && <HelpPage />}
           {route === 'game' && <GamePage />}
+          {route === 'pay' && <TestPayPage id={currentPath().split('/')[3] ?? ''} />}
           {route === 'top' && <LeaderboardPage />}
           {route === 'admin' && s.profile.role === 'admin' && <AdminPage />}
           </Suspense>

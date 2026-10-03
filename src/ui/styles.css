@@ -8805,3 +8805,155 @@ button.hb-slot {
   right: 16px;
   z-index: 2;
 }
+
+/* ── Shards for money, pack odds, payment pages, legal ── */
+.shard-store .section-head {
+  margin-top: 0;
+}
+.shard-bundles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 0.6rem;
+  margin: 0.4rem 0 0.6rem;
+}
+.shard-bundle {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.9rem 0.6rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel-2);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  transition: transform 0.12s, border-color 0.12s;
+}
+.shard-bundle:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: var(--r-rare);
+}
+.shard-bundle:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.shard-amount {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+}
+.shard-bonus {
+  position: absolute;
+  top: -0.55rem;
+  right: 0.5rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: var(--ok);
+  color: #06261a;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+.shard-price {
+  padding: 0.3rem 0.8rem;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 800;
+}
+.purchase-list summary,
+.pack-odds summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.purchase-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.2fr auto;
+  gap: 0.5rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.9rem;
+}
+.purchase-row.st-paid .purchase-status {
+  color: var(--ok);
+}
+.purchase-row.st-failed .purchase-status,
+.purchase-row.st-expired .purchase-status,
+.purchase-row.st-refunded .purchase-status {
+  color: var(--danger);
+}
+.pack-odds {
+  margin-top: 0.3rem;
+}
+.pack-odds p {
+  margin: 0.3rem 0 0;
+  color: var(--muted);
+}
+.payment-return {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  border-color: var(--r-rare);
+}
+.payment-return p {
+  margin: 0;
+}
+.payment-return.st-paid {
+  border-color: var(--ok);
+}
+.payment-return.st-failed,
+.payment-return.st-expired {
+  border-color: var(--danger);
+}
+.test-pay {
+  max-width: 460px;
+  margin: 1rem auto;
+  text-align: center;
+}
+.test-pay-sum {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+}
+.test-pay-actions {
+  display: flex;
+  justify-content: center;
+  gap: 0.6rem;
+}
+.legal-screen {
+  min-height: 100vh;
+  padding: 1rem;
+  background: var(--bg);
+}
+.legal {
+  max-width: 760px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+.legal h1 {
+  font-family: var(--font-display);
+}
+.legal h2 {
+  margin-top: 1.4rem;
+  font-size: 1.05rem;
+}
+.legal-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.legal-nav a.on {
+  color: var(--gold);
+  font-weight: 700;
+}
+.legal footer {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+.legal-links a {
+  color: var(--muted);
+}

@@ -47,9 +47,12 @@ Still to do:
 2. **"Who did what"** in the README: the author's name (placeholder `[Ім'я автора]`).
 3. **Scale:** load test in `scripts/load`; 1000 online measured on 4 cores (see docs/networking.md).
    Production machine for that: ≥1 GB RAM and dedicated cores (fly.toml comment).
-
-**No payments for now** (author's decision): the shards-for-money code was removed; the plan and how
-to bring it back are in `docs/payments-plan.md` (implementation in commit `e93d7fd`).
+4. **Payments** (shards for money, `docs/payments.md`): purchase journal (credit once, refunds),
+   providers behind one interface: **Lemon Squeezy** (Merchant of Record, chosen by the author: sells
+   under its own name, no ФОП needed to start; `LEMON_*` secrets, `server/lemonsqueezy.ts`) and test
+   payments (`PAYMENTS=test`, and in the demo). Prices in USD cents. Pack odds in the shop, `#/terms`,
+   `#/privacy`. Left for the author: Lemon Squeezy store + secrets, contact email in `LegalPage.tsx`.
+   (monobank provider for a ФОП exists in git history, commit `e93d7fd`.)
 
 ### Open question for the teacher
 

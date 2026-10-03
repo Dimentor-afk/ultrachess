@@ -1,6 +1,7 @@
 // SQLite implementation of the game Store (Node's built-in node:sqlite).
 
 import { DatabaseSync } from 'node:sqlite';
+import type { PurchaseRow, PurchaseStatus } from '../src/economy/payments';
 import type { CardRow, ChallengeRow, DeckRow, FriendRow, MatchRow, PackRow, PvpRow, SeekRow, SessionRow, Store, TokenRow, UserRow } from '../src/economy/store';
 
 const SCHEMA = `
@@ -38,6 +39,20 @@ CREATE TABLE IF NOT EXISTS sessions (
   expires_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS sessions_user ON sessions(user_id);
+CREATE TABLE IF NOT EXISTS purchases (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id),
+  product TEXT NOT NULL,
+  shards INTEGER NOT NULL,
+  amount INTEGER NOT NULL,
+  ccy TEXT NOT NULL,
+  provider TEXT NOT NULL,
+  provider_id TEXT,
+  status TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS purchases_user ON purchases(user_id, created_at);
 CREATE TABLE IF NOT EXISTS tokens (
   hash TEXT PRIMARY KEY,
   user_id TEXT NOT NULL REFERENCES users(id),
@@ -326,6 +341,25 @@ function pvp(r: Row | undefined): PvpRow | null {
   };
 }
 
+const PURCHASE_COLS: Record<string, string> = { providerId: 'provider_id', status: 'status', updatedAt: 'updated_at' };
+
+function purchase(r: Row | undefined): PurchaseRow | null {
+  if (!r) return null;
+  return {
+    id: r.id as string,
+    userId: r.user_id as string,
+    product: r.product as string,
+    shards: Number(r.shards),
+    amount: Number(r.amount),
+    ccy: r.ccy as string,
+    provider: r.provider as string,
+    providerId: (r.provider_id as string | null) ?? null,
+    status: r.status as PurchaseStatus,
+    createdAt: Number(r.created_at),
+    updatedAt: Number(r.updated_at),
+  };
+}
+
 const FRIEND_COLS: Record<string, string> = { status: 'status' };
 const CHALLENGE_COLS: Record<string, string> = { status: 'status', pvpId: 'pvp_id' };
 const PVP_COLS: Record<string, string> = {
@@ -393,6 +427,41 @@ export class SqliteStore implements Store {
   }
   async deleteUserSessions(userId: string, except?: string) {
     this.db.prepare('DELETE FROM sessions WHERE user_id = ? AND token != ?').run(userId, except ?? '');
+  }
+
+  async insertPurchase(p: PurchaseRow) {
+    this.db
+      .prepare(
+        'INSERT INTO purchases (id, user_id, product, shards, amount, ccy, provider, provider_id, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      )
+      .run(p.id, p.userId, p.product, p.shards, p.amount, p.ccy, p.provider, p.providerId, p.status, p.createdAt, p.updatedAt);
+  }
+  async getPurchase(id: string) {
+    return purchase(this.db.prepare('SELECT * FROM purchases WHERE id = ?').get(id) as Row | undefined);
+  }
+  async updatePurchase(id: string, patch: Partial<PurchaseRow>) {
+    update(this.db, 'purchases', PURCHASE_COLS, id, patch as Row);
+  }
+  async listPurchases(userId: string, limit: number) {
+    return (this.db.prepare('SELECT * FROM purchases WHERE user_id = ? ORDER BY created_at DESC LIMIT ?').all(userId, limit) as Row[]).map((r) => purchase(r)!);
+  }
+  async listAllPurchases(limit: number) {
+    return (this.db.prepare('SELECT * FROM purchases ORDER BY created_at DESC LIMIT ?').all(limit) as Row[]).map((r) => purchase(r)!);
+  }
+  async settlePurchase(id: string, from: PurchaseStatus, to: PurchaseStatus, shards: number, now: number) {
+    // One transaction: the status move is the lock, the shards follow it or nothing happens.
+    this.db.exec('BEGIN IMMEDIATE');
+    try {
+      const moved = this.db.prepare('UPDATE purchases SET status = ?, updated_at = ? WHERE id = ? AND status = ?').run(to, now, id, from);
+      if (Number(moved.changes) > 0) {
+        this.db.prepare('UPDATE users SET shards = shards + ? WHERE id = (SELECT user_id FROM purchases WHERE id = ?)').run(shards, id);
+      }
+      this.db.exec('COMMIT');
+      return Number(moved.changes) > 0;
+    } catch (e) {
+      this.db.exec('ROLLBACK');
+      throw e;
+    }
   }
 
   async insertToken(t: TokenRow) {

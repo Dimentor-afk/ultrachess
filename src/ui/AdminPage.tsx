@@ -3,7 +3,8 @@ import type { AdminUser } from '../api/client';
 import { PACKS, type PackType, packName } from '../economy/packs';
 import { packArt } from './cardArt';
 import { errorText, useSession } from './state';
-import { t } from '../i18n';
+import { locale, t } from '../i18n';
+import { formatPrice } from '../economy/payments';
 
 const PACK_TYPES: PackType[] = ['starter', ...(Object.keys(PACKS) as PackType[])];
 
@@ -136,6 +137,62 @@ export function AdminPage() {
           </div>
         )}
       </div>
+      <AdminPurchases />
     </section>
+  );
+}
+
+const STATUS: Record<string, string> = { pending: t('очікує'), paid: t('оплачено'), failed: t('не пройшла'), expired: t('прострочено'), refunded: t('повернено') };
+
+/** The journal of real-money purchases, newest first. */
+function AdminPurchases() {
+  const s = useSession();
+  const [rows, setRows] = useState<Awaited<ReturnType<typeof s.api.adminPurchases>> | null>(null);
+  useEffect(() => {
+    s.api.adminPurchases().then(setRows, () => setRows([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  if (!rows) return null;
+  const paid = rows.filter((r) => r.status === 'paid');
+  const total = paid.reduce((sum, r) => sum + r.amount, 0);
+  return (
+    <div className="panel">
+      <div className="section-head">
+        <h2>{t('Покупки')}</h2>
+        <span className="muted small">
+          {t('оплачено {0} на {1} (останні {2})', paid.length, formatPrice(total), rows.length)}
+        </span>
+      </div>
+      {rows.length === 0 ? (
+        <p className="muted">{t('Покупок ще не було.')}</p>
+      ) : (
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>{t('Коли')}</th>
+                <th>{t('Гравець')}</th>
+                <th>{t('Уламки')}</th>
+                <th>{t('Сума')}</th>
+                <th>{t('Статус')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id}>
+                  <td className="muted tiny">{new Date(r.createdAt).toLocaleString(locale(), { dateStyle: 'short', timeStyle: 'short' })}</td>
+                  <td>
+                    {r.name} <small className="muted">{r.email}</small>
+                  </td>
+                  <td>💎 {r.shards}</td>
+                  <td>{r.price}</td>
+                  <td>{STATUS[r.status] ?? r.status}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
   );
 }
