@@ -90,7 +90,7 @@ export function TrialsPage() {
       <div className="page-head">
         <h1>Випробування</h1>
         <p className="muted">
-          Серії перемог поспіль — проти ботів або живих гравців. Одна поразка чи нічия завершує спробу. Вхід коштує осколки, а за найважче
+          Серії перемог поспіль — проти ботів або живих гравців. Одна поразка чи нічия завершує спробу. Вхід коштує уламки, а за найважче
           випробування дається картка, якої немає в жодному паку.
         </p>
       </div>
@@ -178,7 +178,7 @@ export function TrialsPage() {
                     <button className="btn btn-primary btn-price" disabled={busy === t.id || profile.shards < t.cost} onClick={() => enter(t)}>
                       Увійти за 💎 {t.cost}
                     </button>
-                    {profile.shards < t.cost && <span className="muted small">У вас {profile.shards} осколків</span>}
+                    {profile.shards < t.cost && <span className="muted small">У вас {profile.shards} уламків</span>}
                   </>
                 )}
               </div>

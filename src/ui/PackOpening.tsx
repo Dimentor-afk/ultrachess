@@ -293,7 +293,7 @@ export function PackOpening({
           <h2>{pack.name}</h2>
           <div className="loot">
             <span className="loot-item gold">🪙 +{result.gold} золота</span>
-            {result.shards > 0 && <span className="loot-item shards">💎 +{result.shards} осколків</span>}
+            {result.shards > 0 && <span className="loot-item shards">💎 +{result.shards} уламків</span>}
           </div>
           <div className="summary-grid">
             {result.cards.map((c, i) => (

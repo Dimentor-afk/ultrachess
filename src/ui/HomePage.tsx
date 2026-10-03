@@ -548,7 +548,7 @@ function OddsTable() {
         Ліга гравців: перемога дає +{LADDER_TROPHIES.pvp.win} кубків, 🪙 {LADDER_WIN_GOLD.pvp} і одразу пак (цикл до легендарного), до{' '}
         {LADDER_PACK_LIMIT.pvp} паків на день; поразка — {LADDER_TROPHIES.pvp.loss}. Ліга ботів: +{LADDER_TROPHIES.bot.win} / {LADDER_TROPHIES.bot.loss}{' '}
         кубків, 🪙 {LADDER_WIN_GOLD.bot}, паки не вище рідкісного, до {LADDER_PACK_LIMIT.bot} на день. Повторки карт автоматично стають
-        осколками 💎, за які в магазині купуються паки.
+        уламками 💎, за які в магазині купуються паки.
       </p>
     </div>
   );

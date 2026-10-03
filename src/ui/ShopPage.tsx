@@ -90,7 +90,7 @@ export function ShopPage() {
       <div className="page-head">
         <h1>Магазин</h1>
         <p className="muted">
-          Щодня тут нові три дошки й три ефекти взяття за золото 🪙. Паки купуються за осколки 💎, які дають повторки карт.
+          Щодня тут нові три дошки й три ефекти взяття за золото 🪙. Паки купуються за уламки 💎, які дають повторки карт.
         </p>
       </div>
 
@@ -149,9 +149,9 @@ export function ShopPage() {
       </div>
 
       <div className="section-head">
-        <h2>💎 Паки за осколки</h2>
+        <h2>💎 Паки за уламки</h2>
         <span className="muted small">
-          У вас <b className="shards-text">{profile.shards}</b> осколків
+          У вас <b className="shards-text">{profile.shards}</b> уламків
         </span>
       </div>
       <div className="shop-packs">
@@ -179,7 +179,7 @@ export function ShopPage() {
         })}
       </div>
       <p className="muted small">
-        Осколки за одну повторку:{' '}
+        Уламки за одну повторку:{' '}
         {(Object.entries(SHARDS_PER_DUPE) as [Rarity, number][]).map(([r, n]) => `${RARITY_NAMES[r].toLowerCase()} ${n}`).join(' · ')}.
       </p>
     </section>

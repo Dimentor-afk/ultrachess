@@ -153,7 +153,7 @@ describe('service', () => {
     expect(me.shards).toBe(4 * SHARDS_PER_DUPE.epic);
     // Four epic duplicates are a good part of an epic pack, but not all of it.
     expect(me.shards).toBeLessThan(PACK_SHARD_PRICE.epic);
-    await expect(svc.buyPack(token, 'epic')).rejects.toThrow(/осколків/);
+    await expect(svc.buyPack(token, 'epic')).rejects.toThrow(/уламків/);
     const bought = await svc.buyPack(token, 'common');
     expect(bought.pack.type).toBe('common');
     expect(bought.profile.shards).toBe(4 * SHARDS_PER_DUPE.epic - PACK_SHARD_PRICE.common);

@@ -947,7 +947,7 @@ export class GameService {
     const t = trialById(id);
     if (!t) throw new ApiError(404, 'Такого випробування немає.');
     if (this.trialRuns(u)[id]?.status === 'active') throw new ApiError(409, 'Ви вже проходите це випробування.');
-    if (u.shards < t.cost) throw new ApiError(400, `Вхід коштує ${t.cost} осколків, у вас ${u.shards}.`);
+    if (u.shards < t.cost) throw new ApiError(400, `Вхід коштує ${t.cost} уламків, у вас ${u.shards}.`);
     await this.store.updateUser(u.id, { shards: u.shards - t.cost });
     await this.saveRun(u, { id, wins: 0, status: 'active' });
     return this.profileOf(u.id);
@@ -1083,7 +1083,7 @@ export class GameService {
     const u = await this.auth(token);
     if (type === 'starter' || !(type in PACK_SHARD_PRICE)) throw new ApiError(400, 'Такого паку в магазині немає.');
     const price = PACK_SHARD_PRICE[type];
-    if (u.shards < price) throw new ApiError(400, `Потрібно ${price} осколків, у вас ${u.shards}.`);
+    if (u.shards < price) throw new ApiError(400, `Потрібно ${price} уламків, у вас ${u.shards}.`);
     await this.store.updateUser(u.id, { shards: u.shards - price });
     const pack = this.view(await this.createPack(u.id, type, 'Магазин'));
     return { pack, profile: await this.profileOf(u.id) };

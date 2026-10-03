@@ -67,11 +67,11 @@ export function HelpPage() {
         </article>
         <article className="panel help-card">
           <img className="pixel help-art" src="assets/packs/epic.png" alt="" />
-          <h2>6. Паки, осколки, золото</h2>
+          <h2>6. Паки, уламки, золото</h2>
           <p>
             Дві ліги з окремими кубками. Ліга ботів: +{LADDER_TROPHIES.bot.win} кубків, 🪙 {LADDER_WIN_GOLD.bot} і пак (до{' '}
             {LADDER_PACK_LIMIT.bot} на день). Ліга гравців: +{LADDER_TROPHIES.pvp.win}, 🪙 {LADDER_WIN_GOLD.pvp} і пак (до{' '}
-            {LADDER_PACK_LIMIT.pvp} на день). За перший вихід у нову лігу — бонус. Повторка картки стає осколками 💎 (
+            {LADDER_PACK_LIMIT.pvp} на день). За перший вихід у нову лігу — бонус. Повторка картки стає уламками 💎 (
             {(Object.entries(SHARDS_PER_DUPE) as [Rarity, number][]).map(([r, n]) => `${RARITY_NAMES[r].toLowerCase()} ${n}`).join(', ')}
             ), за них у магазині купуються паки (від 💎 {PACK_SHARD_PRICE.common}). Золото купує кольори дошки.
           </p>
@@ -93,7 +93,7 @@ export function HelpPage() {
           <img className="pixel help-art" src={cardArt('king-comet')!} alt="" />
           <h2>9. Випробування</h2>
           <p>
-            Серії перемог поспіль за осколки: проти ботів або в лізі гравців. Одна поразка чи нічия — і спробу завершено. Найважче, «Шлях
+            Серії перемог поспіль за уламки: проти ботів або в лізі гравців. Одна поразка чи нічия — і спробу завершено. Найважче, «Шлях
             Комети», дає Комету: короля з ривком до 5 клітинок, якого немає в жодному паку.
           </p>
         </article>

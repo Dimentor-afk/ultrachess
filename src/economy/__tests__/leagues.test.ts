@@ -91,7 +91,7 @@ describe('trials', () => {
     const { token, profile } = await reg('t@t.com', 'T');
     const trial = trialById('classic')!;
     expect(trial.cost).toBe(500);
-    await expect(svc.enterTrial(token, 'classic')).rejects.toThrow(/осколків/);
+    await expect(svc.enterTrial(token, 'classic')).rejects.toThrow(/уламків/);
     await store.updateUser(profile.id, { shards: 600 });
     const entered = await svc.enterTrial(token, 'classic');
     expect(entered.shards).toBe(100);

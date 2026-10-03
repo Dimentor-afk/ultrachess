@@ -457,7 +457,7 @@ function DeckHub({ deck }: { deck: Deck }) {
       <a className="panel shards-note" href="#/shop">
         <span className="shards-big">💎 {s.profile.shards}</span>
         <span className="muted small">
-          Повторки не лежать мертвим вантажем: кожна одразу стає осколками, а за осколки в магазині купуються паки.
+          Повторки не лежать мертвим вантажем: кожна одразу стає уламками, а за уламки в магазині купуються паки.
         </span>
       </a>
 

@@ -194,7 +194,7 @@ function Shell() {
         <a href="#/shop" className="wallet-item gold" aria-label={`Золото: ${s.profile.gold}`}>
           🪙 <b>{s.profile.gold}</b>
         </a>
-        <a href="#/shop" className="wallet-item shards" aria-label={`Осколки: ${s.profile.shards}`}>
+        <a href="#/shop" className="wallet-item shards" aria-label={`Уламки: ${s.profile.shards}`}>
           💎 <b>{s.profile.shards}</b>
         </a>
         <a className={`m-help ${route === 'help' ? 'active' : ''}`} href="#/help" aria-label="Як грати">
@@ -221,7 +221,7 @@ function Shell() {
           <a href="#/shop" className="wallet-item gold" title="Золото: купує дошки й ефекти в магазині">
             🪙 <b>{s.profile.gold}</b>
           </a>
-          <a href="#/shop" className="wallet-item shards" title="Осколки: з повторок, купують паки">
+          <a href="#/shop" className="wallet-item shards" title="Уламки: з повторок, купують паки">
             💎 <b>{s.profile.shards}</b>
           </a>
         </div>
