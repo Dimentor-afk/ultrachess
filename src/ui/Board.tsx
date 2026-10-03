@@ -41,6 +41,7 @@ function dist(a: Square, b: Square): number {
 
 function legMs(style: Leg['style'], d: number): number {
   if (style === 'warp') return 640;
+  if (style === 'rise') return 1050;
   if (style === 'hop') return Math.min(560, 300 + 45 * d);
   return Math.min(480, 120 + 50 * d);
 }
@@ -107,6 +108,18 @@ function GlidePiece({ glide, orientation, ring, children }: { glide: Glide; orie
         frames.push({ offset: o(start + span * 0.45), transform: tr(a, 0, 0.2), opacity: 0 });
         frames.push({ offset: o(start + span * 0.55), transform: tr(b, 0, 0.2), opacity: 0 });
         frames.push({ offset: o(stop), transform: tr(b), opacity: 1 });
+      } else if (leg.style === 'rise') {
+        // Struck: flare, float up and fade as light; then take shape again where she returns.
+        const span = stop - start;
+        const at = (k: number) => o(start + span * k);
+        const glow = (n: number) => `brightness(${n}) drop-shadow(0 0 ${n * 2}px rgba(255, 210, 120, 0.9))`;
+        frames.push({ offset: at(0), transform: tr(a), opacity: 1, filter: glow(1) });
+        frames.push({ offset: at(0.1), transform: tr(a, 0, 1.15), opacity: 1, filter: glow(2.6), easing: 'cubic-bezier(0.4, 0, 0.8, 0.6)' });
+        frames.push({ offset: at(0.42), transform: tr(a, 10, 0.75), opacity: 0, filter: glow(3), easing: 'steps(1)' });
+        frames.push({ offset: at(0.5), transform: tr(b, 0, 0.2), opacity: 0, filter: glow(3) });
+        frames.push({ offset: at(0.72), transform: tr(b, 1.5, 1.22), opacity: 1, filter: glow(3), easing: 'cubic-bezier(0.3, 0, 0.5, 1)' });
+        frames.push({ offset: at(0.86), transform: tr(b, 0, 0.94), opacity: 1, filter: glow(1.6) });
+        frames.push({ offset: at(1), transform: tr(b), opacity: 1, filter: glow(1) });
       } else {
         frames.push({ offset: o(start), transform: tr(a), opacity: 1, easing: 'cubic-bezier(0.3, 0.7, 0.4, 1)' });
         frames.push({ offset: o(stop), transform: tr(b), opacity: 1 });
@@ -221,6 +234,7 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
       // Quake and eclipse ripple along their line; a capture plays when the
       // mover arrives (each one in turn for a chain).
       let delay = x.kind === 'quake' || x.kind === 'eclipse' ? i * 45 : x.kind === 'explode' ? 180 : 0;
+      if (x.wait !== undefined) delay = moverMs + x.wait;
       if (x.kind === 'portal' && x.leg !== undefined) {
         // The gate opens a little before the piece gets there.
         if (x.leg < moverSkip) return;

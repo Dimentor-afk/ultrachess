@@ -11,7 +11,7 @@ import type { LiveStatus } from '../api/live';
 import { packArt, pieceSprite } from './cardArt';
 import { playerView } from '../engine/view';
 import { Board, type Mark, boardRing, legsMs, squareCenter } from './Board';
-import { moveLegs } from '../engine/fx';
+import { type MatchFx, moveLegs } from '../engine/fx';
 import { type Stage, advanceStage, nextStops, stageAt, startStage, stayMoves, stopsOf } from './stage';
 import { getSettings, play } from './settings';
 import { LADDER_NAMES } from '../economy/leagues';
@@ -291,18 +291,19 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
     (action: Action) => {
       if (spectator) return;
       landing.current = 0;
+      let shown = 0;
       if (action.type === 'move') {
         const m = action.move;
         const legs = moveLegs(m, matchRef.current.board[m.from]?.type);
         // Legs up to the stop the piece already stands on have been shown.
         const st = stageRef.current;
-        const shown = st && stayMoves(st).length ? legs.findIndex((l) => l.stop && l.to === stageAt(st)) + 1 : 0;
-        // Pushed pieces move after the mover; a capture plays its blow at the end.
-        landing.current = legsMs(m.from, legs, shown) + (m.displaced?.length ? 260 : 0) + (m.captures.length ? 300 : 120);
+        shown = st && stayMoves(st).length ? legs.findIndex((l) => l.stop && l.to === stageAt(st)) + 1 : 0;
       }
       // Shown at once; the server's answer replaces it (it may differ: an illusion taken, …).
       try {
-        setMatch(performAction(matchRef.current, action));
+        const next = performAction(matchRef.current, action);
+        landing.current = next.fx ? fxMs(next.fx, shown) : 0;
+        setMatch(next);
       } catch {
         // Our view cannot play it (an opponent's illusion is in the way): the server decides.
       }
@@ -855,6 +856,23 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
 }
 
 const PROMO_NAMES: Partial<Record<PieceType, string>> = { queen: t('Ферзь'), rook: t('Тура'), bishop: t('Слон'), knight: t('Кінь') };
+
+/**
+ * How long an action takes to play out on the board, in ms: the mover's legs
+ * (from leg `shown` on), pieces that move after it, and the scenes that follow
+ * the blow (Безсмертна rising). The bot's answer waits for it.
+ */
+function fxMs(fx: MatchFx, shown: number): number {
+  const [first, ...rest] = fx.moves;
+  const mover = first ? legsMs(first.from, first.legs, Math.min(shown, first.legs.length - 1)) : 0;
+  let end = mover + 120;
+  for (const m of rest) end = Math.max(end, (m.after ? mover : 0) + legsMs(m.from, m.legs) + 80);
+  for (const x of fx.sprites) {
+    if (x.kind === 'capture') end = Math.max(end, mover + 300);
+    if (x.wait !== undefined) end = Math.max(end, mover + x.wait + 400);
+  }
+  return end;
+}
 
 function countPieces(m: MatchState): number {
   return m.board.reduce((n, p) => n + (p ? 1 : 0), 0);

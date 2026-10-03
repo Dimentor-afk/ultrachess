@@ -23,7 +23,9 @@ export type FxKind =
   | 'portal'
   | 'levitate'
   | 'dust'
-  | 'sparkle';
+  | 'sparkle'
+  | 'absorb'
+  | 'revive';
 
 export interface FxSprite {
   kind: FxKind;
@@ -34,6 +36,8 @@ export interface FxSprite {
   by?: Color;
   /** Plays when the mover finishes this leg of its move (chained captures). */
   leg?: number;
+  /** Plays this many ms after the mover has arrived (a scene that follows the blow). */
+  wait?: number;
   /** The captured piece, drawn until the blow lands. */
   victim?: { type: PieceType; color: Color; cardId: string };
 }
@@ -105,7 +109,11 @@ export function computeFx(
       const legs = moverLegs.map((l, i) => (i === moverLegs.length - 1 ? { ...l, to } : l));
       moves.unshift({ from, to, legs });
       continue;
-    } else if (info.events?.some((e) => e.type === 'immortal' && e.piece.id === pid)) style = 'warp';
+    } else if (info.events?.some((e) => e.type === 'immortal' && e.piece.id === pid)) {
+      // Безсмертна: struck, she rises from her square as light and comes back on her own.
+      moves.push({ from, to, legs: [{ to, style: 'rise' }], after: true });
+      continue;
+    }
     moves.push({ from, to, legs: [{ to, style }], after: m0?.kind === 'push' && pushed.has(to) ? true : undefined });
   }
 
@@ -161,9 +169,11 @@ export function computeFx(
         if (s >= 0) sprites.push({ kind: 'shield', square: s });
         break;
       }
-      case 'immortal':
-        sprites.push({ kind: 'immortal', square: e.to });
+      case 'immortal': {
+        // The blow lands, the soul gathers on her starting square, light, and she is back.
+        sprites.push({ kind: 'absorb', square: e.to, wait: 150 }, { kind: 'revive', square: e.to, wait: 470 }, { kind: 'immortal', square: e.to, wait: 540 });
         break;
+      }
       case 'barricade':
         sprites.push({ kind: 'barricade', square: e.square });
         break;

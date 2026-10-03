@@ -95,8 +95,9 @@ export interface Displacement {
 /** One stretch of a move's animation. */
 export interface Leg {
   to: Square;
-  /** slide = glide across, hop = jump in an arc, warp = vanish and reappear. */
-  style: 'slide' | 'hop' | 'warp';
+  /** slide = glide across, hop = jump in an arc, warp = vanish and reappear,
+   *  rise = dissolve upwards as light and take shape again (a resurrection). */
+  style: 'slide' | 'hop' | 'warp' | 'rise';
   /** The player picks this square first and then decides whether to go on. */
   stop?: boolean;
 }
