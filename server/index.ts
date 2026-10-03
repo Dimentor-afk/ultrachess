@@ -12,7 +12,7 @@ import type { Hasher } from '../src/economy/store';
 import { BotPool } from './botPool';
 import { Hub } from './hub';
 import { resendMailer } from './mailer';
-import { LemonPayments, lemonConfig } from './lemonsqueezy';
+import { PaddlePayments, paddleConfig } from './paddle';
 import { TestPayments } from '../src/economy/payments';
 import { SqliteStore } from './sqliteStore';
 import de from '../src/i18n/de';
@@ -125,16 +125,17 @@ function langOf(req: IncomingMessage): string {
   return String(req.headers['x-lang'] ?? '').slice(0, 5);
 }
 
-// Payments: LEMON_* → Lemon Squeezy (Merchant of Record); PAYMENTS=test → test payments
+// Payments: PADDLE_* → Paddle (Merchant of Record); PAYMENTS=test → test payments
 // (no money: never in production, anyone could "pay"); neither → shards are not on sale.
-const lemonCfg = lemonConfig(process.env);
-const lemon = lemonCfg ? new LemonPayments(lemonCfg) : null;
-svc.payments = lemon ?? (process.env.PAYMENTS === 'test' ? new TestPayments() : null);
+const paddleCfg = paddleConfig(process.env);
+const paddle = paddleCfg ? new PaddlePayments(paddleCfg) : null;
+svc.payments = paddle ?? (process.env.PAYMENTS === 'test' ? new TestPayments() : null);
 if (svc.payments?.id === 'test') console.warn('PAYMENTS=test: purchases need no money. Never use this in production.');
-else if (!svc.payments) console.log('No LEMON_* settings: shards are not on sale.');
+else if (paddle) console.log(`Payments: Paddle${paddleCfg!.sandbox ? ' (sandbox)' : ''}.`);
+else console.log('No PADDLE_* settings: shards are not on sale.');
 
-/** Lemon Squeezy's notice about an order: the raw body is needed to check its signature. */
-async function lemonWebhook(req: IncomingMessage, res: ServerResponse): Promise<void> {
+/** Paddle's notice: the raw body is needed to check its signature. */
+async function paddleWebhook(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const chunks: Buffer[] = [];
   let size = 0;
   for await (const c of req) {
@@ -143,15 +144,14 @@ async function lemonWebhook(req: IncomingMessage, res: ServerResponse): Promise<
     chunks.push(c as Buffer);
   }
   const raw = Buffer.concat(chunks);
-  const signature = String(req.headers['x-signature'] ?? '');
-  if (!lemon || !lemon.signed(raw, signature)) {
-    console.warn('Lemon Squeezy webhook with a bad or missing signature, ignored.');
+  if (!paddle || !paddle.signed(raw, String(req.headers['paddle-signature'] ?? ''))) {
+    console.warn('Paddle webhook with a bad or missing signature, ignored.');
     return void res.writeHead(400).end();
   }
-  // Signed but about something else (another event, someone else's order): nothing to do.
-  const notice = lemon.verifyWebhook(raw, signature);
-  if (notice) await svc.paymentNotice('lemon', notice.purchaseId, null, notice.state);
-  // 200 tells Lemon Squeezy the notice arrived; anything else and it tries again later.
+  // Signed but about something else (another event, a partial refund): nothing to do.
+  const notice = await paddle.notice(raw);
+  if (notice) await svc.paymentNotice('paddle', notice.purchaseId, notice.transactionId, notice.state);
+  // 200 tells Paddle the notice arrived; anything else and it tries again later.
   res.writeHead(200).end();
 }
 
@@ -412,10 +412,10 @@ const server = createServer(async (req, res) => {
   if (isSecure(req)) res.setHeader('Strict-Transport-Security', HSTS);
   const path = (req.url ?? '/').split('?')[0];
   if (!path.startsWith('/api/')) return serveStatic(req, res);
-  if (path === '/api/payments/lemon/webhook' && req.method === 'POST') {
+  if (path === '/api/payments/paddle/webhook' && req.method === 'POST') {
     if (!allow('api', clientIp(req))) return void res.writeHead(429).end();
-    return void lemonWebhook(req, res).catch((e) => {
-      console.error('Lemon Squeezy webhook failed:', e);
+    return void paddleWebhook(req, res).catch((e) => {
+      console.error('Paddle webhook failed:', e);
       if (!res.headersSent) res.writeHead(500).end();
     });
   }

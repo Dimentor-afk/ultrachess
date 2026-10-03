@@ -48,10 +48,11 @@ Still to do:
 3. **Scale:** load test in `scripts/load`; 1000 online measured on 4 cores (see docs/networking.md).
    Production machine for that: ≥1 GB RAM and dedicated cores (fly.toml comment).
 4. **Payments** (shards for money, `docs/payments.md`): purchase journal (credit once, refunds),
-   providers behind one interface: **Lemon Squeezy** (Merchant of Record, chosen by the author: sells
-   under its own name, no ФОП needed to start; `LEMON_*` secrets, `server/lemonsqueezy.ts`) and test
+   providers behind one interface: **Paddle** (Merchant of Record, chosen by the author: sells under its
+   own name, no ФОП needed, pays out by bank transfer or Payoneer — Lemon Squeezy was dropped because it
+   cannot pay out to Ukraine; `PADDLE_*` secrets, `server/paddle.ts`, checkout overlay via Paddle.js) and test
    payments (`PAYMENTS=test`, and in the demo). Prices in USD cents. Pack odds in the shop, `#/terms`,
-   `#/privacy`. Left for the author: Lemon Squeezy store + secrets, contact email in `LegalPage.tsx`.
+   `#/privacy`. Left for the author: Paddle sandbox → live account + secrets, contact email in `LegalPage.tsx`.
    (monobank provider for a ФОП exists in git history, commit `e93d7fd`.)
 
 ### Open question for the teacher

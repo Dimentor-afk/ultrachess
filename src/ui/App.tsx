@@ -25,6 +25,7 @@ const ProfilePage = lazy(() => import('./ProfilePage').then((m) => ({ default: m
 const HelpPage = lazy(() => import('./HelpPage').then((m) => ({ default: m.HelpPage })));
 const GamePage = lazy(() => import('./GamePage').then((m) => ({ default: m.GamePage })));
 const TestPayPage = lazy(() => import('./Payments').then((m) => ({ default: m.TestPayPage })));
+const PaddlePayPage = lazy(() => import('./Payments').then((m) => ({ default: m.PaddlePayPage })));
 
 type Route = 'play' | 'leagues' | 'trials' | 'deck' | 'shop' | 'friends' | 'top' | 'admin' | 'profile' | 'help' | 'game' | 'pay';
 
@@ -253,7 +254,10 @@ function Shell() {
           {route === 'profile' && <ProfilePage />}
           {route === 'help' && <HelpPage />}
           {route === 'game' && <GamePage />}
-          {route === 'pay' && <TestPayPage id={currentPath().split('/')[3] ?? ''} />}
+          {route === 'pay' && currentPath().split('/')[2] === 'paddle' && (
+            <PaddlePayPage purchaseId={currentPath().split('/')[3] ?? ''} transactionId={currentPath().split('/')[4] ?? ''} />
+          )}
+          {route === 'pay' && currentPath().split('/')[2] !== 'paddle' && <TestPayPage id={currentPath().split('/')[3] ?? ''} />}
           {route === 'top' && <LeaderboardPage />}
           {route === 'admin' && s.profile.role === 'admin' && <AdminPage />}
           </Suspense>

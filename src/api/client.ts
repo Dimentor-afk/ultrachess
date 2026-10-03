@@ -32,7 +32,7 @@ import {
   type Profile,
 } from '../economy/service';
 import type { Hasher, Role } from '../economy/store';
-import { type PurchaseView, type ShardProduct, TestPayments } from '../economy/payments';
+import { type PurchaseView, type ShardOffer, type ShardProduct, TestPayments } from '../economy/payments';
 import type { Action } from '../engine/match';
 import type { Deck } from '../engine/types';
 import { requestBotTurn } from '../ui/botClient';
@@ -40,7 +40,7 @@ import { LiveSocket, liveUrl } from './live';
 import { getLang, t, tr } from '../i18n';
 
 export { ApiError };
-export type { PurchaseView, ShardProduct };
+export type { PurchaseView, ShardOffer, ShardProduct };
 export type {
   GameView,
   LiveGameRow,
@@ -91,7 +91,7 @@ export interface Api {
   logoutOthers(): Promise<void>;
   deleteAccount(password: string): Promise<void>;
   /** Shard bundles for real money and whether they are on sale. */
-  shardOffer(): Promise<{ products: ShardProduct[]; enabled: boolean; test: boolean }>;
+  shardOffer(): Promise<ShardOffer>;
   /** Start a purchase: the page where the player pays. */
   buyShards(product: string): Promise<{ purchaseId: string; pageUrl: string }>;
   purchase(id: string): Promise<{ purchase: PurchaseView; profile: Profile }>;
@@ -200,7 +200,7 @@ class HttpApi implements Api {
     this.socket?.close();
     this.socket = undefined;
   };
-  shardOffer = () => this.call<{ products: ShardProduct[]; enabled: boolean; test: boolean }>('GET', 'shop/shards');
+  shardOffer = () => this.call<ShardOffer>('GET', 'shop/shards');
   buyShards = (product: string) => this.call<{ purchaseId: string; pageUrl: string }>('POST', 'shop/shards', { product });
   purchase = (id: string) => this.call<{ purchase: PurchaseView; profile: Profile }>('GET', `purchases/${id}`);
   purchases = () => this.call<PurchaseView[]>('GET', 'purchases');

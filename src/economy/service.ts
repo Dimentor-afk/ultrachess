@@ -32,7 +32,7 @@ import { legalMoves } from '../engine/legal';
 import { type QuestEvent, type QuestView, addProgress, parseQuests, questViews } from './quests';
 import { type Hasher, type MatchRow, type PackRow, type PvpRow, type Role, type Store, type TokenRow, type UserRow, randomId } from './store';
 import { NAME_CHANGE_MS, cleanName, nameProblem, passwordProblem, sha256 } from './account';
-import { type PaymentProvider, type ProviderState, type PurchaseRow, type PurchaseView, SHARD_PRODUCTS, type ShardProduct, formatPrice, productById } from './payments';
+import { type PaymentProvider, type ProviderState, type PurchaseRow, type PurchaseView, SHARD_PRODUCTS, type ShardOffer, formatPrice, productById } from './payments';
 
 /** Short public code for finding a player (first 6 hex digits of the id). */
 const tagOf = (u: UserRow) => u.id.slice(0, 6).toUpperCase();
@@ -1101,11 +1101,11 @@ export class GameService {
 
   // ── Shards for real money ──
 
-  /** The payment service (Lemon Squeezy on the server, test payments in the demo); null: not on sale. */
+  /** The payment service (Paddle on the server, test payments in the demo); null: not on sale. */
   payments: PaymentProvider | null = null;
 
-  shardOffer(): { products: ShardProduct[]; enabled: boolean; test: boolean } {
-    return { products: SHARD_PRODUCTS, enabled: !!this.payments, test: this.payments?.id === 'test' };
+  shardOffer(): ShardOffer {
+    return { products: SHARD_PRODUCTS, enabled: !!this.payments, test: this.payments?.id === 'test', checkout: this.payments?.client ?? null };
   }
 
   private purchaseView(p: PurchaseRow): PurchaseView {

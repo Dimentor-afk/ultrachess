@@ -1,5 +1,5 @@
 // Shards for real money: what is on sale, and the contract every payment
-// service implements (Lemon Squeezy on the server, test payments in the demo).
+// service implements (Paddle on the server, test payments in the demo).
 // The game service decides what a purchase is worth and credits it exactly
 // once; a provider only takes the money and reports what happened to it.
 
@@ -39,7 +39,7 @@ export interface PurchaseRow {
   amount: number;
   ccy: string;
   provider: string;
-  /** The payment service's id (Lemon Squeezy checkout); null until the checkout exists. */
+  /** The payment service's id (Paddle transaction); null until it exists. */
   providerId: string | null;
   status: PurchaseStatus;
   createdAt: number;
@@ -51,8 +51,8 @@ export interface ProviderState {
   status: PurchaseStatus;
   /**
    * What was actually charged, in cents, checked against the purchase. Null when
-   * the service charges exactly the price our server set (Lemon Squeezy: the
-   * price is fixed in the checkout we create, and taxes come on top).
+   * the service charges exactly the price our server set (Paddle: the price is
+   * fixed in the transaction we create, and taxes are its business).
    */
   amount: number | null;
   ccy: string;
@@ -77,6 +77,23 @@ export interface PaymentProvider {
   createInvoice(inv: Invoice): Promise<{ providerId: string; pageUrl: string }>;
   /** Ask the service how an invoice stands (when the webhook is late or lost). */
   status(providerId: string): Promise<ProviderState>;
+  /** Public settings the browser needs to open the service's checkout (Paddle's client token). */
+  client?: CheckoutClient;
+}
+
+/** How the browser opens the checkout: Paddle's overlay needs its client-side token. */
+export interface CheckoutClient {
+  provider: 'paddle';
+  token: string;
+  sandbox: boolean;
+}
+
+/** What the shop shows: the bundles, whether they are on sale, and how to pay. */
+export interface ShardOffer {
+  products: ShardProduct[];
+  enabled: boolean;
+  test: boolean;
+  checkout: CheckoutClient | null;
 }
 
 /** What the player sees about a purchase. */

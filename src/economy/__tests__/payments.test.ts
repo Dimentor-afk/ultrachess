@@ -1,6 +1,6 @@
 import { createHmac } from 'node:crypto';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { LemonPayments } from '../../../server/lemonsqueezy';
+import { PaddlePayments } from '../../../server/paddle';
 import { MemoryStore } from '../memoryStore';
 import { type Invoice, type PaymentProvider, type ProviderState, SHARD_PRODUCTS, TestPayments } from '../payments';
 import { GameService } from '../service';
@@ -11,7 +11,7 @@ const BASE = 'https://ultrachess.test/';
 
 /** A payment service we control: what the "bank" reports is set by the test. */
 class FakeBank implements PaymentProvider {
-  id = 'lemon';
+  id = 'paddle';
   invoices: Invoice[] = [];
   next: ProviderState = { status: 'pending', amount: 0, ccy: 'USD' };
   async createInvoice(inv: Invoice) {
@@ -47,13 +47,13 @@ describe('buying shards', () => {
       amount: product.price,
       ccy: 'USD',
       redirectUrl: `${BASE}#/shop/paid/${purchaseId}`,
-      webhookUrl: `${BASE}api/payments/lemon/webhook`,
+      webhookUrl: `${BASE}api/payments/paddle/webhook`,
     });
     expect((await svc.purchases(a.token))[0]).toMatchObject({ id: purchaseId, status: 'pending' });
 
     const paid: ProviderState = { status: 'paid', amount: product.price, ccy: 'USD' };
-    await svc.paymentNotice('lemon', purchaseId, 'inv-1', paid);
-    await svc.paymentNotice('lemon', purchaseId, 'inv-1', paid); // the bank repeats notices
+    await svc.paymentNotice('paddle', purchaseId, 'inv-1', paid);
+    await svc.paymentNotice('paddle', purchaseId, 'inv-1', paid); // the bank repeats notices
     bank.next = paid;
     await svc.purchase(a.token, purchaseId); // and the return page asks again
     expect(await shards()).toBe(before + product.shards);
@@ -75,12 +75,12 @@ describe('buying shards', () => {
     const { svc, a, shards } = await setup();
     const before = await shards();
     const one = await svc.buyShards(a.token, product.id, BASE);
-    await svc.paymentNotice('lemon', one.purchaseId, 'inv-1', { status: 'paid', amount: 100, ccy: 'USD' });
+    await svc.paymentNotice('paddle', one.purchaseId, 'inv-1', { status: 'paid', amount: 100, ccy: 'USD' });
     expect((await svc.purchase(a.token, one.purchaseId)).purchase.status).toBe('failed');
     const two = await svc.buyShards(a.token, product.id, BASE);
-    await svc.paymentNotice('lemon', two.purchaseId, 'inv-2', { status: 'expired', amount: 0, ccy: 'USD' });
+    await svc.paymentNotice('paddle', two.purchaseId, 'inv-2', { status: 'expired', amount: 0, ccy: 'USD' });
     // A late "paid" after expiry changes nothing.
-    await svc.paymentNotice('lemon', two.purchaseId, 'inv-2', { status: 'paid', amount: product.price, ccy: 'USD' });
+    await svc.paymentNotice('paddle', two.purchaseId, 'inv-2', { status: 'paid', amount: product.price, ccy: 'USD' });
     expect((await svc.purchase(a.token, two.purchaseId)).purchase.status).toBe('expired');
     expect(await shards()).toBe(before);
   });
@@ -88,9 +88,9 @@ describe('buying shards', () => {
   it('a refund takes the shards back, even below zero', async () => {
     const { svc, store, a, shards } = await setup();
     const { purchaseId } = await svc.buyShards(a.token, product.id, BASE);
-    await svc.paymentNotice('lemon', purchaseId, 'inv-1', { status: 'paid', amount: product.price, ccy: 'USD' });
+    await svc.paymentNotice('paddle', purchaseId, 'inv-1', { status: 'paid', amount: product.price, ccy: 'USD' });
     await store.updateUser(a.profile.id, { shards: 10 }); // spent most of them
-    await svc.paymentNotice('lemon', purchaseId, 'inv-1', { status: 'refunded', amount: product.price, ccy: 'USD' });
+    await svc.paymentNotice('paddle', purchaseId, 'inv-1', { status: 'refunded', amount: product.price, ccy: 'USD' });
     expect(await shards()).toBe(10 - product.shards);
     expect((await svc.purchases(a.token))[0].status).toBe('refunded');
   });
@@ -100,7 +100,7 @@ describe('buying shards', () => {
     const before = await shards();
     const { purchaseId } = await svc.buyShards(a.token, product.id, BASE);
     const paid: ProviderState = { status: 'paid', amount: product.price, ccy: 'USD' };
-    await svc.paymentNotice('lemon', purchaseId, 'inv-999', paid);
+    await svc.paymentNotice('paddle', purchaseId, 'inv-999', paid);
     await svc.paymentNotice('stripe', purchaseId, 'inv-1', paid);
     expect(await shards()).toBe(before);
   });
@@ -129,52 +129,62 @@ describe('buying shards', () => {
   });
 });
 
-describe('Lemon Squeezy', () => {
+describe('Paddle', () => {
   afterEach(() => vi.unstubAllGlobals());
-  const cfg = { apiKey: 'key', storeId: '11', variantId: '22', webhookSecret: 'whsec' };
-  const sign = (body: string, secret = cfg.webhookSecret) => createHmac('sha256', secret).update(body).digest('hex');
-  const order = (event: string, status: string, purchaseId = 'p1') =>
-    JSON.stringify({ meta: { event_name: event, custom_data: { purchase_id: purchaseId } }, data: { id: '9', attributes: { status, total: 99 } } });
+  const cfg = { apiKey: 'key', clientToken: 'test_tok', productId: 'pro_1', webhookSecret: 'pdl_ntfset_secret', sandbox: true };
+  const NOW = 1_800_000_000_000;
+  const sign = (body: string, ts = NOW / 1000, secret = cfg.webhookSecret) =>
+    `ts=${ts};h1=${createHmac('sha256', secret).update(`${ts}:${body}`).digest('hex')}`;
+  const completed = (purchaseId = 'p1') =>
+    JSON.stringify({ event_type: 'transaction.completed', data: { id: 'txn_1', status: 'completed', custom_data: { purchase_id: purchaseId } } });
 
-  it('accepts only notices signed with our secret and maps the order', () => {
-    const lemon = new LemonPayments(cfg);
-    const body = order('order_created', 'paid');
-    expect(lemon.verifyWebhook(Buffer.from(body), sign(body))).toEqual({ purchaseId: 'p1', state: { status: 'paid', amount: null, ccy: 'USD' } });
-    expect(lemon.verifyWebhook(Buffer.from(order('order_refunded', 'refunded')), sign(order('order_refunded', 'refunded')))?.state.status).toBe('refunded');
-    // Changed body, someone else's secret, no signature: refused.
-    expect(lemon.verifyWebhook(Buffer.from(body.replace('p1', 'p2')), sign(body))).toBeNull();
-    expect(lemon.verifyWebhook(Buffer.from(body), sign(body, 'other'))).toBeNull();
-    expect(lemon.verifyWebhook(Buffer.from(body), '')).toBeNull();
-    // Other events, a partial refund, no purchase id: nothing to apply.
-    const sub = order('subscription_created', 'active');
-    expect(lemon.verifyWebhook(Buffer.from(sub), sign(sub))).toBeNull();
-    const partial = order('order_refunded', 'partial_refund');
-    expect(lemon.verifyWebhook(Buffer.from(partial), sign(partial))).toBeNull();
+  it('accepts only fresh notices signed with our secret', () => {
+    const paddle = new PaddlePayments(cfg);
+    const body = completed();
+    expect(paddle.signed(Buffer.from(body), sign(body), NOW)).toBe(true);
+    // Changed body, someone else's secret, an old replayed notice, no header: refused.
+    expect(paddle.signed(Buffer.from(body.replace('p1', 'p2')), sign(body), NOW)).toBe(false);
+    expect(paddle.signed(Buffer.from(body), sign(body, NOW / 1000, 'other'), NOW)).toBe(false);
+    expect(paddle.signed(Buffer.from(body), sign(body, NOW / 1000 - 3600), NOW)).toBe(false);
+    expect(paddle.signed(Buffer.from(body), '', NOW)).toBe(false);
   });
 
-  it('creates a checkout at our price with our purchase id in the custom data', async () => {
-    const fetchStub = vi.fn(async () => new Response(JSON.stringify({ data: { id: 'chk-1', attributes: { url: 'https://x.lemonsqueezy.com/checkout/chk-1' } } })));
+  it('maps a completed transaction and a full refund to our purchase', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ data: { id: 'txn_1', status: 'completed', custom_data: { purchase_id: 'p1' } } }))));
+    const paddle = new PaddlePayments(cfg);
+    expect(await paddle.notice(Buffer.from(completed()))).toEqual({ purchaseId: 'p1', transactionId: 'txn_1', state: { status: 'paid', amount: null, ccy: 'USD' } });
+    const refund = (type: string) => JSON.stringify({ event_type: 'adjustment.updated', data: { action: 'refund', status: 'approved', type, transaction_id: 'txn_1' } });
+    expect((await paddle.notice(Buffer.from(refund('full'))))?.state.status).toBe('refunded');
+    // A partial refund, a pending refund, other events: nothing to apply.
+    expect(await paddle.notice(Buffer.from(refund('partial')))).toBeNull();
+    expect(await paddle.notice(Buffer.from(refund('full').replace('approved', 'pending_approval')))).toBeNull();
+    expect(await paddle.notice(Buffer.from(JSON.stringify({ event_type: 'customer.created', data: {} })))).toBeNull();
+  });
+
+  it('creates a transaction at our price with our purchase id; the checkout opens in our page', async () => {
+    const fetchStub = vi.fn(async () => new Response(JSON.stringify({ data: { id: 'txn_9', status: 'ready' } })));
     vi.stubGlobal('fetch', fetchStub);
-    const lemon = new LemonPayments(cfg);
-    const r = await lemon.createInvoice({ purchaseId: 'p1', base: BASE, amount: 499, ccy: 'USD', title: 'Ultrachess: 650 shards', redirectUrl: 'r', webhookUrl: 'w' });
-    expect(r).toEqual({ providerId: 'chk-1', pageUrl: 'https://x.lemonsqueezy.com/checkout/chk-1' });
+    const paddle = new PaddlePayments(cfg);
+    const r = await paddle.createInvoice({ purchaseId: 'p1', base: BASE, amount: 499, ccy: 'USD', title: 'Ultrachess: 650 shards', redirectUrl: 'r', webhookUrl: 'w' });
+    expect(r).toEqual({ providerId: 'txn_9', pageUrl: `${BASE}#/pay/paddle/p1/txn_9` });
     const [url, init] = fetchStub.mock.calls.at(-1)! as unknown as [string, RequestInit];
-    expect(url).toBe('https://api.lemonsqueezy.com/v1/checkouts');
+    expect(url).toBe('https://sandbox-api.paddle.com/transactions');
     expect((init.headers as Record<string, string>).Authorization).toBe('Bearer key');
     const sent = JSON.parse(String(init.body));
-    expect(sent.data.attributes).toMatchObject({ custom_price: 499, checkout_data: { custom: { purchase_id: 'p1' } }, product_options: { redirect_url: 'r' } });
-    expect(sent.data.relationships).toEqual({ store: { data: { type: 'stores', id: '11' } }, variant: { data: { type: 'variants', id: '22' } } });
+    expect(sent.custom_data).toEqual({ purchase_id: 'p1' });
+    expect(sent.items[0].price).toMatchObject({ product_id: 'pro_1', unit_price: { amount: '499', currency_code: 'USD' } });
+    expect(paddle.client).toEqual({ provider: 'paddle', token: 'test_tok', sandbox: true });
   });
 
-  it('a signed notice credits the purchase it names, once', async () => {
+  it('a lost notice: the return page asks Paddle and credits once', async () => {
     const { svc, a, shards } = await setup();
-    svc.payments = new LemonPayments(cfg);
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ data: { id: 'chk-1', attributes: { url: 'u' } } }))));
+    svc.payments = new PaddlePayments(cfg);
+    vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) =>
+      new Response(JSON.stringify({ data: { id: 'txn_1', status: init?.method === 'POST' ? 'ready' : 'completed' } }))));
     const before = await shards();
     const { purchaseId } = await svc.buyShards(a.token, product.id, BASE);
-    const paid = { status: 'paid' as const, amount: null, ccy: 'USD' };
-    await svc.paymentNotice('lemon', purchaseId, null, paid);
-    await svc.paymentNotice('lemon', purchaseId, null, paid);
+    expect((await svc.purchase(a.token, purchaseId)).purchase.status).toBe('paid');
+    await svc.paymentNotice('paddle', purchaseId, 'txn_1', { status: 'paid', amount: null, ccy: 'USD' });
     expect(await shards()).toBe(before + product.shards);
   });
 });

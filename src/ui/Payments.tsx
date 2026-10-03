@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import type { PurchaseView, ShardProduct } from '../api/client';
+import type { PurchaseView, ShardOffer, ShardProduct } from '../api/client';
 import { PACKS, RARITIES, type PackType } from '../economy/packs';
 import { formatPrice, productById } from '../economy/payments';
 import { RARITY_NAMES } from '../engine/cards';
-import { locale } from '../i18n';
+import { getLang, locale } from '../i18n';
 import { navigate } from './router';
 import { errorText, useSession } from './state';
 import { t } from '../i18n';
@@ -19,7 +19,7 @@ const STATUS: Record<PurchaseView['status'], string> = {
 /** Shards for money: the bundles, and the last purchases. */
 export function ShardStore() {
   const s = useSession();
-  const [offer, setOffer] = useState<{ products: ShardProduct[]; enabled: boolean; test: boolean } | null>(null);
+  const [offer, setOffer] = useState<ShardOffer | null>(null);
   const [mine, setMine] = useState<PurchaseView[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -34,8 +34,8 @@ export function ShardStore() {
     setBusy(p.id);
     try {
       const r = await s.api.buyShards(p.id);
-      const hash = r.pageUrl.indexOf('#/pay/test/');
-      // The test page lives in the app; a real payment page is Lemon Squeezy's.
+      const hash = r.pageUrl.indexOf('#/pay/');
+      // Both the test page and Paddle's checkout open inside the app.
       if (hash >= 0) navigate(r.pageUrl.slice(hash + 1));
       else window.location.href = r.pageUrl;
     } catch (e) {
@@ -64,7 +64,7 @@ export function ShardStore() {
             ))}
           </div>
           <p className="muted tiny">
-            {offer.test ? t('Тестова оплата: гроші не списуються.') : t('Оплата карткою, PayPal чи Apple/Google Pay на сторінці Lemon Squeezy — він продавець і рахує податки.')}{' '}
+            {offer.test ? t('Тестова оплата: гроші не списуються.') : t('Оплата карткою, PayPal чи Apple/Google Pay у вікні Paddle — він продавець і рахує податки.')}{' '}
             {t('Уламки зараховуються одразу після оплати. Купуючи, ви погоджуєтесь з')}{' '}<a href="#/terms">{t('умовами продажу')}</a>.
           </p>
         </>
@@ -179,7 +179,7 @@ export function TestPayPage({ id }: { id: string }) {
             <p className="test-pay-sum">
               {formatPrice(p.amount)} <span className="muted">· Ultrachess: {product?.shards ?? p.shards} 💎</span>
             </p>
-            <p className="muted small">{t('На справжньому сайті тут була б сторінка оплати Lemon Squeezy. Оберіть, чим закінчиться оплата:')}</p>
+            <p className="muted small">{t('На справжньому сайті тут була б вікно оплати Paddle. Оберіть, чим закінчиться оплата:')}</p>
             <div className="test-pay-actions">
               <button className="btn btn-primary" disabled={busy} onClick={() => finish(true)}>
                 {t('Оплатити')}
@@ -190,6 +190,77 @@ export function TestPayPage({ id }: { id: string }) {
             </div>
           </>
         )}
+      </div>
+    </section>
+  );
+}
+
+/** Paddle.js as much as this page uses it. */
+interface PaddleJs {
+  Environment: { set(env: 'sandbox'): void };
+  Initialize(opts: { token: string; eventCallback: (e: { name?: string }) => void }): void;
+  Checkout: { open(opts: { transactionId: string; settings: Record<string, unknown> }): void };
+}
+
+let paddleJs: Promise<PaddleJs> | null = null;
+
+/** Paddle's script, loaded once, the first time someone pays. */
+function loadPaddle(): Promise<PaddleJs> {
+  return (paddleJs ??= new Promise((resolve, reject) => {
+    const el = document.createElement('script');
+    el.src = 'https://cdn.paddle.com/paddle/v2/paddle.js';
+    el.onload = () => resolve((window as unknown as { Paddle: PaddleJs }).Paddle);
+    el.onerror = () => {
+      paddleJs = null;
+      reject(new Error(t('Не вдалося завантажити сторінку оплати. Перевірте з’єднання.')));
+    };
+    document.head.appendChild(el);
+  }));
+}
+
+/**
+ * #/pay/paddle/<purchase>/<transaction>: Paddle's checkout over our page. When it
+ * completes the player goes to the return page, which waits for Paddle's notice.
+ */
+export function PaddlePayPage({ purchaseId, transactionId }: { purchaseId: string; transactionId: string }) {
+  const s = useSession();
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let done = false;
+    (async () => {
+      const offer = await s.api.shardOffer();
+      if (offer.checkout?.provider !== 'paddle') throw new Error(t('Покупки за гроші поки недоступні.'));
+      const Paddle = await loadPaddle();
+      if (offer.checkout.sandbox) Paddle.Environment.set('sandbox');
+      Paddle.Initialize({
+        token: offer.checkout.token,
+        eventCallback: (e) => {
+          if (e.name === 'checkout.completed') {
+            done = true;
+            navigate(`/shop/paid/${purchaseId}`);
+          } else if (e.name === 'checkout.closed' && !done) {
+            navigate('/shop');
+          }
+        },
+      });
+      const lang = getLang();
+      Paddle.Checkout.open({
+        transactionId,
+        settings: { displayMode: 'overlay', theme: 'dark', locale: lang === 'uk' ? 'en' : lang, showAddDiscounts: false },
+      });
+    })().catch((e) => setError(errorText(e)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [purchaseId, transactionId]);
+
+  return (
+    <section className="page">
+      <div className="panel test-pay">
+        <h1>{t('Оплата')}</h1>
+        {error ? <p className="error-text">{error}</p> : <p className="muted">{t('Відкриваємо вікно оплати Paddle…')}</p>}
+        <button className="btn btn-ghost" onClick={() => navigate('/shop')}>
+          {t('До магазину')}
+        </button>
       </div>
     </section>
   );
