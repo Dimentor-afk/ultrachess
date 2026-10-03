@@ -4,6 +4,8 @@ import { cardArt, packArt } from './cardArt';
 import { errorText } from './state';
 import { ForgotForm, NAME_HINT } from './AccountPages';
 import { NAME_MAX, PASSWORD_MIN } from '../economy/account';
+import { t } from '../i18n';
+import { LangSelect } from './LangSelect';
 
 export function AuthPage({ api, onAuth }: { api: Api; onAuth: (p: Profile) => void }) {
   const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('register');
@@ -28,6 +30,9 @@ export function AuthPage({ api, onAuth }: { api: Api; onAuth: (p: Profile) => vo
 
   return (
     <div className="auth-screen">
+      <div className="auth-lang">
+        <LangSelect compact />
+      </div>
       <div className="auth-hero">
         <div className="auth-art">
           {['king-classic', 'queen-levitation', 'knight-berserk', 'rook-castle', 'bishop-piercer'].map((id, i) => (
@@ -38,7 +43,7 @@ export function AuthPage({ api, onAuth }: { api: Api; onAuth: (p: Profile) => vo
         <h1 className="logo">
           Ultra<b>chess</b>
         </h1>
-        <p className="auth-tagline">Шахи, де кожна фігура — картка. Відкривай паки, збирай колоду, піднімайся аренами.</p>
+        <p className="auth-tagline">{t('Шахи, де кожна фігура — картка. Відкривай паки, збирай колоду, піднімайся аренами.')}</p>
       </div>
 
       {mode === 'forgot' ? (
@@ -47,25 +52,25 @@ export function AuthPage({ api, onAuth }: { api: Api; onAuth: (p: Profile) => vo
       <form className="auth-card" onSubmit={submit}>
         <div className="tabs">
           <button type="button" className={mode === 'register' ? 'on' : ''} onClick={() => setMode('register')}>
-            Реєстрація
+            {t('Реєстрація')}
           </button>
           <button type="button" className={mode === 'login' ? 'on' : ''} onClick={() => setMode('login')}>
-            Вхід
+            {t('Вхід')}
           </button>
         </div>
         {mode === 'register' && (
           <label className="field">
-            <span>Нікнейм</span>
-            <input id="auth-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={NAME_MAX} placeholder="Як вас звати на арені" />
+            <span>{t('Нікнейм')}</span>
+            <input id="auth-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={NAME_MAX} placeholder={t('Як вас звати на арені')} />
             <small className="muted tiny">{NAME_HINT}</small>
           </label>
         )}
         <label className="field">
-          <span>Пошта</span>
+          <span>{t('Пошта')}</span>
           <input id="auth-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
         </label>
         <label className="field">
-          <span>Пароль</span>
+          <span>{t('Пароль')}</span>
           <input
             id="auth-password"
             type="password"
@@ -78,16 +83,16 @@ export function AuthPage({ api, onAuth }: { api: Api; onAuth: (p: Profile) => vo
         </label>
         {error && <p className="error-text">{error}</p>}
         <button className="btn btn-primary btn-lg btn-block-c" disabled={busy}>
-          {mode === 'login' ? 'Увійти' : 'Створити акаунт'}
+          {mode === 'login' ? t('Увійти') : t('Створити акаунт')}
         </button>
         {mode === 'login' && (
           <button type="button" className="btn btn-ghost btn-sm btn-block-c" onClick={() => setMode('forgot')}>
-            Забули пароль?
+            {t('Забули пароль?')}
           </button>
         )}
-        {mode === 'register' && <p className="muted small center">Після реєстрації — стартовий пак: по одній картці кожної фігури.</p>}
+        {mode === 'register' && <p className="muted small center">{t('Після реєстрації — стартовий пак: по одній картці кожної фігури.')}</p>}
         {api.mode === 'local' && (
-          <p className="muted small center demo-note">Демо без сервера: акаунти й колекція зберігаються лише в цьому браузері.</p>
+          <p className="muted small center demo-note">{t('Демо без сервера: акаунти й колекція зберігаються лише в цьому браузері.')}</p>
         )}
       </form>
       )}

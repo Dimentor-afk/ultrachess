@@ -366,37 +366,41 @@ const emailOk = (e: string) => e.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.t
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
-function letter(to: string, subject: string, lines: string[], link?: { href: string; label: string }): Mail {
+/** Text of a letter in the reader's language: the Ukrainian text with {0}-style placeholders is the key. */
+export type Say = (text: string, ...args: unknown[]) => string;
+const ukrainian: Say = (text, ...args) => text.replace(/\{(\d+)\}/g, (m, i) => (i < args.length ? String(args[+i]) : m));
+
+function letter(say: Say, to: string, subject: string, lines: string[], link?: { href: string; label: string }): Mail {
   const text = [...lines, ...(link ? ['', link.href] : []), '', '— Ultrachess'].join('\n');
   const html = `<div style="font-family:system-ui,sans-serif;font-size:15px;line-height:1.5;color:#1d2433;max-width:520px">
 ${lines.map((l) => `<p>${esc(l)}</p>`).join('\n')}
 ${link ? `<p><a href="${esc(link.href)}" style="display:inline-block;padding:10px 18px;background:#e0a526;color:#1d2433;border-radius:8px;text-decoration:none;font-weight:700">${esc(link.label)}</a></p>
-<p style="font-size:13px;color:#667">Якщо кнопка не працює, скопіюйте посилання: ${esc(link.href)}</p>` : ''}
+<p style="font-size:13px;color:#667">${esc(say('Якщо кнопка не працює, скопіюйте посилання:'))} ${esc(link.href)}</p>` : ''}
 <p style="color:#667">— Ultrachess</p></div>`;
   return { to, subject, text, html };
 }
 
-function resetMail(name: string, to: string, href: string): Mail {
-  return letter(to, 'Ultrachess: новий пароль', [
-    `Привіт, ${name}!`,
-    'Хтось (сподіваємось, ви) попросив змінити пароль до вашого акаунта Ultrachess.',
-    'Посилання працює одну годину й лише один раз. Якщо ви нічого не просили, просто проігноруйте цей лист: пароль лишиться тим самим.',
-  ], { href, label: 'Задати новий пароль' });
+function resetMail(say: Say, name: string, to: string, href: string): Mail {
+  return letter(say, to, say('Ultrachess: новий пароль'), [
+    say('Привіт, {0}!', name),
+    say('Хтось (сподіваємось, ви) попросив змінити пароль до вашого акаунта Ultrachess.'),
+    say('Посилання працює одну годину й лише один раз. Якщо ви нічого не просили, просто проігноруйте цей лист: пароль лишиться тим самим.'),
+  ], { href, label: say('Задати новий пароль') });
 }
 
-function verifyMail(name: string, to: string, href: string): Mail {
-  return letter(to, 'Ultrachess: підтвердіть пошту', [
-    `Привіт, ${name}!`,
-    'Підтвердіть, що це ваша пошта: так ви зможете відновити пароль, якщо його забудете.',
-    'Посилання працює 3 дні.',
-  ], { href, label: 'Підтвердити пошту' });
+function verifyMail(say: Say, name: string, to: string, href: string): Mail {
+  return letter(say, to, say('Ultrachess: підтвердіть пошту'), [
+    say('Привіт, {0}!', name),
+    say('Підтвердіть, що це ваша пошта: так ви зможете відновити пароль, якщо його забудете.'),
+    say('Посилання працює 3 дні.'),
+  ], { href, label: say('Підтвердити пошту') });
 }
 
-function emailChangedMail(name: string, to: string, next: string): Mail {
-  return letter(to, 'Ultrachess: пошту акаунта змінено', [
-    `Привіт, ${name}!`,
-    `Пошту вашого акаунта Ultrachess щойно змінено на ${next}.`,
-    'Якщо це були не ви, негайно напишіть адміністратору гри: ми повернемо акаунт на цю адресу.',
+function emailChangedMail(say: Say, name: string, to: string, next: string): Mail {
+  return letter(say, to, say('Ultrachess: пошту акаунта змінено'), [
+    say('Привіт, {0}!', name),
+    say('Пошту вашого акаунта Ultrachess щойно змінено на {0}.', next),
+    say('Якщо це були не ви, негайно напишіть адміністратору гри: ми повернемо акаунт на цю адресу.'),
   ]);
 }
 
@@ -501,7 +505,7 @@ export class GameService {
   // ── Accounts ──
 
   /** `base` (the site's address): where the confirmation link in the welcome letter points. */
-  async register(emailRaw: string, password: string, nameRaw: string, base?: string): Promise<{ token: string; profile: Profile }> {
+  async register(emailRaw: string, password: string, nameRaw: string, base?: string, lang?: string): Promise<{ token: string; profile: Profile }> {
     const email = emailRaw.trim().toLowerCase();
     if (!emailOk(email)) throw new ApiError(400, 'Вкажіть коректну пошту.');
     const typed = cleanName(nameRaw);
@@ -529,7 +533,7 @@ export class GameService {
     }
     await this.giveStarter(user);
     // The confirmation letter must not stand in the way of playing: a failure is only logged.
-    if (base) await this.sendLink(user, 'verify', email, base).catch((e) => console.error('Verification mail failed:', e));
+    if (base) await this.sendLink(user, 'verify', email, base, lang).catch((e) => console.error('Verification mail failed:', e));
     return { token: await this.newSession(user.id), profile: await this.profileOf(user.id) };
   }
 
@@ -554,10 +558,15 @@ export class GameService {
   mailer: Mailer | null = null;
   /** The browser demo has no mail: actions answer with the link itself. */
   showLinks = false;
+  /** Letters in the reader's language (the server sets it; without it they are Ukrainian). */
+  localize: ((lang: string) => Say | null) | null = null;
+  private say(lang?: string): Say {
+    return (lang && this.localize?.(lang)) || ukrainian;
+  }
   private lastMail = new Map<string, number>();
 
   /** A one-time link of `kind` for `u`, sent to `email`. `base` is the site's address. */
-  private async sendLink(u: UserRow, kind: TokenRow['kind'], email: string, base: string): Promise<MailSent> {
+  private async sendLink(u: UserRow, kind: TokenRow['kind'], email: string, base: string, lang?: string): Promise<MailSent> {
     const key = `${kind}:${u.id}`;
     if (this.now() - (this.lastMail.get(key) ?? 0) < MAIL_GAP_MS) {
       throw new ApiError(429, 'Лист уже надіслано. Зачекайте хвилину, перш ніж просити ще один.');
@@ -569,7 +578,7 @@ export class GameService {
     const token = randomId(32);
     await this.store.insertToken({ hash: await sha256(token), userId: u.id, kind, email, expiresAt: this.now() + LINK_TTL[kind] });
     const link = `${base}#/${kind}/${token}`;
-    const mail = kind === 'reset' ? resetMail(u.name, email, link) : verifyMail(u.name, email, link);
+    const mail = kind === 'reset' ? resetMail(this.say(lang), u.name, email, link) : verifyMail(this.say(lang), u.name, email, link);
     if (this.mailer) await this.mailer(mail);
     else if (!this.showLinks) console.log(`[mail to ${email}] ${mail.subject}: ${link}`);
     return this.showLinks ? { sent: true, link } : { sent: true };
@@ -590,12 +599,12 @@ export class GameService {
    * "Forgot password": a reset link to the address, if an account has it.
    * The answer is the same either way, so nobody can test which e-mails are registered.
    */
-  async requestPasswordReset(emailRaw: string, base: string): Promise<MailSent> {
+  async requestPasswordReset(emailRaw: string, base: string, lang?: string): Promise<MailSent> {
     const email = emailRaw.trim().toLowerCase();
     if (!emailOk(email)) throw new ApiError(400, 'Вкажіть коректну пошту.');
     const u = await this.store.getUserByEmail(email);
     if (!u || u.deleted) return { sent: true };
-    const sending = this.sendLink(u, 'reset', email, base).catch((e) => {
+    const sending = this.sendLink(u, 'reset', email, base, lang).catch((e) => {
       // Too soon or the mail service failed: still the same answer to the asker.
       if (!(e instanceof ApiError)) console.error('Reset mail failed:', e);
       return { sent: true } as MailSent;
@@ -622,10 +631,10 @@ export class GameService {
   }
 
   /** Send (again) the link that confirms the account's e-mail. */
-  async sendVerification(token: string, base: string): Promise<MailSent> {
+  async sendVerification(token: string, base: string, lang?: string): Promise<MailSent> {
     const u = await this.auth(token);
     if (u.emailVerified) throw new ApiError(409, 'Пошту вже підтверджено.');
-    return this.sendLink(u, 'verify', u.email, base);
+    return this.sendLink(u, 'verify', u.email, base, lang);
   }
 
   /** The confirmation link was opened (signed in or not). */
@@ -655,7 +664,7 @@ export class GameService {
   }
 
   /** Move the account to another address; it has to be confirmed again. */
-  async changeEmail(token: string, password: string, emailRaw: string, base: string): Promise<{ profile: Profile; mail: MailSent }> {
+  async changeEmail(token: string, password: string, emailRaw: string, base: string, lang?: string): Promise<{ profile: Profile; mail: MailSent }> {
     const u = await this.auth(token);
     await this.checkPassword(u, password);
     const email = emailRaw.trim().toLowerCase();
@@ -669,9 +678,9 @@ export class GameService {
     const moved = { ...u, email, emailVerified: false };
     let mail: MailSent = { sent: false };
     try {
-      mail = await this.sendLink(moved, 'verify', email, base);
+      mail = await this.sendLink(moved, 'verify', email, base, lang);
       // The old address learns about it: if it was not its owner, they know at once.
-      if (this.mailer) await this.mailer(emailChangedMail(u.name, old, email)).catch(() => undefined);
+      if (this.mailer) await this.mailer(emailChangedMail(this.say(lang), u.name, old, email)).catch(() => undefined);
     } catch (e) {
       console.error('Verification mail failed:', e);
     }

@@ -6,6 +6,7 @@ import { RARITY_NAMES } from '../engine/cards';
 import { packArt } from './cardArt';
 import { currentPath, onNavigate } from './router';
 import { useSession } from './state';
+import { t, tr } from '../i18n';
 
 function ladderFromHash(): Ladder {
   return currentPath().includes('/pvp') ? 'pvp' : 'bot';
@@ -30,21 +31,20 @@ export function LeaguesPage() {
   return (
     <section className="page leagues">
       <div className="page-head">
-        <h1>Ліги</h1>
+        <h1>{t('Ліги')}</h1>
         <p className="muted">
-          Дві окремі драбини з власними кубками. Ліга ботів — тренувальна: суперники-боти від ~250 Elo, скромніші нагороди. Ліга гравців —
-          живі суперники й повні нагороди. За перший вихід у кожну лігу — бонус.
+          {t('Дві окремі драбини з власними кубками. Ліга ботів — тренувальна: суперники-боти від ~250 Elo, скромніші нагороди. Ліга гравців — живі суперники й повні нагороди. За перший вихід у кожну лігу — бонус.')}
         </p>
       </div>
 
-      <div className="ladder-switch" role="tablist" aria-label="Драбина">
+      <div className="ladder-switch" role="tablist" aria-label={t('Драбина')}>
         {(['bot', 'pvp'] as Ladder[]).map((l) => (
           <a key={l} role="tab" aria-selected={ladder === l} href={`#/leagues/${l}`} className={`ladder-tab ${ladder === l ? 'on' : ''}`}>
             <span className="ladder-icon">{l === 'bot' ? '🤖' : '⚔'}</span>
             <span>
               <b>{LADDER_NAMES[l]}</b>
               <small>
-                🏆 {profile.ladders[l].trophies} · {profile.ladders[l].leagueName}
+                🏆 {profile.ladders[l].trophies} · {tr(profile.ladders[l].leagueName)}
               </small>
             </span>
           </a>
@@ -53,17 +53,17 @@ export function LeaguesPage() {
 
       <div className="panel ladder-rules">
         <span>
-          Перемога: <b>+{LADDER_TROPHIES[ladder].win} 🏆</b>, 🪙 {LADDER_WIN_GOLD[ladder]} і пак
+          {t('Перемога:')}{' '}<b>+{LADDER_TROPHIES[ladder].win} 🏆</b>, 🪙 {LADDER_WIN_GOLD[ladder]} {t('і пак')}
         </span>
         <span>
-          Поразка: <b>{LADDER_TROPHIES[ladder].loss} 🏆</b>
+          {t('Поразка:')}{' '}<b>{LADDER_TROPHIES[ladder].loss} 🏆</b>
         </span>
         <span>
-          Паків за перемоги: до <b>{LADDER_PACK_LIMIT[ladder]}</b> на день (сьогодні {lv.packsToday})
+          {t('Паків за перемоги: до {0} на день (сьогодні {1})', LADDER_PACK_LIMIT[ladder], lv.packsToday)}
         </span>
-        <span>{ladder === 'bot' ? 'Паки не вище рідкісного' : 'Цикл паків аж до легендарного'}</span>
+        <span>{ladder === 'bot' ? t('Паки не вище рідкісного') : t('Цикл паків аж до легендарного')}</span>
         <span>
-          Рекорд: <b>{lv.best}</b> 🏆
+          {t('Рекорд:')}{' '}<b>{lv.best}</b> 🏆
         </span>
       </div>
 
@@ -81,16 +81,16 @@ export function LeaguesPage() {
                 <img className="league-art" src={packArt(l.art)} alt="" />
                 <div className="league-body">
                   <span className="eyebrow">
-                    Ліга {i + 1} · від {l.minTrophies} 🏆
+                    {t('Ліга {0} · від {1}', i + 1, l.minTrophies)} 🏆
                   </span>
                   <b className="league-name">{l.name}</b>
                   {bot && (
                     <span className="small">
-                      Бот: <b>{bot.name}</b> (~{bot.elo} Elo) · картки до «{RARITY_NAMES[l.botMaxRarity!].toLowerCase()}»
+                      {t('Бот:')} <b>{bot.name}</b> {t('(~{0} Elo) · картки до «{1}»', bot.elo, RARITY_NAMES[l.botMaxRarity!].toLowerCase())}
                     </span>
                   )}
                   {state === 'current' && next && (
-                    <div className="bar small-bar" aria-label="Прогрес до наступної ліги">
+                    <div className="bar small-bar" aria-label={t('Прогрес до наступної ліги')}>
                       <span style={{ width: `${inLeague * 100}%` }} />
                     </div>
                   )}
@@ -98,15 +98,15 @@ export function LeaguesPage() {
                 <div className="league-reward">
                   {l.reward.gold > 0 || l.reward.pack ? (
                     <>
-                      <small className="muted">за вихід</small>
+                      <small className="muted">{t('за вихід')}</small>
                       {l.reward.pack && <img src={packArt(l.reward.pack)} alt={packName(l.reward.pack)} title={packName(l.reward.pack)} />}
                       {l.reward.gold > 0 && <span className="gold">🪙 {l.reward.gold}</span>}
                     </>
                   ) : (
-                    <small className="muted">старт</small>
+                    <small className="muted">{t('старт')}</small>
                   )}
                 </div>
-                <span className="league-state">{state === 'passed' ? '✓' : state === 'current' ? 'ви тут' : '🔒'}</span>
+                <span className="league-state">{state === 'passed' ? '✓' : state === 'current' ? t('ви тут') : '🔒'}</span>
               </li>
             );
           })}
@@ -123,7 +123,7 @@ export function LeaguesPage() {
             }
           }}
         >
-          Грати в «{LADDER_NAMES[ladder]}»
+          {t('Грати в «{0}»', LADDER_NAMES[ladder])}
         </a>
       </p>
     </section>

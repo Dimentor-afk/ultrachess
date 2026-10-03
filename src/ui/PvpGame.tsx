@@ -6,6 +6,7 @@ import type { FxName } from './fxSprites';
 import { Game } from './LazyGame';
 import type { RemoteGame } from './MatchPage';
 import { useSession } from './state';
+import { t } from '../i18n';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -115,7 +116,7 @@ export function PvpGame({ pvp, onExit, onRematch }: { pvp: PvpState; onExit: () 
             }
             await sleep(700);
           }
-          throw new Error('Не вдалося отримати результат — він з’явиться в історії.');
+          throw new Error(t('Не вдалося отримати результат — він з’явиться в історії.'));
         }
       : undefined;
 

@@ -9,6 +9,7 @@ import { pieceSprite } from './cardArt';
 import { FX, type FxName } from './fxSprites';
 import { useSettings } from './settings';
 import { useOutlined } from './spriteOutline';
+import { t } from '../i18n';
 
 /** `far`: the end of a move that goes through stops (portal, ricochet, a turn). */
 export type Mark = 'move' | 'capture' | 'option' | 'stay' | 'far' | 'far-capture';
@@ -352,10 +353,10 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
 function squareLabel(s: Square, piece: ViewPiece | null, marked: boolean): string {
   const f = fileOf(s);
   const r = rankOf(s);
-  const name = isBoardSquare(s) ? `${FILES[f]}${r + 1}` : 'платформа за дошкою';
-  const suffix = marked ? ', можна піти' : '';
+  const name = isBoardSquare(s) ? `${FILES[f]}${r + 1}` : t('платформа за дошкою');
+  const suffix = marked ? t(', можна піти') : '';
   if (!piece) return name + suffix;
-  return `${name}: ${getCard(piece.cardId).name}${piece.color === 'w' ? ' (білі)' : ' (чорні)'}${suffix}`;
+  return `${name}: ${getCard(piece.cardId).name}${piece.color === 'w' ? t(' (білі)') : t(' (чорні)')}${suffix}`;
 }
 
 /** A piece redraws only when something about it changed (views are rebuilt every move). */
@@ -388,23 +389,23 @@ function PieceViewInner({ piece }: { piece: ViewPiece }) {
         </span>
       )}
       {piece.cooldown !== null && piece.cooldown > 0 && (
-        <span className="badge badge-cd" title={`Перезарядка: ще ${piece.cooldown} ход.`}>
+        <span className="badge badge-cd" title={t('Перезарядка: ще {0} ход.', piece.cooldown)}>
           <span className="badge-cd-icon">⏳</span>
           {piece.cooldown}
         </span>
       )}
-      {piece.frozen && <span className="badge badge-frozen" title="Пропускає хід">❄</span>}
+      {piece.frozen && <span className="badge badge-frozen" title={t('Пропускає хід')}>❄</span>}
       {piece.passenger && (
-        <span className="badge badge-passenger" title="Пішак-пасажир">
+        <span className="badge badge-passenger" title={t('Пішак-пасажир')}>
           <img className="piece-sprite pixel" src={pieceSprite('pawn-classic', 'pawn', piece.color, blackStyle).src} alt="" draggable={false} />
         </span>
       )}
       {piece.platformTurnsLeft !== null && (
-        <span className="badge badge-platform" title="Ходів суперника до зникнення платформи">
+        <span className="badge badge-platform" title={t('Ходів суперника до зникнення платформи')}>
           {piece.platformTurnsLeft}
         </span>
       )}
-      {piece.illusion && <span className="badge badge-illusion">ілюзія</span>}
+      {piece.illusion && <span className="badge badge-illusion">{t('ілюзія')}</span>}
     </span>
   );
 }

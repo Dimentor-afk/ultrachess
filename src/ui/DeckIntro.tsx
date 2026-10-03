@@ -4,6 +4,7 @@ import type { PlayerView } from '../engine/view';
 import type { Color, PieceType, Square } from '../engine/types';
 import { CardView } from './common';
 import { play } from './settings';
+import { t } from '../i18n';
 
 export interface IntroStep {
   cardId: string;
@@ -12,12 +13,12 @@ export interface IntroStep {
 
 const ORDER: PieceType[] = ['pawn', 'rook', 'knight', 'bishop', 'king', 'queen'];
 const GROUP_NAME: Record<PieceType, string> = {
-  pawn: 'Пішаки',
-  rook: 'Тури',
-  knight: 'Коні',
-  bishop: 'Слони',
-  king: 'Король',
-  queen: 'Ферзь',
+  pawn: t('Пішаки'),
+  rook: t('Тури'),
+  knight: t('Коні'),
+  bishop: t('Слони'),
+  king: t('Король'),
+  queen: t('Ферзь'),
 };
 
 /** The opponent's starting pieces, one step per card: pawns, rooks, knights, bishops, king, queen. */
@@ -108,9 +109,9 @@ export function DeckIntro({
   const step = steps[index];
   const card = step ? CARD_BY_ID[step.cardId] : null;
   return (
-    <div className="deck-intro" aria-label={`Колода суперника: ${opponent}`}>
+    <div className="deck-intro" aria-label={t('Колода суперника: {0}', opponent)}>
       <div className="deck-intro-head">
-        <span className="eyebrow">Колода суперника · {opponent}</span>
+        <span className="eyebrow">{t('Колода суперника · {0}', opponent)}</span>
         {card && (
           <b key={index} className="intro-group-name">
             {GROUP_NAME[card.pieceType]}
@@ -124,7 +125,7 @@ export function DeckIntro({
         </div>
       )}
       <button className="btn btn-ghost intro-skip" onClick={onDone}>
-        Пропустити ⏭
+        {t('Пропустити ⏭')}
       </button>
     </div>
   );

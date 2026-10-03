@@ -10,6 +10,7 @@ import { Icon } from './icons';
 import { currentPath, onNavigate } from './router';
 import { StylePanel } from './StylePanel';
 import { errorText, useSession } from './state';
+import { t, tr } from '../i18n';
 
 const MAX_DECKS = 10;
 const FILES = 'abcdefgh';
@@ -21,12 +22,12 @@ const tabFromHash = (): HubTab => (currentPath().split('/')[2] === 'style' ? 'st
 /** Two tabs: the deck itself and its looks (board colours, capture effect). */
 function HubSwitch({ tab }: { tab: HubTab }) {
   return (
-    <nav className="hub-switch" role="tablist" aria-label="Розділ колоди">
+    <nav className="hub-switch" role="tablist" aria-label={t('Розділ колоди')}>
       <a role="tab" aria-selected={tab === 'cards'} className={tab === 'cards' ? 'on' : ''} href="#/deck">
-        <Icon name="cards" /> Колода
+        <Icon name="cards" /> {t('Колода')}
       </a>
       <a role="tab" aria-selected={tab === 'style'} className={tab === 'style' ? 'on' : ''} href="#/deck/style">
-        <Icon name="brush" /> Стиль
+        <Icon name="brush" /> {t('Стиль')}
       </a>
     </nav>
   );
@@ -58,10 +59,10 @@ export function DeckPage() {
       <section className="page deckhub">
         <HubSwitch tab="cards" />
         <div className="panel empty-state">
-          <h1>Колода</h1>
-          <p className="muted">Відкрийте стартовий пак на головній — з нього збереться перша колода.</p>
+          <h1>{t('Колода')}</h1>
+          <p className="muted">{t('Відкрийте стартовий пак на головній — з нього збереться перша колода.')}</p>
           <a className="btn btn-primary" href="#/play">
-            На головну
+            {t('На головну')}
           </a>
         </div>
       </section>
@@ -141,11 +142,11 @@ function DeckHub({ deck }: { deck: Deck }) {
   const addDeck = async () => {
     await flush();
     const base = errors.length ? deck : draft;
-    const copy: Deck = { ...base, pawnVersions: [...base.pawnVersions], id: newDeckId(), name: `Колода ${s.decks.length + 1}` };
+    const copy: Deck = { ...base, pawnVersions: [...base.pawnVersions], id: newDeckId(), name: t('Колода {0}', s.decks.length + 1) };
     try {
       s.setDecks(await s.api.saveDeck(copy));
       s.setProfile(await s.api.setActiveDeck(copy.id));
-      s.toast(`«${copy.name}» створено — це копія попередньої, змінюйте як хочете.`);
+      s.toast(t('«{0}» створено — це копія попередньої, змінюйте як хочете.', copy.name));
     } catch (e) {
       s.toast(errorText(e), 'error');
     }
@@ -165,12 +166,12 @@ function DeckHub({ deck }: { deck: Deck }) {
   // ── Placing cards ──
   const place = (index: number, cardId: string, allPawns = false) => {
     if (!owned[cardId]) {
-      setMessage({ text: `«${CARD_BY_ID[cardId].name}» ще не відкрита — шукайте її в паках.`, bad: true });
+      setMessage({ text: t('«{0}» ще не відкрита — шукайте її в паках.', CARD_BY_ID[cardId].name), bad: true });
       return;
     }
     const res = placeCard(draft, index, cardId, allPawns);
     if (!res.deck) {
-      setMessage({ text: res.error, bad: true });
+      setMessage({ text: tr(res.error), bad: true });
       return;
     }
     update(res.deck);
@@ -180,20 +181,20 @@ function DeckHub({ deck }: { deck: Deck }) {
     // Only two kinds of pawns: a third one takes over every square of the kind it was dropped on.
     const lost = draft.pawnVersions.filter((v) => !res.deck!.pawnVersions.includes(v) && v !== cardId);
     if (!allPawns && lost.length && res.deck.pawnVersions.length === 2) {
-      setMessage({ text: `У колоді лише 2 види пішаків: «${name}» замінив «${CARD_BY_ID[lost[0]].name}» на всіх його клітинках.`, bad: false });
+      setMessage({ text: t('У колоді лише 2 види пішаків: «{0}» замінив «{1}» на всіх його клітинках.', name, CARD_BY_ID[lost[0]].name), bad: false });
       return;
     }
-    setMessage({ text: allPawns ? `«${name}» на всіх 8 пішаках.` : `«${name}» стоїть на ${squareName(index)}.`, bad: false });
+    setMessage({ text: allPawns ? t('«{0}» на всіх 8 пішаках.', name) : t('«{0}» стоїть на {1}.', name, squareName(index)), bad: false });
   };
 
   /** A pawn card onto a kind tile: that kind changes on all its squares. */
   const dropKind = (kind: 0 | 1, cardId: string) => {
     if (CARD_BY_ID[cardId].pieceType !== 'pawn') {
-      setMessage({ text: `«${CARD_BY_ID[cardId].name}» — не пішак.`, bad: true });
+      setMessage({ text: t('«{0}» — не пішак.', CARD_BY_ID[cardId].name), bad: true });
       return;
     }
     if (!owned[cardId]) {
-      setMessage({ text: `«${CARD_BY_ID[cardId].name}» ще не відкрита — шукайте її в паках.`, bad: true });
+      setMessage({ text: t('«{0}» ще не відкрита — шукайте її в паках.', CARD_BY_ID[cardId].name), bad: true });
       return;
     }
     const r = replacePawnKind(draft, kind, cardId);
@@ -262,7 +263,7 @@ function DeckHub({ deck }: { deck: Deck }) {
         onClick={() => {
           if (armed) {
             if (fits) place(index, armed);
-            else setMessage({ text: `«${CARD_BY_ID[armed].name}» — це ${PIECE_NAMES[CARD_BY_ID[armed].pieceType].toLowerCase()}, їй потрібна інша клітинка.`, bad: true });
+            else setMessage({ text: t('«{0}» — це {1}, їй потрібна інша клітинка.', CARD_BY_ID[armed].name, PIECE_NAMES[CARD_BY_ID[armed].pieceType].toLowerCase()), bad: true });
             return;
           }
           setSelected(index);
@@ -322,14 +323,14 @@ function DeckHub({ deck }: { deck: Deck }) {
         <strong>{c.name}</strong>
         <RarityTag card={c} />
       </div>
-      {inDeck.has(c.id) && <span className="in-deck-mark">у колоді</span>}
+      {inDeck.has(c.id) && <span className="in-deck-mark">{t('у колоді')}</span>}
     </div>
   );
 
   return (
     <section className="page deckhub">
       <HubSwitch tab="cards" />
-      <div className="deck-tabs" role="tablist" aria-label="Колоди">
+      <div className="deck-tabs" role="tablist" aria-label={t('Колоди')}>
         {s.decks.map((d, i) => (
           <button
             key={d.id}
@@ -340,11 +341,11 @@ function DeckHub({ deck }: { deck: Deck }) {
             onClick={() => switchTo(d.id)}
           >
             <b>{i + 1}</b>
-            <span>{d.id === deck.id ? draft.name : d.name}</span>
+            <span>{tr(d.id === deck.id ? draft.name : d.name)}</span>
           </button>
         ))}
         {s.decks.length < MAX_DECKS && (
-          <button className="deck-tab deck-tab-add" onClick={addDeck} title="Нова колода (копія поточної)" aria-label="Нова колода">
+          <button className="deck-tab deck-tab-add" onClick={addDeck} title={t('Нова колода (копія поточної)')} aria-label={t('Нова колода')}>
             +
           </button>
         )}
@@ -355,24 +356,25 @@ function DeckHub({ deck }: { deck: Deck }) {
           <Icon name="edit" />
           <input
             className="deck-name"
-            aria-label="Назва колоди"
-            value={draft.name}
+            aria-label={t('Назва колоди')}
+            // The default names come from the server in Ukrainian: shown in the chosen language.
+            value={tr(draft.name)}
             maxLength={40}
             onChange={(e) => update({ ...draft, name: e.target.value })}
           />
         </label>
         <span className={`save-state save-${save}`} aria-live="polite">
           {save === 'saved'
-            ? 'Збережено · іде в бій'
+            ? t('Збережено · іде в бій')
             : save === 'saving' || save === 'pending'
-              ? 'Зберігаю…'
+              ? t('Зберігаю…')
               : save === 'invalid'
-                ? 'Не збережено: виправте помилки'
-                : 'Помилка збереження'}
+                ? t('Не збережено: виправте помилки')
+                : t('Помилка збереження')}
         </span>
         {s.decks.length > 1 && (
           <button className="btn btn-sm btn-danger" onClick={removeDeck} onBlur={() => setConfirmDelete(false)}>
-            {confirmDelete ? 'Точно видалити?' : 'Видалити'}
+            {confirmDelete ? t('Точно видалити?') : t('Видалити')}
           </button>
         )}
       </div>
@@ -380,7 +382,7 @@ function DeckHub({ deck }: { deck: Deck }) {
       {errors.length > 0 && (
         <ul className="errors" aria-live="polite">
           {errors.map((e) => (
-            <li key={e}>{e}</li>
+            <li key={e}>{tr(e)}</li>
           ))}
         </ul>
       )}
@@ -416,7 +418,7 @@ function DeckHub({ deck }: { deck: Deck }) {
               }}
               onTileTap={() => {
                 setFilter('pawn');
-                setMessage({ text: 'Оберіть пішака в колекції нижче й перетягніть його на плитку (або «Використати» → плитка).', bad: false });
+                setMessage({ text: t('Оберіть пішака в колекції нижче й перетягніть його на плитку (або «Використати» → плитка).'), bad: false });
               }}
               onInfo={(id) => setDetail(id)}
             />
@@ -426,8 +428,8 @@ function DeckHub({ deck }: { deck: Deck }) {
           ) : (
             <p className="muted small">
               {armed
-                ? `Натисніть підсвічену клітинку, щоб поставити «${CARD_BY_ID[armed].name}».`
-                : 'Перетягніть картку на дошку або натисніть картку, а потім клітинку.'}
+                ? t('Натисніть підсвічену клітинку, щоб поставити «{0}».', CARD_BY_ID[armed].name)
+                : t('Перетягніть картку на дошку або натисніть картку, а потім клітинку.')}
             </p>
           )}
         </div>
@@ -435,15 +437,15 @@ function DeckHub({ deck }: { deck: Deck }) {
 
       <div className="section-head hub-head">
         <h2>
-          Ваші карти <span className="muted">{ownedCount}/{CARDS.length}</span>
+          {t('Ваші карти')}{' '}<span className="muted">{ownedCount}/{CARDS.length}</span>
         </h2>
         <div className="collect-bar" aria-hidden="true">
           <span style={{ width: `${(ownedCount / CARDS.length) * 100}%` }} />
         </div>
       </div>
-      <div className="chip-row" role="group" aria-label="Фігура">
+      <div className="chip-row" role="group" aria-label={t('Фігура')}>
         <button className={`chip ${filter === 'all' ? 'on' : ''}`} onClick={() => setFilter('all')}>
-          Усі
+          {t('Усі')}
         </button>
         {PIECE_ORDER.map((p) => (
           <button key={p} className={`chip ${filter === p ? 'on' : ''}`} onClick={() => setFilter(p)}>
@@ -452,12 +454,12 @@ function DeckHub({ deck }: { deck: Deck }) {
         ))}
       </div>
       <div className="mini-cards hub-cards">{mine.map((c) => miniCard(c, false))}</div>
-      {mine.length === 0 && <p className="muted small">Тут поки нічого — відкривайте паки.</p>}
+      {mine.length === 0 && <p className="muted small">{t('Тут поки нічого — відкривайте паки.')}</p>}
 
       <a className="panel shards-note" href="#/shop">
         <span className="shards-big">💎 {s.profile.shards}</span>
         <span className="muted small">
-          Повторки не лежать мертвим вантажем: кожна одразу стає уламками, а за уламки в магазині купуються паки.
+          {t('Повторки не лежать мертвим вантажем: кожна одразу стає уламками, а за уламки в магазині купуються паки.')}
         </span>
       </a>
 
@@ -465,9 +467,9 @@ function DeckHub({ deck }: { deck: Deck }) {
         <>
           <div className="section-head hub-head">
             <h2>
-              <Icon name="lock" /> Ще не знайдені <span className="muted">{locked.length}</span>
+              <Icon name="lock" /> {t('Ще не знайдені')}{' '}<span className="muted">{locked.length}</span>
             </h2>
-            <span className="muted small">Випадають з паків</span>
+            <span className="muted small">{t('Випадають з паків')}</span>
           </div>
           <div className="mini-cards hub-cards hub-locked">{locked.map((c) => miniCard(c, true))}</div>
         </>
@@ -480,10 +482,10 @@ function DeckHub({ deck }: { deck: Deck }) {
           note={
             !owned[detailCard.id]
               ? detailCard.trialOnly
-                ? 'Не випадає з паків — це нагорода за випробування «Шлях Комети».'
-                : 'Цієї картки у вас ще немає — вона випадає з паків.'
+                ? t('Не випадає з паків — це нагорода за випробування «Шлях Комети».')
+                : t('Цієї картки у вас ще немає — вона випадає з паків.')
               : inDeck.has(detailCard.id)
-                ? 'Уже стоїть у цій колоді.'
+                ? t('Уже стоїть у цій колоді.')
                 : undefined
           }
           onClose={() => setDetail(null)}
@@ -491,7 +493,7 @@ function DeckHub({ deck }: { deck: Deck }) {
           {owned[detailCard.id] && (
             <>
               <button className="btn btn-primary" onClick={() => armCard(detailCard.id)}>
-                Використати
+                {t('Використати')}
               </button>
               {detailCard.pieceType === 'pawn' && (
                 <button
@@ -501,7 +503,7 @@ function DeckHub({ deck }: { deck: Deck }) {
                     place(8, detailCard.id, true);
                   }}
                 >
-                  На всі 8 пішаків
+                  {t('На всі 8 пішаків')}
                 </button>
               )}
             </>

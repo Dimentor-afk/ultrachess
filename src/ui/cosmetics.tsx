@@ -10,6 +10,7 @@ import { cardArt } from './cardArt';
 import { FxOnce } from './FxOnce';
 import type { FxName } from './fxSprites';
 import { errorText, useSession } from './state';
+import { t } from '../i18n';
 
 /** A 4×4 corner of the board in the theme's colours, with two pieces on it. */
 export function ThemeSwatch({ theme }: { theme: BoardTheme }) {
@@ -80,6 +81,6 @@ export function useCountdown(at: number | null | undefined): string {
   const min = Math.max(0, Math.ceil((at - now) / 60_000));
   const h = Math.floor(min / 60);
   const m = min % 60;
-  if (min <= 1) return 'менше хвилини';
-  return h ? `${h} год ${m} хв` : `${m} хв`;
+  if (min <= 1) return t('менше хвилини');
+  return h ? t('{0} год {1} хв', h, m) : t('{0} хв', m);
 }

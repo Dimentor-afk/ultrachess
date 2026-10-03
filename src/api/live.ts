@@ -6,6 +6,7 @@
 
 import { ApiError, type PvpState } from '../economy/service';
 import type { Action } from '../engine/match';
+import { t, tr } from '../i18n';
 
 export type LiveStatus = 'connecting' | 'online' | 'offline';
 
@@ -103,12 +104,12 @@ export class LiveSocket {
   private request(msg: Record<string, unknown>): Promise<LiveGame> {
     const ws = this.ws;
     // Not connected: a TypeError, like fetch() offline, so callers retry or use HTTP.
-    if (!ws || ws.readyState !== WebSocket.OPEN) return Promise.reject(new TypeError('Немає живого з’єднання'));
+    if (!ws || ws.readyState !== WebSocket.OPEN) return Promise.reject(new TypeError(t('Немає живого з’єднання')));
     const req = this.nextReq++;
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(req);
-        reject(new TypeError('Сервер не відповів'));
+        reject(new TypeError(t('Сервер не відповів')));
       }, REQUEST_TIMEOUT_MS);
       this.pending.set(req, { resolve, reject, timer });
       ws.send(JSON.stringify({ ...msg, req }));
@@ -148,7 +149,7 @@ export class LiveSocket {
       if (this.ws === ws) this.ws = null;
       for (const [req, p] of this.pending) {
         clearTimeout(p.timer);
-        p.reject(new TypeError('З’єднання обірвалося'));
+        p.reject(new TypeError(t('З’єднання обірвалося')));
         this.pending.delete(req);
       }
       this.later();
@@ -175,7 +176,7 @@ export class LiveSocket {
       for (const cb of this.games.get(msg.game.id) ?? []) cb(live);
       if (msg.req !== undefined) this.settle(msg.req, (p) => p.resolve(live));
     } else if (msg.t === 'error') {
-      if (msg.req !== undefined) this.settle(msg.req, (p) => p.reject(new ApiError(msg.status, msg.error)));
+      if (msg.req !== undefined) this.settle(msg.req, (p) => p.reject(new ApiError(msg.status, tr(msg.error))));
     } else if (msg.t === 'matched') {
       for (const cb of this.matchedListeners) cb(msg.id);
     } else if (msg.t === 'nudge') {

@@ -10,8 +10,9 @@ import { navigate } from './router';
 import type { FxName } from './fxSprites';
 import { Game } from './LazyGame';
 import { errorText, useSession } from './state';
+import { t } from '../i18n';
 
-const DIFFICULTY: Record<1 | 2 | 3, string> = { 1: 'Легке', 2: 'Середнє', 3: 'Дуже складне' };
+const DIFFICULTY: Record<1 | 2 | 3, string> = { 1: t('Легке'), 2: t('Середнє'), 3: t('Дуже складне') };
 
 /** Opens the battle screen on the player ladder, where the arena trial is played. */
 function findOpponent() {
@@ -42,19 +43,19 @@ export function TrialsPage() {
     }
   };
 
-  const enter = (t: Trial) =>
-    run(t.id, async () => {
-      s.setProfile(await api.enterTrial(t.id));
-      s.toast(`Вхід оплачено: ${t.name}. Удачі!`);
+  const enter = (trial: Trial) =>
+    run(trial.id, async () => {
+      s.setProfile(await api.enterTrial(trial.id));
+      s.toast(t('Вхід оплачено: {0}. Удачі!', trial.name));
     });
 
-  const play = (t: Trial) =>
-    run(t.id, async () => {
-      setGame({ start: await api.startMatch({ ranked: false, trial: t.id }), key: Date.now() });
+  const play = (trial: Trial) =>
+    run(trial.id, async () => {
+      setGame({ start: await api.startMatch({ ranked: false, trial: trial.id }), key: Date.now() });
     });
 
   if (game) {
-    const t = TRIALS.find((x) => x.id === game.start.trial?.id)!;
+    const trial = TRIALS.find((x) => x.id === game.start.trial?.id)!;
     return (
       <Game
         key={game.key}
@@ -72,12 +73,12 @@ export function TrialsPage() {
           return v;
         }}
         onExit={() => setGame(null)}
-        rematchLabel="Наступний раунд"
+        rematchLabel={t('Наступний раунд')}
         onRematch={
-          profile.trials[t.id]?.status === 'active'
+          profile.trials[trial.id]?.status === 'active'
             ? () => {
                 setGame(null);
-                void play(t);
+                void play(trial);
               }
             : undefined
         }
@@ -88,34 +89,33 @@ export function TrialsPage() {
   return (
     <section className="page trials">
       <div className="page-head">
-        <h1>Випробування</h1>
+        <h1>{t('Випробування')}</h1>
         <p className="muted">
-          Серії перемог поспіль — проти ботів або живих гравців. Одна поразка чи нічия завершує спробу. Вхід коштує уламки, а за найважче
-          випробування дається картка, якої немає в жодному паку.
+          {t('Серії перемог поспіль — проти ботів або живих гравців. Одна поразка чи нічия завершує спробу. Вхід коштує уламки, а за найважче випробування дається картка, якої немає в жодному паку.')}
         </p>
       </div>
 
       <div className="trial-list">
-        {TRIALS.map((t) => {
-          const r = profile.trials[t.id];
+        {TRIALS.map((trial) => {
+          const r = profile.trials[trial.id];
           const active = r?.status === 'active';
-          const prizeCard = t.rewardCard && !s.collection.owned[t.rewardCard] ? CARD_BY_ID[t.rewardCard] : null;
-          const prizeName = prizeCard ? `Картка «${prizeCard.name}»` : packName(t.reward);
-          const prizeArt = prizeCard ? cardArt(prizeCard.id)! : packArt(t.reward);
+          const prizeCard = trial.rewardCard && !s.collection.owned[trial.rewardCard] ? CARD_BY_ID[trial.rewardCard] : null;
+          const prizeName = prizeCard ? t('Картка «{0}»', prizeCard.name) : packName(trial.reward);
+          const prizeArt = prizeCard ? cardArt(prizeCard.id)! : packArt(trial.reward);
           return (
-            <article key={t.id} className={`trial-card trial-${t.id} ${active ? 'active' : ''} ${prizeCard ? 'has-card' : ''}`}>
+            <article key={trial.id} className={`trial-card trial-${trial.id} ${active ? 'active' : ''} ${prizeCard ? 'has-card' : ''}`}>
               <div className="trial-head">
                 <span className={`trial-prize ${prizeCard ? `r-${prizeCard.rarity}` : ''}`}>
                   <img className="pixel" src={prizeArt} alt="" />
                 </span>
                 <div>
                   <div className="trial-tags">
-                    <span className={`pill trial-diff d${t.difficulty}`}>{DIFFICULTY[t.difficulty]}</span>
-                    <span className="pill">{t.kind === 'pvp' ? '⚔ з гравцями' : '🤖 з ботами'}</span>
+                    <span className={`pill trial-diff d${trial.difficulty}`}>{DIFFICULTY[trial.difficulty]}</span>
+                    <span className="pill">{trial.kind === 'pvp' ? t('⚔ з гравцями') : t('🤖 з ботами')}</span>
                   </div>
-                  <h2>{t.name}</h2>
-                  <p className="muted">{t.description}</p>
-                  <span className="pill pill-shop">Нагорода: {prizeName}</span>
+                  <h2>{trial.name}</h2>
+                  <p className="muted">{trial.description}</p>
+                  <span className="pill pill-shop">{t('Нагорода:')}{' '}{prizeName}</span>
                 </div>
               </div>
 
@@ -127,7 +127,7 @@ export function TrialsPage() {
               )}
 
               <ol className="trial-rounds">
-                {t.opponents.map((lvl, i) => {
+                {trial.opponents.map((lvl, i) => {
                   const b = botLevel(lvl);
                   const done = r && (r.status !== 'lost' || i < r.wins) && i < r.wins;
                   const current = active && i === r.wins;
@@ -136,8 +136,8 @@ export function TrialsPage() {
                     <li key={i} className={`trial-round ${done ? 'done' : ''} ${current ? 'current' : ''} ${failed ? 'failed' : ''}`}>
                       <span className="trial-round-n">{done ? '✓' : failed ? '✗' : i + 1}</span>
                       <span>
-                        <b>{t.kind === 'pvp' ? `Перемога ${i + 1}` : b.name}</b>
-                        <small className="muted">{t.kind === 'pvp' ? 'живий суперник' : `~${b.elo} Elo`}</small>
+                        <b>{trial.kind === 'pvp' ? t('Перемога {0}', i + 1) : b.name}</b>
+                        <small className="muted">{trial.kind === 'pvp' ? t('живий суперник') : `~${b.elo} Elo`}</small>
                       </span>
                     </li>
                   );
@@ -152,33 +152,33 @@ export function TrialsPage() {
 
               <div className="trial-actions">
                 {active ? (
-                  t.kind === 'pvp' ? (
+                  trial.kind === 'pvp' ? (
                     <>
                       <button className="btn btn-battle" onClick={() => findOpponent()}>
-                        Перемога {r.wins + 1} з {t.opponents.length}: шукати суперника
+                        {t('Перемога {0} з {1}: шукати суперника', r.wins + 1, trial.opponents.length)}
                       </button>
-                      <span className="muted small">Рахуються ігри в лізі гравців: поразка чи нічия завершує спробу.</span>
+                      <span className="muted small">{t('Рахуються ігри в лізі гравців: поразка чи нічия завершує спробу.')}</span>
                     </>
                   ) : (
                     <>
-                      <button className="btn btn-battle" disabled={busy === t.id} onClick={() => play(t)}>
-                        Раунд {r.wins + 1} з {t.opponents.length}: грати
+                      <button className="btn btn-battle" disabled={busy === trial.id} onClick={() => play(trial)}>
+                        {t('Раунд {0} з {1}: грати', r.wins + 1, trial.opponents.length)}
                       </button>
-                      <span className="muted small">Не залишайте партію: незавершена гра зараховується як поразка.</span>
+                      <span className="muted small">{t('Не залишайте партію: незавершена гра зараховується як поразка.')}</span>
                     </>
                   )
                 ) : (
                   <>
-                    {r?.status === 'won' && <span className="pill pill-ok">Минулого разу пройдено!</span>}
+                    {r?.status === 'won' && <span className="pill pill-ok">{t('Минулого разу пройдено!')}</span>}
                     {r?.status === 'lost' && (
                       <span className="pill">
-                        Минула спроба: {r.wins} з {t.opponents.length}
+                        {t('Минула спроба: {0} з {1}', r.wins, trial.opponents.length)}
                       </span>
                     )}
-                    <button className="btn btn-primary btn-price" disabled={busy === t.id || profile.shards < t.cost} onClick={() => enter(t)}>
-                      Увійти за 💎 {t.cost}
+                    <button className="btn btn-primary btn-price" disabled={busy === trial.id || profile.shards < trial.cost} onClick={() => enter(trial)}>
+                      {t('Увійти за 💎 {0}', trial.cost)}
                     </button>
-                    {profile.shards < t.cost && <span className="muted small">У вас {profile.shards} уламків</span>}
+                    {profile.shards < trial.cost && <span className="muted small">{t('У вас {0} уламків', profile.shards)}</span>}
                   </>
                 )}
               </div>

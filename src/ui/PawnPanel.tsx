@@ -2,6 +2,7 @@ import { CARD_BY_ID } from '../engine/cards';
 import { deckPositions, withPawns } from '../engine/deck';
 import type { Deck } from '../engine/types';
 import { CardArt } from './common';
+import { t } from '../i18n';
 
 const FILES = 'abcdefgh';
 
@@ -45,7 +46,7 @@ export function PawnPanel({
     const next = [...pawns];
     next[i] = pawns[i] === kinds[0] ? kinds[1] : kinds[0];
     // Both kinds stay: the last pawn of a kind does not switch away.
-    if (new Set(next).size < 2) return onChange(deck, 'Це останній пішак цього виду. Щоб прибрати вид, натисніть ✕ на його плитці.');
+    if (new Set(next).size < 2) return onChange(deck, t('Це останній пішак цього виду. Щоб прибрати вид, натисніть ✕ на його плитці.'));
     onChange(withPawns(deck, next), `${FILES[i]}2: ${CARD_BY_ID[next[i]].name}.`);
   };
 
@@ -66,16 +67,16 @@ export function PawnPanel({
             <CardArt cardId={id} className="pawn-kind-art" />
             <span className="pawn-kind-text">
               <b>{CARD_BY_ID[id].name}</b>
-              <small>{count(id)} з 8</small>
+              <small>{t('{0} з 8', count(id))}</small>
             </span>
             {k === 1 && (
               <button
                 type="button"
                 className="pawn-kind-remove"
-                aria-label="Прибрати другий вид"
+                aria-label={t('Прибрати другий вид')}
                 onClick={(e) => {
                   e.stopPropagation();
-                  onChange(withPawns(deck, pawns.map(() => kinds[0])), `Усі 8 пішаків — «${CARD_BY_ID[kinds[0]].name}».`);
+                  onChange(withPawns(deck, pawns.map(() => kinds[0])), t('Усі 8 пішаків — «{0}».', CARD_BY_ID[kinds[0]].name));
                 }}
               >
                 ✕
@@ -84,8 +85,8 @@ export function PawnPanel({
           </>
         ) : (
           <span className="pawn-kind-text">
-            <b>+ Другий вид</b>
-            <small>{canDrop ? 'Сюди — стане на e–h' : 'необов’язково'}</small>
+            <b>{t('+ Другий вид')}</b>
+            <small>{canDrop ? t('Сюди — стане на e–h') : t('необов’язково')}</small>
           </span>
         )}
       </div>
@@ -100,7 +101,7 @@ export function PawnPanel({
       </div>
       {two && (
         <>
-          <div className="pawn-rank" aria-label="Розстановка пішаків">
+          <div className="pawn-rank" aria-label={t('Розстановка пішаків')}>
             {pawns.map((p, i) => (
               <button key={i} type="button" className={`pawn-file kind-${p === kinds[0] ? 0 : 1}`} onClick={() => flip(i)} aria-label={`${FILES[i]}2: ${CARD_BY_ID[p].name}`}>
                 <CardArt cardId={p} className="pawn-file-art" />
@@ -108,7 +109,7 @@ export function PawnPanel({
               </button>
             ))}
           </div>
-          <p className="pawn-hint">Натисніть пішака, щоб змінити його вид.</p>
+          <p className="pawn-hint">{t('Натисніть пішака, щоб змінити його вид.')}</p>
         </>
       )}
     </div>
@@ -123,15 +124,15 @@ export function replacePawnKind(deck: Deck, k: 0 | 1, cardId: string): { deck: D
   const pawns = deckPositions(deck).slice(0, 8);
   const kinds = deck.pawnVersions;
   const name = CARD_BY_ID[cardId].name;
-  if (kinds.includes(cardId)) return { deck, note: `«${name}» уже в колоді.` };
+  if (kinds.includes(cardId)) return { deck, note: t('«{0}» уже в колоді.', name) };
   if (k === 1 && kinds.length < 2) {
     return {
       deck: withPawns(deck, pawns.map((p, i) => (i >= 4 ? cardId : p))),
-      note: `«${name}» — другий вид пішаків, на e–h. Натисніть пішака в ряду, щоб змінити розстановку.`,
+      note: t('«{0}» — другий вид пішаків, на e–h. Натисніть пішака в ряду, щоб змінити розстановку.', name),
     };
   }
   const old = kinds[k];
-  return { deck: withPawns(deck, pawns.map((p) => (p === old ? cardId : p))), note: `«${name}» замість «${CARD_BY_ID[old].name}».` };
+  return { deck: withPawns(deck, pawns.map((p) => (p === old ? cardId : p))), note: t('«{0}» замість «{1}».', name, CARD_BY_ID[old].name) };
 }
 
 /** Index of a pawn-kind drop target ("pawn-kind-0" → 0), or null. */

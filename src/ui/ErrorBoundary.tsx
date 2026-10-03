@@ -1,5 +1,6 @@
 import { Component, type ReactNode } from 'react';
 import { navigate } from './router';
+import { t } from '../i18n';
 
 /** Shows what broke instead of a blank screen, and gets the player back home. */
 export class ErrorBoundary extends Component<{ children: ReactNode; full?: boolean }, { error: Error | null }> {
@@ -19,8 +20,8 @@ export class ErrorBoundary extends Component<{ children: ReactNode; full?: boole
     return (
       <div className={`crash ${this.props.full ? 'crash-full' : ''}`} role="alert">
         <div className="panel crash-card">
-          <h2>Щось зламалось</h2>
-          <p className="muted small">Сторінка впала з помилкою — надішліть її текст розробнику:</p>
+          <h2>{t('Щось зламалось')}</h2>
+          <p className="muted small">{t('Сторінка впала з помилкою — надішліть її текст розробнику:')}</p>
           <pre className="crash-text">{error.message || String(error)}</pre>
           <div className="crash-actions">
             <button
@@ -30,10 +31,10 @@ export class ErrorBoundary extends Component<{ children: ReactNode; full?: boole
                 this.setState({ error: null });
               }}
             >
-              На головну
+              {t('На головну')}
             </button>
             <button className="btn" onClick={() => window.location.reload()}>
-              Оновити сторінку
+              {t('Оновити сторінку')}
             </button>
           </div>
         </div>

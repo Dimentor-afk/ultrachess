@@ -13,6 +13,10 @@ import { BotPool } from './botPool';
 import { Hub } from './hub';
 import { resendMailer } from './mailer';
 import { SqliteStore } from './sqliteStore';
+import de from '../src/i18n/de';
+import en from '../src/i18n/en';
+import es from '../src/i18n/es';
+import it from '../src/i18n/it';
 
 const PORT = Number(process.env.PORT ?? 8080);
 const DB_FILE = process.env.DB_FILE ?? 'ultrachess.db';
@@ -108,6 +112,17 @@ if (!svc.mailer) console.log('No RESEND_API_KEY: links from letters (password re
 const PUBLIC_URL = process.env.PUBLIC_URL ? process.env.PUBLIC_URL.replace(/\/*$/, '/') : null;
 if (!PUBLIC_URL && svc.mailer) console.warn('PUBLIC_URL is not set: links in letters use the Host of each request.');
 
+// Letters go out in the language the player uses the site in (the client sends X-Lang).
+const DICTS: Record<string, Record<string, string>> = { en, de, it, es };
+svc.localize = (lang) => {
+  const d = DICTS[lang];
+  return d ? (text, ...args) => (d[text] ?? text).replace(/\{(\d+)\}/g, (m, i) => (i < args.length ? String(args[+i]) : m)) : null;
+};
+
+function langOf(req: IncomingMessage): string {
+  return String(req.headers['x-lang'] ?? '').slice(0, 5);
+}
+
 /** The site's address for links in letters. */
 function siteBase(req: IncomingMessage): string {
   return PUBLIC_URL ?? `${isSecure(req) ? 'https' : 'http'}://${req.headers.host ?? 'localhost'}/`;
@@ -180,7 +195,7 @@ const routes: [string, RegExp, Handler][] = [
     'POST',
     /^auth\/register$/,
     async ({ req, res, body }) => {
-      const r = await svc.register(String(body.email ?? ''), String(body.password ?? ''), String(body.name ?? ''), siteBase(req));
+      const r = await svc.register(String(body.email ?? ''), String(body.password ?? ''), String(body.name ?? ''), siteBase(req), langOf(req));
       setCookie(res, r.token, isSecure(req));
       return r.profile;
     },
@@ -203,7 +218,7 @@ const routes: [string, RegExp, Handler][] = [
     },
   ],
   ['POST', /^auth\/logout-others$/, ({ token }) => svc.logoutOthers(token)],
-  ['POST', /^auth\/forgot$/, ({ req, body }) => svc.requestPasswordReset(String(body.email ?? ''), siteBase(req))],
+  ['POST', /^auth\/forgot$/, ({ req, body }) => svc.requestPasswordReset(String(body.email ?? ''), siteBase(req), langOf(req))],
   [
     'POST',
     /^auth\/reset$/,
@@ -214,9 +229,9 @@ const routes: [string, RegExp, Handler][] = [
     },
   ],
   ['POST', /^auth\/verify$/, ({ body }) => svc.verifyEmail(String(body.token ?? ''))],
-  ['POST', /^account\/verify$/, ({ req, token }) => svc.sendVerification(token, siteBase(req))],
+  ['POST', /^account\/verify$/, ({ req, token }) => svc.sendVerification(token, siteBase(req), langOf(req))],
   ['POST', /^account\/password$/, ({ token, body }) => svc.changePassword(token, String(body.current ?? ''), String(body.password ?? ''))],
-  ['POST', /^account\/email$/, ({ req, token, body }) => svc.changeEmail(token, String(body.password ?? ''), String(body.email ?? ''), siteBase(req))],
+  ['POST', /^account\/email$/, ({ req, token, body }) => svc.changeEmail(token, String(body.password ?? ''), String(body.email ?? ''), siteBase(req), langOf(req))],
   [
     'POST',
     /^account\/delete$/,

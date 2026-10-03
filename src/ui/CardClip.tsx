@@ -3,6 +3,7 @@ import { fileOf, rankOf } from '../engine/coords';
 import type { Square } from '../engine/types';
 import { pieceSprite } from './cardArt';
 import { buildClip, type ClipItem } from './cardDemo';
+import { t } from '../i18n';
 
 /**
  * The card's clip, like the card videos in Clash Royale: a short scene on a
@@ -63,7 +64,7 @@ export function CardClip({ cardId }: { cardId: string }) {
         setI(0);
         setRound((r) => r + 1);
       }}
-      title="Натисніть, щоб переглянути ще раз"
+      title={t('Натисніть, щоб переглянути ще раз')}
     >
       <div className="clip-steps" aria-hidden>
         {captions.map((_, k) => (

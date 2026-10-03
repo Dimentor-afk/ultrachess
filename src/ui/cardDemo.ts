@@ -12,6 +12,7 @@ import { clonePosition, emptyPosition, findPiece } from '../engine/position';
 import type { Color, Move, PieceType, Position, Square } from '../engine/types';
 import { CARD_SCRIPTS, type ClipScript, type ClipStep } from './cardScripts';
 import { stopsOf } from './stage';
+import { t } from '../i18n';
 
 export type ClipMark = 'move' | 'capture' | 'far' | 'far-capture';
 
@@ -179,7 +180,7 @@ function turnTo(pos: Position, color: Color): Position {
   return next;
 }
 
-const PLAIN = new Set(['Хід', 'Взяти']);
+const PLAIN = new Set([t('Хід'), t('Взяти')]);
 
 function pickMove(pos: Position, step: Extract<ClipStep, { move: string }>): Move {
   const [fromRef, toRef] = step.move.split(' ');

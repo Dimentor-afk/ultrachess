@@ -8780,3 +8780,28 @@ button.hb-slot {
 .player-bar .captured-kind small {
   font-size: 0.62rem;
 }
+
+/* Language picker: in settings, and in the corner of the sign-in screen. */
+.lang-select {
+  min-width: 9rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+.lang-select.compact {
+  min-width: 0;
+  padding: 0.3rem 0.45rem;
+  font-size: 0.85rem;
+}
+
+.auth-screen {
+  position: relative;
+}
+
+.auth-lang {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top));
+  right: 16px;
+  z-index: 2;
+}

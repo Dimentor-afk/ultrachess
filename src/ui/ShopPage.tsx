@@ -8,6 +8,7 @@ import { packArt } from './cardArt';
 import { FxSwatch, ThemeSwatch, priceTier, useCountdown, useShopOffer } from './cosmetics';
 import { Icon } from './icons';
 import { errorText, useSession } from './state';
+import { t, tr } from '../i18n';
 
 type ShopPack = Exclude<PackType, 'starter'>;
 
@@ -42,19 +43,19 @@ export function ShopPage() {
       const r = await s.api.buyPack(type);
       s.setProfile(r.profile);
       s.setPacks(await s.api.packs());
-      s.toast(`${r.pack.name} куплено — відкрийте його на головній.`);
+      s.toast(t('{0} куплено — відкрийте його на головній.', tr(r.pack.name)));
     });
 
-  const buyTheme = (t: BoardTheme) =>
-    run(t.id, async () => {
-      s.setProfile(await s.api.buyTheme(t.id));
-      s.toast(`Дошка «${t.name}» ваша і вже стоїть у грі!`);
+  const buyTheme = (theme: BoardTheme) =>
+    run(theme.id, async () => {
+      s.setProfile(await s.api.buyTheme(theme.id));
+      s.toast(t('Дошка «{0}» ваша і вже стоїть у грі!', theme.name));
     });
 
   const buyFx = (f: CaptureFx) =>
     run(f.id, async () => {
       s.setProfile(await s.api.buyCaptureFx(f.id));
-      s.toast(`Ефект «${f.name}» ваш — побачите його в наступному бою!`);
+      s.toast(t('Ефект «{0}» ваш — побачите його в наступному бою!', f.name));
     });
 
   const priceButton = (id: string, price: number, buy: () => void) => {
@@ -63,7 +64,7 @@ export function ShopPage() {
       return (
         <button className="btn btn-sm btn-price" disabled>
           🪙 {price}
-          <small>бракує {short}</small>
+          <small>{t('бракує')}{' '}{short}</small>
         </button>
       );
     }
@@ -74,56 +75,56 @@ export function ShopPage() {
         onClick={() => (confirm === id ? buy() : setConfirm(id))}
         onBlur={() => setConfirm((c) => (c === id ? null : c))}
       >
-        {confirm === id ? `Купити за 🪙 ${price}?` : `🪙 ${price}`}
+        {confirm === id ? t('Купити за 🪙 {0}?', price) : `🪙 ${price}`}
       </button>
     );
   };
 
   const ownedTag = (active: boolean) => (
     <a className="owned-tag" href="#/deck/style">
-      {active ? '✓ У грі' : '✓ Ваша'}
+      {active ? t('✓ У грі') : t('✓ Ваша')}
     </a>
   );
 
   return (
     <section className="page shop">
       <div className="page-head">
-        <h1>Магазин</h1>
+        <h1>{t('Магазин')}</h1>
         <p className="muted">
-          Щодня тут нові три дошки й три ефекти взяття за золото 🪙. Паки купуються за уламки 💎, які дають повторки карт.
+          {t('Щодня тут нові три дошки й три ефекти взяття за золото 🪙. Паки купуються за уламки 💎, які дають повторки карт.')}
         </p>
       </div>
 
       <div className="showcase panel">
         <div className="showcase-head">
           <div>
-            <span className="eyebrow">Щоденна вітрина</span>
-            <h2>Сьогодні в продажу</h2>
+            <span className="eyebrow">{t('Щоденна вітрина')}</span>
+            <h2>{t('Сьогодні в продажу')}</h2>
           </div>
-          <span className="showcase-timer" title="Вітрина однакова для всіх гравців і оновлюється щодня">
+          <span className="showcase-timer" title={t('Вітрина однакова для всіх гравців і оновлюється щодня')}>
             <Icon name="clock" />
-            {offer ? <>Нова через {left}</> : 'Завантаження…'}
+            {offer ? <>{t('Нова через {0}', left)}</> : t('Завантаження…')}
           </span>
         </div>
 
-        <h3 className="showcase-sub">Дошки</h3>
+        <h3 className="showcase-sub">{t('Дошки')}</h3>
         <div className="offer-row">
           {offer
             ? offer.themes.map((id) => {
-                const t = themeById(id);
+                const theme = themeById(id);
                 const owned = profile.themes.includes(id);
                 return (
-                  <article key={id} className={`offer-card r-${priceTier(t.price)} ${owned ? 'owned' : ''}`}>
-                    <ThemeSwatch theme={t} />
-                    <b>{t.name}</b>
-                    {owned ? ownedTag(profile.boardTheme === id) : priceButton(id, t.price, () => buyTheme(t))}
+                  <article key={id} className={`offer-card r-${priceTier(theme.price)} ${owned ? 'owned' : ''}`}>
+                    <ThemeSwatch theme={theme} />
+                    <b>{theme.name}</b>
+                    {owned ? ownedTag(profile.boardTheme === id) : priceButton(id, theme.price, () => buyTheme(theme))}
                   </article>
                 );
               })
             : [0, 1, 2].map((i) => <div key={i} className="offer-card skeleton" />)}
         </div>
 
-        <h3 className="showcase-sub">Ефекти взяття</h3>
+        <h3 className="showcase-sub">{t('Ефекти взяття')}</h3>
         <div className="offer-row">
           {offer
             ? offer.fx.map((id) => {
@@ -143,15 +144,15 @@ export function ShopPage() {
         <a className="showcase-foot" href="#/deck/style">
           <Icon name="edit" />
           <span>
-            Куплене залишається назавжди. Змінити дошку чи ефект — у розділі <b>Колода → Стиль</b>.
+            {t('Куплене залишається назавжди. Змінити дошку чи ефект — у розділі')}{' '}<b>{t('Колода → Стиль')}</b>.
           </span>
         </a>
       </div>
 
       <div className="section-head">
-        <h2>💎 Паки за уламки</h2>
+        <h2>{t('💎 Паки за уламки')}</h2>
         <span className="muted small">
-          У вас <b className="shards-text">{profile.shards}</b> уламків
+          {t('У вас')} <b className="shards-text">{profile.shards}</b> 💎
         </span>
       </div>
       <div className="shop-packs">
@@ -165,7 +166,7 @@ export function ShopPage() {
               <div className="shop-pack-info">
                 <b>{def.name}</b>
                 <span className="muted tiny">
-                  {def.cards} карток · {def.description}
+                  {t('{0} карток · {1}', def.cards, def.description)}
                 </span>
                 <div className="bar small-bar" aria-hidden="true">
                   <span style={{ width: `${Math.min(100, (profile.shards / price) * 100)}%` }} />
@@ -179,7 +180,7 @@ export function ShopPage() {
         })}
       </div>
       <p className="muted small">
-        Уламки за одну повторку:{' '}
+        {t('Уламки за одну повторку:')}{' '}
         {(Object.entries(SHARDS_PER_DUPE) as [Rarity, number][]).map(([r, n]) => `${RARITY_NAMES[r].toLowerCase()} ${n}`).join(' · ')}.
       </p>
     </section>

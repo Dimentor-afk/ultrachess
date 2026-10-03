@@ -4,6 +4,7 @@ import { LADDER_NAMES, LADDER_TROPHIES, type Ladder } from '../economy/leagues';
 import { PlayerModal } from './PlayerModal';
 import { Avatar } from './common';
 import { errorText, useSession } from './state';
+import { t, tr } from '../i18n';
 
 export function LeaderboardPage() {
   const s = useSession();
@@ -18,10 +19,10 @@ export function LeaderboardPage() {
   return (
     <section className="page">
       <div className="page-head">
-        <h1>Рейтинг</h1>
+        <h1>{t('Рейтинг')}</h1>
         <p className="muted">
-          {LADDER_NAMES[ladder]}: +{LADDER_TROPHIES[ladder].win} кубків за перемогу, {LADDER_TROPHIES[ladder].loss} за поразку.{' '}
-          <a href={`#/leagues/${ladder}`}>Усі ліги</a>
+          {t('{0}: +{1} кубків за перемогу, {2} за поразку.', LADDER_NAMES[ladder], LADDER_TROPHIES[ladder].win, LADDER_TROPHIES[ladder].loss)}{' '}
+          <a href={`#/leagues/${ladder}`}>{t('Усі ліги')}</a>
         </p>
       </div>
       <div className="chip-row">
@@ -33,19 +34,19 @@ export function LeaderboardPage() {
       </div>
       <div className="panel">
         {!rows ? (
-          <p className="muted">Завантаження…</p>
+          <p className="muted">{t('Завантаження…')}</p>
         ) : rows.length === 0 ? (
-          <p className="muted">Поки порожньо — зіграйте перший бій у лізі.</p>
+          <p className="muted">{t('Поки порожньо — зіграйте перший бій у лізі.')}</p>
         ) : (
           <div className="table-wrap">
             <table className="leaders">
               <thead>
                 <tr>
                   <th>#</th>
-                  <th>Гравець</th>
-                  <th className="hide-sm">Ліга</th>
-                  <th className="num hide-sm">Перемоги</th>
-                  <th className="num">Кубки</th>
+                  <th>{t('Гравець')}</th>
+                  <th className="hide-sm">{t('Ліга')}</th>
+                  <th className="num hide-sm">{t('Перемоги')}</th>
+                  <th className="num">{t('Кубки')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -60,11 +61,11 @@ export function LeaderboardPage() {
                         <span className="leader-name">
                           <b>{r.name}</b>
                           {/* On a phone the league sits under the name instead of in its own column. */}
-                          <small className="muted leader-league-sm">{ladder === 'bot' ? r.botLeague : r.arena}</small>
+                          <small className="muted leader-league-sm">{tr(ladder === 'bot' ? r.botLeague : r.arena)}</small>
                         </span>
                       </span>
                     </td>
-                    <td className="muted hide-sm">{ladder === 'bot' ? r.botLeague : r.arena}</td>
+                    <td className="muted hide-sm">{tr(ladder === 'bot' ? r.botLeague : r.arena)}</td>
                     <td className="num hide-sm">{r.wins}</td>
                     <td className="num gold">🏆 {ladder === 'bot' ? r.botTrophies : r.trophies}</td>
                   </tr>

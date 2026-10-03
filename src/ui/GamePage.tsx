@@ -3,6 +3,7 @@ import type { PvpState } from '../api/client';
 import { PvpGame } from './PvpGame';
 import { navigate, useRoutePath } from './router';
 import { errorText, useSession } from './state';
+import { t } from '../i18n';
 
 /**
  * A game room: #/game/<id>. Its players come back to the game here (after a
@@ -32,16 +33,16 @@ export function GamePage() {
     return (
       <section className="page">
         <div className="panel">
-          <h1>Партію не знайдено</h1>
+          <h1>{t('Партію не знайдено')}</h1>
           <p className="muted">{error}</p>
           <a className="btn btn-primary" href="#/play">
-            На головну
+            {t('На головну')}
           </a>
         </div>
       </section>
     );
   }
-  if (!pvp) return <p className="muted page-loading">Відкриваємо партію…</p>;
+  if (!pvp) return <p className="muted page-loading">{t('Відкриваємо партію…')}</p>;
   return (
     <PvpGame
       key={pvp.id}

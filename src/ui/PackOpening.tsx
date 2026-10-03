@@ -7,6 +7,7 @@ import { FxOnce } from './FxOnce';
 import { getSettings, play, type Sound } from './settings';
 import { errorText } from './state';
 import type { Rarity } from '../engine/types';
+import { t, tr } from '../i18n';
 
 type Phase = 'idle' | 'opening' | 'burst' | 'reveal' | 'summary';
 
@@ -20,7 +21,7 @@ type Stage = 'in' | 'tease' | 'charge' | 'spin' | 'shown';
 
 const TEASE_LADDER: Rarity[] = ['rare', 'epic', 'legendary', 'mythological'];
 const TEASE_STEPS: Partial<Record<Rarity, number>> = { epic: 2, legendary: 3, mythological: 4 };
-const TEASE_TEXT = ['Щось незвичайне…', 'Епічна?..', 'Легендарна?!', 'МІФОЛОГІЧНА?!'];
+const TEASE_TEXT = [t('Щось незвичайне…'), t('Епічна?..'), t('Легендарна?!'), t('МІФОЛОГІЧНА?!')];
 // Timeline of a teased card, ms. The gap after a pip is the same whether
 // another pip follows or the flip does, so you never know until it happens.
 // The first pip lights as the card lands: a quiet start made players think
@@ -163,7 +164,7 @@ export function PackOpening({
     <div
       className={`opening ${big && card!.rarity === 'mythological' ? 'opening-quake' : ''}`}
       role="dialog"
-      aria-label={`Відкриття: ${pack.name}`}
+      aria-label={t('Відкриття: {0}', tr(pack.name))}
     >
       <div className="opening-bg" />
       {/* One glow layer per rarity, cross-faded by opacity (cheap for the GPU). */}
@@ -174,20 +175,20 @@ export function PackOpening({
       </div>
       <div className={`opening-vignette ${teasing ? `v-${stage}` : ''}`} />
       {(phase === 'idle' || phase === 'opening' || phase === 'burst') && (
-        <button className={`opening-pack ${phase}`} onClick={start} aria-label="Відкрити пак">
+        <button className={`opening-pack ${phase}`} onClick={start} aria-label={t('Відкрити пак')}>
           <span className="opening-rays" />
           <img src={packArt(pack.type)} alt="" />
-          {phase === 'idle' && <span className="opening-hint">Натисніть, щоб відкрити</span>}
+          {phase === 'idle' && <span className="opening-hint">{t('Натисніть, щоб відкрити')}</span>}
           {phase === 'burst' && <span className="opening-flash" />}
           {phase === 'burst' && <FxOnce name="burst" width={520} />}
         </button>
       )}
       {phase === 'idle' && (
         <div className="opening-title">
-          <h2>{pack.name}</h2>
+          <h2>{tr(pack.name)}</h2>
           {error && <p className="error-text">{error}</p>}
           <button className="btn btn-ghost" onClick={() => onClose(null)}>
-            Пізніше
+            {t('Пізніше')}
           </button>
         </div>
       )}
@@ -202,7 +203,7 @@ export function PackOpening({
               setPhase('summary');
             }}
           >
-            Усі картки ⏭
+            {t('Усі картки ⏭')}
           </button>
           <p className="reveal-count">
             {index + 1} / {result.cards.length}
@@ -276,7 +277,7 @@ export function PackOpening({
             {flipped ? (
               <div className="reveal-tag show">
                 <span className={`rarity-tag r-${card.rarity}`}>{RARITY_NAMES[card.rarity]}</span>
-                {current!.isNew ? <span className="badge-new">НОВА!</span> : <span className="badge-dupe">повторка → 💎 +{current!.shards}</span>}
+                {current!.isNew ? <span className="badge-new">{t('НОВА!')}</span> : <span className="badge-dupe">{t('повторка → 💎 +{0}', current!.shards)}</span>}
               </div>
             ) : stage === 'tease' ? (
               <p className="tease-text" key={step} style={{ color: tone(teaseRarity) }}>
@@ -284,27 +285,27 @@ export function PackOpening({
               </p>
             ) : null}
           </div>
-          <p className="muted small">{teasing ? 'Щось особливе! Натисніть ще раз, щоб одразу відкрити' : 'Натисніть, щоб продовжити'}</p>
+          <p className="muted small">{teasing ? t('Щось особливе! Натисніть ще раз, щоб одразу відкрити') : t('Натисніть, щоб продовжити')}</p>
         </div>
       )}
 
       {phase === 'summary' && result && (
         <div className="opening-summary">
-          <h2>{pack.name}</h2>
+          <h2>{tr(pack.name)}</h2>
           <div className="loot">
-            <span className="loot-item gold">🪙 +{result.gold} золота</span>
-            {result.shards > 0 && <span className="loot-item shards">💎 +{result.shards} уламків</span>}
+            <span className="loot-item gold">🪙 +{result.gold} {t('золота')}</span>
+            {result.shards > 0 && <span className="loot-item shards">{t('💎 +{0} уламків', result.shards)}</span>}
           </div>
           <div className="summary-grid">
             {result.cards.map((c, i) => (
               <div key={i} className="summary-card">
                 <CardView card={CARD_BY_ID[c.cardId]} />
-                {c.isNew ? <span className="badge-new">НОВА!</span> : <span className="badge-dupe">💎 +{c.shards}</span>}
+                {c.isNew ? <span className="badge-new">{t('НОВА!')}</span> : <span className="badge-dupe">💎 +{c.shards}</span>}
               </div>
             ))}
           </div>
           <button className="btn btn-primary btn-lg" onClick={() => onClose(result)}>
-            Забрати
+            {t('Забрати')}
           </button>
         </div>
       )}

@@ -19,6 +19,7 @@ import { DeckIntro, introSteps } from './DeckIntro';
 import type { FxName } from './fxSprites';
 import { requestHint } from './botClient';
 import { Avatar, CardView, Glyph } from './common';
+import { t, tr } from '../i18n';
 
 export interface GameProps {
   start: MatchStart;
@@ -128,7 +129,7 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
               // Let the player's own move land before the bot's answer.
               if (action) await sleep(Math.max(0, 450 - (Date.now() - started)));
               receive(r.view);
-              setError(r.stale && action ? 'Позиція оновилась — зробіть хід ще раз.' : null);
+              setError(r.stale && action ? t('Позиція оновилась — зробіть хід ще раз.') : null);
             }
             return;
           } catch (e) {
@@ -136,11 +137,11 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
             // fetch() and a dropped socket fail with a TypeError: keep the move and send it again
             // (a repeat is safe: the version makes the server refuse a move it already has).
             if (e instanceof TypeError && attempt < 10) {
-              setError('Немає зв’язку з сервером — надішлемо хід, щойно зв’язок повернеться…');
+              setError(t('Немає зв’язку з сервером — надішлемо хід, щойно зв’язок повернеться…'));
               await sleep(Math.min(10_000, 1000 * 2 ** attempt));
               continue;
             }
-            setError(e instanceof TypeError ? 'Немає зв’язку з сервером.' : e instanceof Error ? e.message : String(e));
+            setError(e instanceof TypeError ? t('Немає зв’язку з сервером.') : e instanceof Error ? e.message : String(e));
             await resync();
             return;
           }
@@ -396,7 +397,7 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
   const share = async () => {
     if (!remote?.shareUrl) return;
     try {
-      if (navigator.share) await navigator.share({ title: 'Ultrachess', text: 'Подивись партію в Ultrachess', url: remote.shareUrl });
+      if (navigator.share) await navigator.share({ title: 'Ultrachess', text: t('Подивись партію в Ultrachess'), url: remote.shareUrl });
       else await navigator.clipboard.writeText(remote.shareUrl);
       setShared(true);
       setTimeout(() => alive.current && setShared(false), 2500);
@@ -424,7 +425,7 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
 
   // Who sits where: the opponent on top, you at the bottom (a spectator: black on top, white below).
   const top: PlayerCard | null = remote ? (human === 'w' ? remote.black : remote.white) : null;
-  const sideName = (c: Color) => (remote ? (c === 'w' ? remote.white : remote.black).name : c === human ? playerName : `Бот · ${botLevel(start.botLevel).name}`);
+  const sideName = (c: Color) => (remote ? (c === 'w' ? remote.white : remote.black).name : c === human ? playerName : t('Бот · {0}', botLevel(start.botLevel).name));
 
   const selectedPiece = selected !== null ? view.cells[selected] : null;
   const menuOptions = useMemo(() => (menu ? abilityOptions(match, menu) : []), [menu, match]);
@@ -432,28 +433,28 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
   let statusText: string;
   if (match.result && spectator) {
     statusText =
-      match.result.winner === null ? `Нічия — ${match.result.reason}` : `Перемога: ${sideName(match.result.winner)} — ${match.result.reason}`;
+      match.result.winner === null ? t('Нічия — {0}', tr(match.result.reason)) : t('Перемога: {0} — {1}', sideName(match.result.winner), tr(match.result.reason));
   } else if (match.result) {
     statusText =
-      match.result.winner === null ? `Нічия — ${match.result.reason}` : match.result.winner === human ? `Перемога! ${match.result.reason}` : `Поразка. ${match.result.reason}`;
+      match.result.winner === null ? t('Нічия — {0}', tr(match.result.reason)) : match.result.winner === human ? t('Перемога! {0}', tr(match.result.reason)) : t('Поразка. {0}', tr(match.result.reason));
   } else if (spectator) {
-    statusText = `${match.status === 'check' ? 'Шах! ' : ''}Хід: ${sideName(match.turn)} (${match.turn === 'w' ? 'білі' : 'чорні'})`;
+    statusText = t('{0}Хід: {1} ({2})', match.status === 'check' ? t('Шах! ') : '', sideName(match.turn), match.turn === 'w' ? t('білі') : t('чорні'));
   } else if (stage) {
     statusText = stayMoves(stage).length
-      ? 'Фігура тут. Натисніть її, щоб зупинитись, або підсвічену клітинку, щоб іти далі'
-      : 'Оберіть підсвічену клітинку, куди йти далі';
+      ? t('Фігура тут. Натисніть її, щоб зупинитись, або підсвічену клітинку, щоб іти далі')
+      : t('Оберіть підсвічену клітинку, куди йти далі');
   } else if (myTurn && view.pending) {
-    statusText = 'Вершника вдарили: оберіть клітинку для відстрибу';
+    statusText = t('Вершника вдарили: оберіть клітинку для відстрибу');
   } else if (myTurn) {
-    statusText = match.status === 'check' ? 'Ваш хід — вам шах!' : 'Ваш хід';
+    statusText = match.status === 'check' ? t('Ваш хід — вам шах!') : t('Ваш хід');
   } else {
     statusText = remote
       ? match.status === 'check'
-        ? `Шах! Хід: ${sideName(bot)}…`
-        : `Хід суперника: ${sideName(bot)}…`
+        ? t('Шах! Хід: {0}…', sideName(bot))
+        : t('Хід суперника: {0}…', sideName(bot))
       : match.status === 'check'
-        ? 'Шах боту. Бот думає…'
-        : 'Бот думає…';
+        ? t('Шах боту. Бот думає…')
+        : t('Бот думає…');
   }
 
   return (
@@ -463,14 +464,14 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
           <span className="pb-who">
             {top ? <Avatar card={top.avatar} /> : <span className="avatar avatar-bot">🤖</span>}
             <span>
-              <b>{top ? top.name : `Бот · ${botLevel(start.botLevel).name}`}</b>
-              <small className="muted">{top ? `🏆 ${top.trophies} · ` : ''}{start.botDeck.name}</small>
+              <b>{top ? top.name : t('Бот · {0}', botLevel(start.botLevel).name)}</b>
+              <small className="muted">{top ? `🏆 ${top.trophies} · ` : ''}{tr(start.botDeck.name)}</small>
             </span>
           </span>
           <Captured types={lostPieces(match, human)} color={human} />
           {(thinking || (remote && match.turn === bot && !match.result)) && (
             <span className="thinking" aria-live="polite">
-              {remote ? 'ходить…' : 'думає…'}
+              {remote ? t('ходить…') : t('думає…')}
             </span>
           )}
         </div>
@@ -495,15 +496,15 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
               className={`board-popover ${squareCenter(popover.square, human, boardRing(view, marks)).y < 50 ? 'grow-down' : 'grow-up'}`}
               style={{ left: `${squareCenter(popover.square, human, boardRing(view, marks)).x}%`, top: `${squareCenter(popover.square, human, boardRing(view, marks)).y}%` }}
               role="dialog"
-              aria-label="Оберіть варіант ходу"
+              aria-label={t('Оберіть варіант ходу')}
             >
               {popover.moves.map((m, i) => (
                 <button key={i} className="btn btn-sm" onClick={() => act({ type: 'move', move: m })}>
-                  {m.promotion && <Glyph type={m.promotion} color={human} />} {m.promotion ? PROMO_NAMES[m.promotion] : m.label}
+                  {m.promotion && <Glyph type={m.promotion} color={human} />} {m.promotion ? PROMO_NAMES[m.promotion] : tr(m.label)}
                 </button>
               ))}
               <button className="btn btn-sm btn-ghost" onClick={() => setPopover(null)}>
-                Скасувати
+                {t('Скасувати')}
               </button>
             </div>
           )}
@@ -514,46 +515,46 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
             <span>
               <b>{playerName}</b>
               <small className="muted">
-                🏆 {trophies} · {start.playerDeck.name}
+                🏆 {trophies} · {tr(start.playerDeck.name)}
               </small>
             </span>
           </span>
           <Captured types={lostPieces(match, bot)} color={bot} />
-          <span className="muted small">Хід {fullMoves(match.ply) + (match.turn === 'w' ? 1 : 0)}</span>
+          <span className="muted small">{t('Хід')}{' '}{fullMoves(match.ply) + (match.turn === 'w' ? 1 : 0)}</span>
         </div>
       </div>
 
       <aside className="game-side">
         <div className={`panel status status-${match.result ? 'over' : myTurn ? 'mine' : 'bot'}`} aria-live="polite">
           <span className="eyebrow mode-tag">{remote
-              ? `${spectator ? 'Глядач · ' : ''}${remote.ranked ? 'Ліга гравців' : 'Гра з другом'}`
+              ? `${spectator ? t('Глядач · ') : ''}${remote.ranked ? t('Ліга гравців') : t('Гра з другом')}`
               : start.trial
-                ? `${start.trial.name} · раунд ${start.trial.round}/${start.trial.rounds}`
+                ? t('{0} · раунд {1}/{2}', start.trial.name, start.trial.round, start.trial.rounds)
                 : start.ranked
-                  ? 'Ліга ботів'
-                  : 'Тренування'}</span>
+                  ? t('Ліга ботів')
+                  : t('Тренування')}</span>
           <br />
           <strong>{statusText}</strong>
           {remote && watchers > 0 && (
-            <span className="watchers" title="Скільки людей дивиться партію">
+            <span className="watchers" title={t('Скільки людей дивиться партію')}>
               👁 {watchers}
             </span>
           )}
           {remote && link !== 'online' && (
             <p className="link-lost" role="status">
-              Зв’язок обірвався — перепідключаємось, партія чекає на сервері…
+              {t('Зв’язок обірвався — перепідключаємось, партія чекає на сервері…')}
             </p>
           )}
           {error && <p className="error-text">{error}</p>}
-          {special === 'mirage' && <p className="tip">Міраж увімкнено: оберіть стрибок коня без взяття.</p>}
-          {special === 'dash' && <p className="tip">Ривок Комети: оберіть клітинку за 2–5 кроків по прямій.</p>}
+          {special === 'mirage' && <p className="tip">{t('Міраж увімкнено: оберіть стрибок коня без взяття.')}</p>}
+          {special === 'dash' && <p className="tip">{t('Ривок Комети: оберіть клітинку за 2–5 кроків по прямій.')}</p>}
           {fromSelected.some((m) => m.kind === 'levitate') && (
-            <p className="tip">Сині плитки за краєм дошки — платформи левітації. Фігура мусить повернутися за 3 ходи суперника.</p>
+            <p className="tip">{t('Сині плитки за краєм дошки — платформи левітації. Фігура мусить повернутися за 3 ходи суперника.')}</p>
           )}
         </div>
 
         {myAbilityPieces.length > 0 && (
-          <div className="ability-dock" aria-label="Здібності">
+          <div className="ability-dock" aria-label={t('Здібності')}>
             {myAbilityPieces.map(({ c }) => {
               const card = getCard(c!.cardId);
               const def = ABILITY_DEFS[c!.cardId];
@@ -590,30 +591,30 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
                     {!ready && <span className="ability-cd">{cd}</span>}
                   </span>
                   <span className="ability-text">
-                    {card.rarity === 'mythological' && <span className="ability-eyebrow">Міфічна здібність</span>}
-                    <b>{def?.name ?? 'Левітація'}</b>
+                    {card.rarity === 'mythological' && <span className="ability-eyebrow">{t('Міфічна здібність')}</span>}
+                    <b>{def?.name ?? t('Левітація')}</b>
                     <small>
                       {!ready
-                        ? `перезарядка: ${cd} ход.`
+                        ? t('перезарядка: {0} ход.', cd)
                         : passive
-                          ? 'готово — ходом фігури'
+                          ? t('готово — ходом фігури')
                           : def.id === 'immortal'
                             ? view.immortalArmed
-                              ? 'захист увімкнено'
-                              : 'увімкнути захист'
+                              ? t('захист увімкнено')
+                              : t('увімкнути захист')
                             : def.id === 'hint'
                               ? hintBusy
-                                ? 'рахую…'
-                                : 'показати найкращий хід'
+                                ? t('рахую…')
+                                : t('показати найкращий хід')
                               : viaMoveKind
                                 ? special === viaMoveKind
-                                  ? 'скасувати'
+                                  ? t('скасувати')
                                   : myTurn && specialMoves(viaMoveKind).length === 0
-                                    ? 'зараз немає куди'
+                                    ? t('зараз немає куди')
                                     : viaMoveKind === 'mirage'
-                                    ? 'стрибок з ілюзіями'
-                                    : 'ривок до 5 клітинок'
-                                : 'обрати лінію'}
+                                    ? t('стрибок з ілюзіями')
+                                    : t('ривок до 5 клітинок')
+                                : t('обрати лінію')}
                     </small>
                   </span>
                 </button>
@@ -631,49 +632,48 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
                 onFocus={() => setPreview(o.squares)}
                 onClick={() => act({ type: 'ability', pieceId: menu, key: o.key })}
               >
-                {o.label}
+                {tr(o.label)}
               </button>
             ))}
             <button className="btn btn-sm btn-ghost" onClick={() => setMenu(null)}>
-              Скасувати
+              {t('Скасувати')}
             </button>
           </div>
         )}
         {shownHint && (
           <p className="tip">
-            Підказка: {PIECE_NAMES[view.cells[shownHint.from]?.type ?? 'pawn']} {squareName(shownHint.from)} → {squareName(shownHint.target)} (
-            {shownHint.label})
+            {t('Підказка:')} {PIECE_NAMES[view.cells[shownHint.from]?.type ?? 'pawn']} {squareName(shownHint.from)} → {squareName(shownHint.target)} ({tr(shownHint.label)})
           </p>
         )}
 
         <div className="panel">
-          <h2>Фігура</h2>
+          <h2>{t('Фігура')}</h2>
           {selectedPiece ? (
             <div>
               <CardView card={getCard(selectedPiece.cardId)} compact color={selectedPiece.color} />
               <ul className="piece-status small">
                 <li>
-                  {spectator ? (selectedPiece.color === 'w' ? 'Білі' : 'Чорні') : selectedPiece.color === human ? 'Ваша' : 'Суперника'}, {squareName(selected!)}
+                  {spectator ? (selectedPiece.color === 'w' ? t('Білі') : t('Чорні')) : selectedPiece.color === human ? t('Ваша') : t('Суперника')}, {squareName(selected!)}
                 </li>
-                {selectedPiece.illusion && <li>Це ваша ілюзія: суперник бачить звичайну фігуру.</li>}
-                {selectedPiece.frozen && <li>❄ пропускає хід</li>}
-                {selectedPiece.onceUsed && <li>Здібність «раз за гру» вже використано</li>}
-                {selectedPiece.cooldown !== null && selectedPiece.cooldown > 0 && <li>Перезарядка: ще {selectedPiece.cooldown} ваших ход.</li>}
-                {selectedPiece.passenger && <li>Везе пішака-пасажира</li>}
-                {selectedPiece.platformTurnsLeft !== null && <li>На платформі: зникне через {selectedPiece.platformTurnsLeft} ход. суперника</li>}
+                {selectedPiece.illusion && <li>{t('Це ваша ілюзія: суперник бачить звичайну фігуру.')}</li>}
+                {selectedPiece.frozen && <li>{t('❄ пропускає хід')}</li>}
+                {selectedPiece.onceUsed && <li>{t('Здібність «раз за гру» вже використано')}</li>}
+                {selectedPiece.cooldown !== null && selectedPiece.cooldown > 0 && <li>{t('Перезарядка: ще {0} ваших ход.', selectedPiece.cooldown)}</li>}
+                {selectedPiece.passenger && <li>{t('Везе пішака-пасажира')}</li>}
+                {selectedPiece.platformTurnsLeft !== null && <li>{t('На платформі: зникне через {0} ход. суперника', selectedPiece.platformTurnsLeft)}</li>}
               </ul>
             </div>
           ) : (
-            <p className="muted small">Натисніть на фігуру, щоб побачити її картку.</p>
+            <p className="muted small">{t('Натисніть на фігуру, щоб побачити її картку.')}</p>
           )}
         </div>
 
         <div className="panel history">
-          <h2>Хід партії</h2>
+          <h2>{t('Хід партії')}</h2>
           <ol ref={historyRef}>
             {view.history.map((h, i) => (
               <li key={i}>
-                <span className="mono muted">{Math.floor(h.ply / 2) + 1}.</span> <Glyph type="pawn" color={h.color} /> {h.text}
+                <span className="mono muted">{Math.floor(h.ply / 2) + 1}.</span> <Glyph type="pawn" color={h.color} /> {tr(h.text)}
               </li>
             ))}
           </ol>
@@ -681,8 +681,8 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
 
         <div className="game-actions">
           {remote?.shareUrl && (
-            <button className="btn btn-ghost" onClick={() => void share()} title="Посилання на цю партію: суперник повернеться в гру, друзі зможуть дивитися">
-              {shared ? '✓ Посилання скопійовано' : '🔗 Поділитися'}
+            <button className="btn btn-ghost" onClick={() => void share()} title={t('Посилання на цю партію: суперник повернеться в гру, друзі зможуть дивитися')}>
+              {shared ? t('✓ Посилання скопійовано') : t('🔗 Поділитися')}
             </button>
           )}
           {remote?.claim && !spectator && !match.result && !myTurn && clock - quietSince > CLAIM_MS && (
@@ -694,7 +694,7 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
                   .catch((e) => setError(e instanceof Error ? e.message : String(e)))
               }
             >
-              Суперник мовчить — забрати перемогу
+              {t('Суперник мовчить — забрати перемогу')}
             </button>
           )}
           {!match.result && !spectator && (
@@ -710,12 +710,12 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
               }}
               onBlur={() => setConfirmResign(false)}
             >
-              {confirmResign ? 'Точно здатися?' : 'Здатися'}
+              {confirmResign ? t('Точно здатися?') : t('Здатися')}
             </button>
           )}
           {(match.result || spectator) && (
             <button className="btn" onClick={onExit}>
-              {spectator && !match.result ? 'Вийти' : 'До меню'}
+              {spectator && !match.result ? t('Вийти') : t('До меню')}
             </button>
           )}
         </div>
@@ -733,21 +733,21 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
 
       {match.result && showSummary && (
         <div className="modal-backdrop">
-          <div className="modal summary" role="dialog" aria-label="Підсумок партії">
+          <div className="modal summary" role="dialog" aria-label={t('Підсумок партії')}>
             <h2 className={`outcome outcome-${match.result.winner === null ? 'draw' : spectator || match.result.winner === human ? 'win' : 'loss'}`}>
               {match.result.winner === null
-                ? 'Нічия'
+                ? t('Нічия')
                 : spectator
-                  ? `Перемога: ${sideName(match.result.winner)}`
+                  ? t('Перемога: {0}', sideName(match.result.winner))
                   : match.result.winner === human
-                    ? 'Перемога!'
-                    : 'Поразка'}
+                    ? t('Перемога!')
+                    : t('Поразка')}
             </h2>
             <p>
-              {match.result.reason} · ходів: {match.result.moves}
+              {t('{0} · ходів: {1}', tr(match.result.reason), match.result.moves)}
             </p>
-            {remote && !remote.ranked && !spectator && <p className="muted">Дружня гра: кубки не змінюються, партія є в історії обох гравців.</p>}
-            {onFinish && !verdict && !verdictError && <p className="muted">{remote ? 'Рахуємо кубки…' : 'Перевіряємо партію…'}</p>}
+            {remote && !remote.ranked && !spectator && <p className="muted">{t('Дружня гра: кубки не змінюються, партія є в історії обох гравців.')}</p>}
+            {onFinish && !verdict && !verdictError && <p className="muted">{remote ? t('Рахуємо кубки…') : t('Перевіряємо партію…')}</p>}
             {verdictError && <p className="error-text">{verdictError}</p>}
             {verdict?.ladder && (
               <div className="verdict">
@@ -757,16 +757,16 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
                   {verdict.trophiesDelta}
                 </span>
                 <span className="muted">
-                  Тепер: {verdict.profile.ladders[verdict.ladder].trophies} · {verdict.profile.ladders[verdict.ladder].leagueName}
+                  {t('Тепер: {0} · {1}', verdict.profile.ladders[verdict.ladder].trophies, tr(verdict.profile.ladders[verdict.ladder].leagueName))}
                 </span>
-                {verdict.goldDelta > 0 && <span className="loot-item gold">🪙 +{verdict.goldDelta} золота</span>}
+                {verdict.goldDelta > 0 && <span className="loot-item gold">🪙 +{verdict.goldDelta} {t('золота')}</span>}
                 {verdict.reward && (
                   <div className="reward">
                     <img className="pack-img" src={packArt(verdict.reward.type)} alt="" />
                     <div>
-                      <b>{verdict.reward.name}</b>
+                      <b>{tr(verdict.reward.name)}</b>
                       <small className="muted">
-                        уже чекає на головній · паків сьогодні {verdict.profile.ladders[verdict.ladder].packsToday}/
+                        {t('уже чекає на головній · паків сьогодні')}{' '}{verdict.profile.ladders[verdict.ladder].packsToday}/
                         {verdict.profile.ladders[verdict.ladder].packsLimit}
                       </small>
                     </div>
@@ -774,15 +774,15 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
                 )}
                 {verdict.rewardSkipped && (
                   <p className="muted small">
-                    Ліміт {verdict.profile.ladders[verdict.ladder].packsLimit} паків на сьогодні в цій лізі вичерпано — завтра паки знову падатимуть.
+                    {t('Ліміт {0} паків на сьогодні в цій лізі вичерпано — завтра паки знову падатимуть.', verdict.profile.ladders[verdict.ladder].packsLimit)}
                   </p>
                 )}
                 {verdict.leagueUps.map((l) => (
                   <div key={l.name} className="league-up">
-                    <span className="league-up-title">🎉 Нова ліга: {l.name}!</span>
+                    <span className="league-up-title">{t('🎉 Нова ліга: {0}!', tr(l.name))}</span>
                     <span>
                       {l.gold > 0 && <>🪙 +{l.gold} </>}
-                      {l.pack && <>· {l.pack.name}</>}
+                      {l.pack && <>· {tr(l.pack.name)}</>}
                     </span>
                   </div>
                 ))}
@@ -790,47 +790,47 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
             )}
             {verdict?.trial && (
               <div className="verdict">
-                <span className="eyebrow">{verdict.trial.name}</span>
+                <span className="eyebrow">{tr(verdict.trial.name)}</span>
                 {verdict.trial.status === 'won' ? (
                   <>
-                    <span className="trophy-delta up">🏅 Випробування пройдено!</span>
+                    <span className="trophy-delta up">{t('🏅 Випробування пройдено!')}</span>
                     {verdict.trial.card && (
                       <div className="trial-won-card">
                         <CardView card={getCard(verdict.trial.card)} />
-                        <small className="muted">Нова картка вже у вашій колекції — поставте її в колоду.</small>
+                        <small className="muted">{t('Нова картка вже у вашій колекції — поставте її в колоду.')}</small>
                       </div>
                     )}
                     {verdict.trial.reward && (
                       <div className="reward">
                         <img className="pack-img" src={packArt(verdict.trial.reward.type)} alt="" />
                         <div>
-                          <b>{verdict.trial.reward.name}</b>
-                          <small className="muted">уже чекає на головній</small>
+                          <b>{tr(verdict.trial.reward.name)}</b>
+                          <small className="muted">{t('уже чекає на головній')}</small>
                         </div>
                       </div>
                     )}
                   </>
                 ) : verdict.trial.status === 'lost' ? (
-                  <span className="trophy-delta down">Спробу завершено: {verdict.trial.wins} з {verdict.trial.rounds} перемог</span>
+                  <span className="trophy-delta down">{t('Спробу завершено: {0} з {1} перемог', verdict.trial.wins, verdict.trial.rounds)}</span>
                 ) : (
                   <span className="trophy-delta up">
-                    Раунд пройдено: {verdict.trial.wins} / {verdict.trial.rounds}
+                    {t('Раунд пройдено: {0} / {1}', verdict.trial.wins, verdict.trial.rounds)}
                   </span>
                 )}
               </div>
             )}
-            {verdict && !verdict.ladder && !verdict.trial && <p className="muted">Тренування: кубки й паки не нараховуються.</p>}
+            {verdict && !verdict.ladder && !verdict.trial && <p className="muted">{t('Тренування: кубки й паки не нараховуються.')}</p>}
             <div className="editor-actions">
               {onRematch && !spectator && (
                 <button className="btn btn-primary" onClick={onRematch}>
-                  {rematchLabel ?? (remote ? 'Шукати ще' : 'Ще бій')}
+                  {rematchLabel ?? (remote ? t('Шукати ще') : t('Ще бій'))}
                 </button>
               )}
               <button className="btn" onClick={onExit}>
-                До меню
+                {t('До меню')}
               </button>
               <button className="btn btn-ghost" onClick={() => setShowSummary(false)}>
-                Дошка
+                {t('Дошка')}
               </button>
             </div>
           </div>
@@ -840,7 +840,7 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
   );
 }
 
-const PROMO_NAMES: Partial<Record<PieceType, string>> = { queen: 'Ферзь', rook: 'Тура', bishop: 'Слон', knight: 'Кінь' };
+const PROMO_NAMES: Partial<Record<PieceType, string>> = { queen: t('Ферзь'), rook: t('Тура'), bishop: t('Слон'), knight: t('Кінь') };
 
 function countPieces(m: MatchState): number {
   return m.board.reduce((n, p) => n + (p ? 1 : 0), 0);
@@ -864,7 +864,7 @@ function lostPieces(match: MatchState, color: Color): PieceType[] {
 function Captured({ types, color }: { types: PieceType[]; color: Color }) {
   if (!types.length) return null;
   return (
-    <span className={`captured captured-${color}`} title="Взяті фігури">
+    <span className={`captured captured-${color}`} title={t('Взяті фігури')}>
       {/* One glyph per kind with a count, so the tray stays one short line. */}
       {[...new Set(types)].map((t) => {
         const n = types.filter((x) => x === t).length;

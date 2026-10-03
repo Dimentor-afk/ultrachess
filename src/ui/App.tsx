@@ -14,6 +14,7 @@ import { currentPath, navigate, onNavigate, useRoutePath } from './router';
 import { LeaguesPage } from './LeaguesPage';
 import { TrialsPage } from './TrialsPage';
 import { type Loaded, SessionProvider, type Toast, errorText, loadAll, useSession } from './state';
+import { t } from '../i18n';
 
 // Pages off the main path load on first visit, which keeps the first download smaller.
 const AdminPage = lazy(() => import('./AdminPage').then((m) => ({ default: m.AdminPage })));
@@ -26,30 +27,30 @@ const GamePage = lazy(() => import('./GamePage').then((m) => ({ default: m.GameP
 type Route = 'play' | 'leagues' | 'trials' | 'deck' | 'shop' | 'friends' | 'top' | 'admin' | 'profile' | 'help' | 'game';
 
 const ROUTES: { id: Route; label: string; icon: string; admin?: boolean }[] = [
-  { id: 'play', label: 'Грати', icon: 'play' },
-  { id: 'leagues', label: 'Ліги', icon: 'ladder' },
-  { id: 'trials', label: 'Випробування', icon: 'medal' },
-  { id: 'deck', label: 'Колода', icon: 'cards' },
-  { id: 'shop', label: 'Магазин', icon: 'shop' },
-  { id: 'friends', label: 'Друзі', icon: 'users' },
-  { id: 'top', label: 'Рейтинг', icon: 'trophy' },
-  { id: 'admin', label: 'Адмін', icon: 'shield', admin: true },
+  { id: 'play', label: t('Грати'), icon: 'play' },
+  { id: 'leagues', label: t('Ліги'), icon: 'ladder' },
+  { id: 'trials', label: t('Випробування'), icon: 'medal' },
+  { id: 'deck', label: t('Колода'), icon: 'cards' },
+  { id: 'shop', label: t('Магазин'), icon: 'shop' },
+  { id: 'friends', label: t('Друзі'), icon: 'users' },
+  { id: 'top', label: t('Рейтинг'), icon: 'trophy' },
+  { id: 'admin', label: t('Адмін'), icon: 'shield', admin: true },
 ];
 
 /** Phone tab bar: five tabs, "Грати" in the middle. Ліги also covers trials and the leaderboard. */
 const TABS: { id: Route; label: string; icon: string; covers?: Route[] }[] = [
-  { id: 'shop', label: 'Магазин', icon: 'shop' },
-  { id: 'deck', label: 'Колода', icon: 'cards' },
-  { id: 'play', label: 'Грати', icon: 'play' },
-  { id: 'friends', label: 'Друзі', icon: 'users' },
-  { id: 'leagues', label: 'Ліги', icon: 'trophy', covers: ['trials', 'top'] },
+  { id: 'shop', label: t('Магазин'), icon: 'shop' },
+  { id: 'deck', label: t('Колода'), icon: 'cards' },
+  { id: 'play', label: t('Грати'), icon: 'play' },
+  { id: 'friends', label: t('Друзі'), icon: 'users' },
+  { id: 'leagues', label: t('Ліги'), icon: 'trophy', covers: ['trials', 'top'] },
 ];
 
 /** On phones the Ліги tab holds three pages; this strip switches between them. */
 const ARENA: { id: Route; label: string }[] = [
-  { id: 'leagues', label: 'Ліги' },
-  { id: 'trials', label: 'Випробування' },
-  { id: 'top', label: 'Рейтинг' },
+  { id: 'leagues', label: t('Ліги') },
+  { id: 'trials', label: t('Випробування') },
+  { id: 'top', label: t('Рейтинг') },
 ];
 
 function readRoute(): Route {
@@ -168,9 +169,9 @@ function Shell() {
           ))}
         </nav>
         <a className={`nav-help ${route === 'help' ? 'active' : ''}`} href="#/help">
-          <Icon name="info" /> Як грати
+          <Icon name="info" /> {t('Як грати')}
         </a>
-        <a className={`me ${route === 'profile' ? 'active' : ''}`} href="#/profile" title="Профіль">
+        <a className={`me ${route === 'profile' ? 'active' : ''}`} href="#/profile" title={t('Профіль')}>
           <Avatar card={s.profile.avatar} />
           <span className="me-info">
             <b>{s.profile.name}</b>
@@ -184,24 +185,24 @@ function Shell() {
 
       {/* Phones: profile, wallet and help on top; five tabs at the bottom. */}
       <header className="m-header">
-        <a className={`m-me ${route === 'profile' ? 'active' : ''}`} href="#/profile" aria-label="Профіль">
+        <a className={`m-me ${route === 'profile' ? 'active' : ''}`} href="#/profile" aria-label={t('Профіль')}>
           <Avatar card={s.profile.avatar} size="sm" />
           <span className="m-me-info">
             <b>{s.profile.name}</b>
             <small>🏆 {s.profile.trophies}</small>
           </span>
         </a>
-        <a href="#/shop" className="wallet-item gold" aria-label={`Золото: ${s.profile.gold}`}>
+        <a href="#/shop" className="wallet-item gold" aria-label={t('Золото: {0}', s.profile.gold)}>
           🪙 <b>{s.profile.gold}</b>
         </a>
-        <a href="#/shop" className="wallet-item shards" aria-label={`Уламки: ${s.profile.shards}`}>
+        <a href="#/shop" className="wallet-item shards" aria-label={t('Уламки: {0}', s.profile.shards)}>
           💎 <b>{s.profile.shards}</b>
         </a>
-        <a className={`m-help ${route === 'help' ? 'active' : ''}`} href="#/help" aria-label="Як грати">
+        <a className={`m-help ${route === 'help' ? 'active' : ''}`} href="#/help" aria-label={t('Як грати')}>
           ?
         </a>
       </header>
-      <nav className="tabbar" aria-label="Розділи">
+      <nav className="tabbar" aria-label={t('Розділи')}>
         {TABS.map((t) => {
           const on = route === t.id || !!t.covers?.includes(route);
           return (
@@ -217,16 +218,16 @@ function Shell() {
       </nav>
 
       <main className="content">
-        <div className="wallet" aria-label="Гаманець">
-          <a href="#/shop" className="wallet-item gold" title="Золото: купує дошки й ефекти в магазині">
+        <div className="wallet" aria-label={t('Гаманець')}>
+          <a href="#/shop" className="wallet-item gold" title={t('Золото: купує дошки й ефекти в магазині')}>
             🪙 <b>{s.profile.gold}</b>
           </a>
-          <a href="#/shop" className="wallet-item shards" title="Уламки: з повторок, купують паки">
+          <a href="#/shop" className="wallet-item shards" title={t('Уламки: з повторок, купують паки')}>
             💎 <b>{s.profile.shards}</b>
           </a>
         </div>
         {ARENA.some((a) => a.id === route) && (
-          <nav className="m-subnav" aria-label="Змагання">
+          <nav className="m-subnav" aria-label={t('Змагання')}>
             {ARENA.map((a) => (
               <a key={a.id} href={`#/${a.id}`} className={route === a.id ? 'on' : ''}>
                 {a.label}
@@ -236,7 +237,7 @@ function Shell() {
         )}
         {/* A page that crashes shows its error; the menu stays and another tab starts clean. */}
         <ErrorBoundary key={route}>
-          <Suspense fallback={<p className="muted page-loading">Завантаження…</p>}>
+          <Suspense fallback={<p className="muted page-loading">{t('Завантаження…')}</p>}>
           {route === 'play' && <HomePage />}
           {route === 'leagues' && <LeaguesPage />}
           {route === 'trials' && <TrialsPage />}

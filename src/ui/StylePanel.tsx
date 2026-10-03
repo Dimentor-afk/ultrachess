@@ -9,6 +9,7 @@ import { FxOnce } from './FxOnce';
 import type { FxName } from './fxSprites';
 import { Icon } from './icons';
 import { errorText, useSession } from './state';
+import { t } from '../i18n';
 
 const FILES = 'abcdefgh';
 
@@ -68,18 +69,18 @@ export function StylePanel() {
     }),
   );
 
-  const trying = (tryTheme && { kind: 'Дошка', name: theme.name, price: theme.price, inShop: !!offer?.themes.includes(theme.id) }) ||
-    (tryFx && { kind: 'Ефект', name: fx.name, price: fx.price, inShop: !!offer?.fx.includes(fx.id) }) ||
+  const trying = (tryTheme && { board: true, name: theme.name, price: theme.price, inShop: !!offer?.themes.includes(theme.id) }) ||
+    (tryFx && { board: false, name: fx.name, price: fx.price, inShop: !!offer?.fx.includes(fx.id) }) ||
     null;
 
   const status = (active: boolean, owned: boolean, inShop: boolean, price: number) =>
     active ? (
-      <span className="pill pill-ok">у грі</span>
+      <span className="pill pill-ok">{t('у грі')}</span>
     ) : owned ? (
-      <span className="pill">поставити</span>
+      <span className="pill">{t('поставити')}</span>
     ) : inShop ? (
-      <span className="pill pill-shop" title={`Сьогодні в магазині за ${price} золота`}>
-        у продажу
+      <span className="pill pill-shop" title={t('Сьогодні в магазині за {0} золота', price)}>
+        {t('у продажу')}
       </span>
     ) : (
       <span className="pill pill-locked">
@@ -90,27 +91,27 @@ export function StylePanel() {
   return (
     <div className="style-page">
       <div className="style-top">
-        <div className={`style-board ${trying ? 'trying' : ''}`} aria-label={`Дошка «${theme.name}», ефект «${fx.name}»`}>
+        <div className={`style-board ${trying ? 'trying' : ''}`} aria-label={t('Дошка «{0}», ефект «{1}»', theme.name, fx.name)}>
           {squares}
         </div>
         <div className="style-summary panel">
-          <span className="eyebrow">{trying ? 'Примірка' : 'Зараз у грі'}</span>
+          <span className="eyebrow">{trying ? t('Примірка') : t('Зараз у грі')}</span>
           <dl>
-            <dt>Дошка</dt>
+            <dt>{t('Дошка')}</dt>
             <dd>{theme.name}</dd>
-            <dt>Ефект взяття</dt>
+            <dt>{t('Ефект взяття')}</dt>
             <dd>{fx.name}</dd>
           </dl>
           {trying ? (
             <>
               <p className="small">
-                {trying.kind} «{trying.name}» ще не ваш{trying.kind === 'Дошка' ? 'а' : ''}.{' '}
+                {trying.board ? t('Дошка «{0}» ще не ваша.', trying.name) : t('Ефект «{0}» ще не ваш.', trying.name)}{' '}
                 {trying.inShop ? (
                   <>
-                    Сьогодні є в <a href="#/shop">магазині</a> за 🪙 {trying.price}.
+                    <a href="#/shop">{t('Сьогодні є в магазині за 🪙 {0}.', trying.price)}</a>
                   </>
                 ) : (
-                  'Зараз не продається — чекайте в щоденній вітрині магазину.'
+                  t('Зараз не продається — чекайте в щоденній вітрині магазину.')
                 )}
               </p>
               <button
@@ -120,25 +121,24 @@ export function StylePanel() {
                   setTryFx(null);
                 }}
               >
-                Скасувати примірку
+                {t('Скасувати примірку')}
               </button>
             </>
           ) : (
             <p className="muted small">
-              Натисніть свою дошку чи ефект, щоб поставити. Чужі можна приміряти. Ваш ефект взяття бачить і суперник у грі з другом чи в
-              лізі гравців.
+              {t('Натисніть свою дошку чи ефект, щоб поставити. Чужі можна приміряти. Ваш ефект взяття бачить і суперник у грі з другом чи в лізі гравців.')}
             </p>
           )}
           <a className="btn btn-sm btn-primary" href="#/shop">
-            <Icon name="shop" /> Щоденна вітрина
+            <Icon name="shop" /> {t('Щоденна вітрина')}
           </a>
         </div>
       </div>
 
       <div className="section-head">
-        <h2>Дошки</h2>
+        <h2>{t('Дошки')}</h2>
         <span className="muted small">
-          ваших {p.themes.length} з {BOARD_THEMES.length}
+          {t('ваших {0} з {1}', p.themes.length, BOARD_THEMES.length)}
         </span>
       </div>
       <div className="style-grid">
@@ -162,9 +162,9 @@ export function StylePanel() {
       </div>
 
       <div className="section-head">
-        <h2>Ефекти взяття</h2>
+        <h2>{t('Ефекти взяття')}</h2>
         <span className="muted small">
-          ваших {p.ownedFx.length} з {CAPTURE_FX.length}
+          {t('ваших {0} з {1}', p.ownedFx.length, CAPTURE_FX.length)}
         </span>
       </div>
       <div className="style-grid">

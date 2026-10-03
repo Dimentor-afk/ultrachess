@@ -7,6 +7,13 @@ game service in `src/economy` (same service runs on the server and, over localSt
 in the browser demo). Tests: `npx vitest run`; typecheck: `npm run typecheck`.
 Rule decisions that differ from `docs/spec.md` go to `docs/engine-decisions.md`.
 
+Languages: uk (source), en, de, it, es (`src/i18n`). UI text is written in Ukrainian inside
+`t('…')` (placeholders `{0}`); the Ukrainian string is the dictionary key in `src/i18n/{en,de,it,es}.ts`.
+Text from the server/engine (errors, move history, card/league names) stays Ukrainian on the wire and
+is translated where shown with `tr()`. Engine move labels are identifiers (the server compares them):
+never translate them in the engine. Every new `t()` key needs a translation in all four dictionaries
+(a test checks the four have the same keys). Letters go out in the language of the `X-Lang` header.
+
 ## Semester project: Lab 27 — Multiplayer Browser Game
 
 The author submits Ultrachess as the semester project from

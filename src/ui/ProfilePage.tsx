@@ -7,9 +7,11 @@ import { NAME_MAX } from '../economy/account';
 import { Icon } from './icons';
 import { getSettings, onSettings, play, setSettings } from './settings';
 import { errorText, useSession } from './state';
+import { t, tr, locale } from '../i18n';
+import { LangSelect } from './LangSelect';
 
-const KIND: Record<HistoryRow['kind'], string> = { ranked: 'Ліга гравців', bot: 'Ліга ботів', training: 'Тренування', friend: 'Друг', trial: 'Випробування' };
-const OUTCOME: Record<HistoryRow['outcome'], string> = { win: 'Перемога', loss: 'Поразка', draw: 'Нічия' };
+const KIND: Record<HistoryRow['kind'], string> = { ranked: t('Ліга гравців'), bot: t('Ліга ботів'), training: t('Тренування'), friend: t('Друг'), trial: t('Випробування') };
+const OUTCOME: Record<HistoryRow['outcome'], string> = { win: t('Перемога'), loss: t('Поразка'), draw: t('Нічия') };
 
 export function ProfilePage() {
   const s = useSession();
@@ -54,7 +56,7 @@ export function ProfilePage() {
   return (
     <section className="page profile">
       <div className="profile-hero">
-        <button className="profile-avatar" onClick={() => setPicker(!picker)} title="Змінити аватар">
+        <button className="profile-avatar" onClick={() => setPicker(!picker)} title={t('Змінити аватар')}>
           <Avatar card={p.avatar} size="xl" />
           <span className="profile-avatar-edit">
             <Icon name="edit" />
@@ -69,10 +71,10 @@ export function ProfilePage() {
                 void save({ name });
               }}
             >
-              <input value={name} maxLength={NAME_MAX} autoFocus onChange={(e) => setName(e.target.value)} aria-label="Нікнейм" title={NAME_HINT} />
-              <button className="btn btn-primary btn-sm">Зберегти</button>
+              <input value={name} maxLength={NAME_MAX} autoFocus onChange={(e) => setName(e.target.value)} aria-label={t('Нікнейм')} title={NAME_HINT} />
+              <button className="btn btn-primary btn-sm">{t('Зберегти')}</button>
               <button type="button" className="btn btn-sm btn-ghost" onClick={() => setEditing(false)}>
-                Скасувати
+                {t('Скасувати')}
               </button>
             </form>
           ) : (
@@ -81,52 +83,52 @@ export function ProfilePage() {
               <button
                 className="icon-btn inline"
                 onClick={() => {
-                  if (p.nameChangeAt) return s.toast(`Нікнейм можна змінювати раз на 7 днів: наступна зміна ${new Date(p.nameChangeAt).toLocaleDateString('uk-UA')}.`, 'error');
+                  if (p.nameChangeAt) return s.toast(t('Нікнейм можна змінювати раз на 7 днів: наступна зміна {0}.', new Date(p.nameChangeAt).toLocaleDateString(locale())), 'error');
                   setName(p.name);
                   setEditing(true);
                 }}
-                aria-label="Змінити нікнейм"
+                aria-label={t('Змінити нікнейм')}
               >
                 <Icon name="edit" />
               </button>
             </h1>
           )}
-          {editing && <small className="muted tiny">{NAME_HINT}. Змінити нікнейм можна раз на 7 днів.</small>}
+          {editing && <small className="muted tiny">{NAME_HINT}{t('. Змінити нікнейм можна раз на 7 днів.')}</small>}
           <div className="profile-tags">
-            <span className="tag-chip" title="За цим кодом вас можна знайти в друзях">
+            <span className="tag-chip" title={t('За цим кодом вас можна знайти в друзях')}>
               #{p.tag}
             </span>
-            <span className="muted small">{p.role === 'admin' ? 'Адміністратор · ' : ''}з {new Date(p.createdAt).toLocaleDateString('uk-UA')}</span>
+            <span className="muted small">{p.role === 'admin' ? t('Адміністратор · ') : ''}{t('з {0}', new Date(p.createdAt).toLocaleDateString(locale()))}</span>
           </div>
           <a className="profile-arena" href="#/leagues/pvp">
             <span className="trophies">⚔ 🏆 {p.ladders.pvp.trophies}</span>
             <span className="muted">
-              {p.ladders.pvp.leagueName} · рекорд {p.ladders.pvp.best}
+              {t('{0} · рекорд {1}', tr(p.ladders.pvp.leagueName), p.ladders.pvp.best)}
             </span>
           </a>
           <a className="profile-arena" href="#/leagues/bot">
             <span className="trophies">🤖 🏆 {p.ladders.bot.trophies}</span>
             <span className="muted">
-              {p.ladders.bot.leagueName} · рекорд {p.ladders.bot.best}
+              {t('{0} · рекорд {1}', tr(p.ladders.bot.leagueName), p.ladders.bot.best)}
             </span>
           </a>
         </div>
         <div className="profile-side">
           {p.role === 'admin' && (
             <a className="btn btn-sm" href="#/admin">
-              <Icon name="shield" /> Адмін-панель
+              <Icon name="shield" /> {t('Адмін-панель')}
             </a>
           )}
           <a className="btn btn-sm" href="#/help">
-            <Icon name="info" /> Як грати
+            <Icon name="info" /> {t('Як грати')}
           </a>
           <button className="btn btn-ghost btn-sm" onClick={() => s.logout()}>
-            <Icon name="logout" /> Вийти
+            <Icon name="logout" /> {t('Вийти з акаунта')}
           </button>
           {s.api.resetDemo && (
             <button
               className="btn btn-ghost btn-sm demo-reset"
-              title="Видаляє всі демо-акаунти в цьому браузері: можна зареєструватись і відкрити стартовий пак знову"
+              title={t('Видаляє всі демо-акаунти в цьому браузері: можна зареєструватись і відкрити стартовий пак знову')}
               onClick={async () => {
                 if (!confirmReset) return setConfirmReset(true);
                 await s.api.resetDemo!();
@@ -134,7 +136,7 @@ export function ProfilePage() {
               }}
               onBlur={() => setConfirmReset(false)}
             >
-              {confirmReset ? 'Точно видалити все?' : 'Почати демо з нуля'}
+              {confirmReset ? t('Точно видалити все?') : t('Почати демо з нуля')}
             </button>
           )}
         </div>
@@ -143,8 +145,8 @@ export function ProfilePage() {
       {picker && (
         <div className="panel avatar-picker">
           <div className="section-head">
-            <h2>Аватар</h2>
-            <span className="muted small">Будь-яка ваша картка</span>
+            <h2>{t('Аватар')}</h2>
+            <span className="muted small">{t('Будь-яка ваша картка')}</span>
           </div>
           <div className="avatar-grid">
             {ownedCards.map((c) => (
@@ -157,16 +159,16 @@ export function ProfilePage() {
       )}
 
       <div className="stat-grid">
-        <Stat label="Перемоги" value={p.wins} tone="ok" />
-        <Stat label="Поразки" value={p.losses} tone="bad" />
-        <Stat label="Нічиї" value={p.draws} />
-        <Stat label="Відсоток перемог" value={`${winrate}%`} />
-        <Stat label="Карток зібрано" value={`${owned.length}/${CARDS.length}`} />
-        <Stat label="Рекорд кубків" value={`🏆 ${Math.max(p.ladders.pvp.best, p.ladders.bot.best)}`} />
+        <Stat label={t('Перемоги')} value={p.wins} tone="ok" />
+        <Stat label={t('Поразки')} value={p.losses} tone="bad" />
+        <Stat label={t('Нічиї')} value={p.draws} />
+        <Stat label={t('Відсоток перемог')} value={`${winrate}%`} />
+        <Stat label={t('Карток зібрано')} value={`${owned.length}/${CARDS.length}`} />
+        <Stat label={t('Рекорд кубків')} value={`🏆 ${Math.max(p.ladders.pvp.best, p.ladders.bot.best)}`} />
       </div>
 
       <div className="panel">
-        <h2>Колекція за рідкістю</h2>
+        <h2>{t('Колекція за рідкістю')}</h2>
         <div className="rarity-bars">
           {byRarity.map(({ r, have, all }) => (
             <div key={r} className={`rarity-bar r-${r}`}>
@@ -187,13 +189,13 @@ export function ProfilePage() {
       <AccountPanel />
 
       <div className="section-head">
-        <h2>Історія матчів</h2>
+        <h2>{t('Історія матчів')}</h2>
       </div>
       {!history ? (
-        <p className="muted">Завантаження…</p>
+        <p className="muted">{t('Завантаження…')}</p>
       ) : history.length === 0 ? (
         <div className="panel">
-          <p className="muted">Ще немає зіграних партій.</p>
+          <p className="muted">{t('Ще немає зіграних партій.')}</p>
         </div>
       ) : (
         <div className="history-list">
@@ -201,9 +203,9 @@ export function ProfilePage() {
             <div key={h.id} className={`history-row out-${h.outcome}`}>
               <span className="history-outcome">{OUTCOME[h.outcome]}</span>
               <span className="history-main">
-                <b>{h.opponent}</b>
+                <b>{tr(h.opponent)}</b>
                 <small className="muted">
-                  {KIND[h.kind]} · {h.reason} · {h.moves} ход.
+                  {KIND[h.kind]} · {tr(h.reason)} · {t('{0} ход.', h.moves)}
                 </small>
               </span>
               {h.kind === 'ranked' && (
@@ -212,7 +214,7 @@ export function ProfilePage() {
                   {h.trophiesDelta}
                 </span>
               )}
-              <span className="muted tiny history-date">{new Date(h.at).toLocaleString('uk-UA', { dateStyle: 'short', timeStyle: 'short' })}</span>
+              <span className="muted tiny history-date">{new Date(h.at).toLocaleString(locale(), { dateStyle: 'short', timeStyle: 'short' })}</span>
             </div>
           ))}
         </div>
@@ -225,13 +227,13 @@ function SettingsPanel() {
   const [st, setSt] = useState(getSettings());
   useEffect(() => onSettings(() => setSt(getSettings())), []);
   const rows: { key: 'sound' | 'animations' | 'coordinates'; label: string; hint: string }[] = [
-    { key: 'sound', label: 'Звуки', hint: 'Ходи, взяття, шах, відкриття паків' },
-    { key: 'animations', label: 'Анімації', hint: 'Рух фігур, тряска паків, світіння' },
-    { key: 'coordinates', label: 'Координати дошки', hint: 'Літери й цифри навколо дошки' },
+    { key: 'sound', label: t('Звуки'), hint: t('Ходи, взяття, шах, відкриття паків') },
+    { key: 'animations', label: t('Анімації'), hint: t('Рух фігур, тряска паків, світіння') },
+    { key: 'coordinates', label: t('Координати дошки'), hint: t('Літери й цифри навколо дошки') },
   ];
   return (
     <div className="panel settings">
-      <h2>Налаштування</h2>
+      <h2>{t('Налаштування')}</h2>
       {rows.map((r) => (
         <label key={r.key} className="setting-row">
           <span>
@@ -251,14 +253,14 @@ function SettingsPanel() {
       ))}
       <div className="setting-row">
         <span>
-          <b>Чорні фігури</b>
-          <small className="muted">Кольорові з червоним обідком чи темні версії</small>
+          <b>{t('Чорні фігури')}</b>
+          <small className="muted">{t('Кольорові з червоним обідком чи темні версії')}</small>
         </span>
-        <span className="seg" role="radiogroup" aria-label="Чорні фігури">
+        <span className="seg" role="radiogroup" aria-label={t('Чорні фігури')}>
           {(
             [
-              ['team', 'Кольорові'],
-              ['dark', 'Темні'],
+              ['team', t('Кольорові')],
+              ['dark', t('Темні')],
             ] as const
           ).map(([v, label]) => (
             <button key={v} role="radio" aria-checked={st.blackStyle === v} className={st.blackStyle === v ? 'on' : ''} onClick={() => setSettings({ blackStyle: v })}>
@@ -267,7 +269,14 @@ function SettingsPanel() {
           ))}
         </span>
       </div>
-      <p className="muted tiny">Налаштування зберігаються на цьому пристрої.</p>
+      <div className="setting-row">
+        <span>
+          <b>{t('Мова')}</b>
+          <small className="muted">Language · Sprache · Lingua · Idioma</small>
+        </span>
+        <LangSelect />
+      </div>
+      <p className="muted tiny">{t('Налаштування зберігаються на цьому пристрої.')}</p>
     </div>
   );
 }

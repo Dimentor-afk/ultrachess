@@ -5,15 +5,16 @@ import { PlayerModal } from './PlayerModal';
 import { Avatar } from './common';
 import { Icon } from './icons';
 import { errorText, useSession } from './state';
+import { t, locale } from '../i18n';
 
 function lastSeenText(p: PlayerCard): string {
-  if (p.online) return 'онлайн';
-  if (!p.lastSeen) return 'давно не заходив';
+  if (p.online) return t('онлайн');
+  if (!p.lastSeen) return t('давно не заходив');
   const min = Math.round((Date.now() - p.lastSeen) / 60000);
-  if (min < 60) return `був ${min} хв тому`;
+  if (min < 60) return t('був {0} хв тому', min);
   const h = Math.round(min / 60);
-  if (h < 24) return `був ${h} год тому`;
-  return `був ${new Date(p.lastSeen).toLocaleDateString('uk-UA')}`;
+  if (h < 24) return t('був {0} год тому', h);
+  return t('був {0}', new Date(p.lastSeen).toLocaleDateString(locale()));
 }
 
 export function FriendsPage() {
@@ -84,38 +85,37 @@ export function FriendsPage() {
     <section className="page friends">
       <div className="page-head page-head-row">
         <div>
-          <h1>Друзі</h1>
+          <h1>{t('Друзі')}</h1>
           <p className="muted">
-            Ваш код: <span className="tag-chip">#{s.profile.tag}</span> — дайте його другу, щоб він вас знайшов.
+            {t('Ваш код:')} <span className="tag-chip">#{s.profile.tag}</span> {t('— дайте його другу, щоб він вас знайшов.')}
           </p>
         </div>
       </div>
       {s.api.mode === 'local' && (
         <p className="panel small muted demo-banner">
-          Демо-режим без сервера: друзі — це інші акаунти в цьому браузері. Справжні друзі та ігри між різними пристроями запрацюють, коли сайт
-          запущено з сервером (<code>npm start</code>).
+          {t('Демо-режим без сервера: друзі — це інші акаунти в цьому браузері. Справжні друзі та ігри між різними пристроями запрацюють, коли сайт запущено з сервером (')}<code>npm start</code>).
         </p>
       )}
 
       <form className="search-row" onSubmit={search}>
-        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Нікнейм або код #ABC123" aria-label="Пошук гравця" />
+        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('Нікнейм або код #ABC123')} aria-label={t('Пошук гравця')} />
         <button className="btn btn-primary" disabled={query.trim().length < 2}>
-          Знайти
+          {t('Знайти')}
         </button>
       </form>
       {results && (
         <div className="panel">
           {results.length === 0 ? (
-            <p className="muted small">Нікого не знайдено.</p>
+            <p className="muted small">{t('Нікого не знайдено.')}</p>
           ) : (
             <div className="player-list">
               {results.map((p) => (
                 <PlayerRow key={p.id} p={p} onOpen={() => setViewing(p.id)}>
                   {friendIds.has(p.id) ? (
-                    <span className="muted small">уже в списку</span>
+                    <span className="muted small">{t('уже в списку')}</span>
                   ) : (
-                    <button className="btn btn-sm btn-primary" onClick={() => run(() => s.api.addFriend(p.id), `Заявку надіслано: ${p.name}`)}>
-                      + Додати
+                    <button className="btn btn-sm btn-primary" onClick={() => run(() => s.api.addFriend(p.id), t('Заявку надіслано: {0}', p.name))}>
+                      {t('+ Додати')}
                     </button>
                   )}
                 </PlayerRow>
@@ -128,7 +128,7 @@ export function FriendsPage() {
       {(ch?.incoming.length ?? 0) > 0 && (
         <>
           <div className="section-head">
-            <h2>⚔ Вас викликають</h2>
+            <h2>{t('⚔ Вас викликають')}</h2>
           </div>
           <div className="player-list">
             {ch!.incoming.map((c) => (
@@ -142,10 +142,10 @@ export function FriendsPage() {
                     })
                   }
                 >
-                  Прийняти
+                  {t('Прийняти')}
                 </button>
                 <button className="btn btn-sm" onClick={() => run(() => s.api.respondChallenge(c.id, false))}>
-                  Відхилити
+                  {t('Відхилити')}
                 </button>
               </PlayerRow>
             ))}
@@ -156,14 +156,14 @@ export function FriendsPage() {
       {activeGames.length > 0 && (
         <>
           <div className="section-head">
-            <h2>Ігри з друзями</h2>
+            <h2>{t('Ігри з друзями')}</h2>
           </div>
           <div className="player-list">
             {activeGames.map((g) => (
               <PlayerRow key={g.id} p={g.opponent} onOpen={() => setViewing(g.opponent.id)} highlight={g.yourTurn}>
-                <span className={`pill ${g.yourTurn ? 'pill-ok' : ''}`}>{g.yourTurn ? 'ваш хід' : 'хід друга'}</span>
+                <span className={`pill ${g.yourTurn ? 'pill-ok' : ''}`}>{g.yourTurn ? t('ваш хід') : t('хід друга')}</span>
                 <button className="btn btn-sm btn-primary" onClick={() => open(g.id)}>
-                  {g.yourTurn ? 'Ходити' : 'Відкрити'}
+                  {g.yourTurn ? t('Ходити') : t('Відкрити')}
                 </button>
               </PlayerRow>
             ))}
@@ -174,7 +174,7 @@ export function FriendsPage() {
       {(friends?.live.length ?? 0) > 0 && (
         <>
           <div className="section-head">
-            <h2>👁 Друзі грають зараз</h2>
+            <h2>{t('👁 Друзі грають зараз')}</h2>
           </div>
           <div className="player-list">
             {friends!.live.map((g) => (
@@ -183,11 +183,11 @@ export function FriendsPage() {
                   <Avatar card={g.white.avatar} /> <b>{g.white.name}</b> <span className="muted">vs</span> <Avatar card={g.black.avatar} />{' '}
                   <b>{g.black.name}</b>
                   <small className="muted">
-                    {g.ranked ? 'ліга гравців' : 'дружня'} · хід {Math.floor(g.moves / 2) + 1}
+                    {t('{0} · хід {1}', g.ranked ? t('ліга гравців') : t('дружня'), Math.floor(g.moves / 2) + 1)}
                   </small>
                 </span>
                 <button className="btn btn-sm" onClick={() => open(g.id)}>
-                  Дивитися
+                  {t('Дивитися')}
                 </button>
               </div>
             ))}
@@ -198,16 +198,16 @@ export function FriendsPage() {
       {(friends?.incoming.length ?? 0) > 0 && (
         <>
           <div className="section-head">
-            <h2>Заявки в друзі</h2>
+            <h2>{t('Заявки в друзі')}</h2>
           </div>
           <div className="player-list">
             {friends!.incoming.map((f) => (
               <PlayerRow key={f.linkId} p={f} onOpen={() => setViewing(f.id)} highlight>
-                <button className="btn btn-sm btn-primary" onClick={() => run(() => s.api.respondFriend(f.linkId, true), `${f.name} тепер ваш друг`)}>
-                  Прийняти
+                <button className="btn btn-sm btn-primary" onClick={() => run(() => s.api.respondFriend(f.linkId, true), t('{0} тепер ваш друг', f.name))}>
+                  {t('Прийняти')}
                 </button>
                 <button className="btn btn-sm" onClick={() => run(() => s.api.respondFriend(f.linkId, false))}>
-                  Відхилити
+                  {t('Відхилити')}
                 </button>
               </PlayerRow>
             ))}
@@ -217,15 +217,15 @@ export function FriendsPage() {
 
       <div className="section-head">
         <h2>
-          Друзі <span className="muted small">{friends?.friends.length ?? 0}</span>
+          {t('Друзі')}{' '}<span className="muted small">{friends?.friends.length ?? 0}</span>
         </h2>
       </div>
       {!friends ? (
-        <p className="muted">Завантаження…</p>
+        <p className="muted">{t('Завантаження…')}</p>
       ) : friends.friends.length === 0 ? (
         <div className="panel empty-friends">
           <Icon name="users" />
-          <p className="muted">Поки порожньо. Знайдіть друга за нікнеймом або кодом і надішліть заявку.</p>
+          <p className="muted">{t('Поки порожньо. Знайдіть друга за нікнеймом або кодом і надішліть заявку.')}</p>
         </div>
       ) : (
         <div className="player-list">
@@ -234,17 +234,17 @@ export function FriendsPage() {
             return (
               <PlayerRow key={f.linkId} p={f} onOpen={() => setViewing(f.id)}>
                 {sent ? (
-                  <button className="btn btn-sm" onClick={() => run(() => s.api.respondChallenge(sent.id, false), 'Виклик скасовано')}>
-                    Скасувати виклик
+                  <button className="btn btn-sm" onClick={() => run(() => s.api.respondChallenge(sent.id, false), t('Виклик скасовано'))}>
+                    {t('Скасувати виклик')}
                   </button>
                 ) : (
                   <button
                     className="btn btn-sm btn-primary"
                     onClick={() =>
-                      run(() => s.api.challengeFriend(f.id, s.profile.activeDeckId ?? undefined), `Виклик надіслано: ${f.name}. Гра почнеться, коли друг прийме.`)
+                      run(() => s.api.challengeFriend(f.id, s.profile.activeDeckId ?? undefined), t('Виклик надіслано: {0}. Гра почнеться, коли друг прийме.', f.name))
                     }
                   >
-                    ⚔ Викликати
+                    {t('⚔ Викликати')}
                   </button>
                 )}
               </PlayerRow>
@@ -256,13 +256,13 @@ export function FriendsPage() {
       {(friends?.outgoing.length ?? 0) > 0 && (
         <>
           <div className="section-head">
-            <h2>Надіслані заявки</h2>
+            <h2>{t('Надіслані заявки')}</h2>
           </div>
           <div className="player-list">
             {friends!.outgoing.map((f) => (
               <PlayerRow key={f.linkId} p={f} onOpen={() => setViewing(f.id)}>
                 <button className="btn btn-sm btn-ghost" onClick={() => run(() => s.api.removeFriend(f.linkId))}>
-                  Відкликати
+                  {t('Відкликати')}
                 </button>
               </PlayerRow>
             ))}
@@ -273,14 +273,14 @@ export function FriendsPage() {
       {pastGames.length > 0 && (
         <>
           <div className="section-head">
-            <h2>Минулі ігри</h2>
+            <h2>{t('Минулі ігри')}</h2>
           </div>
           <div className="player-list">
             {pastGames.map((g) => (
               <PlayerRow key={g.id} p={g.opponent} onOpen={() => setViewing(g.opponent.id)}>
-                <span className={`pill out-${g.outcome}`}>{g.outcome === 'win' ? 'перемога' : g.outcome === 'loss' ? 'поразка' : 'нічия'}</span>
+                <span className={`pill out-${g.outcome}`}>{g.outcome === 'win' ? t('перемога') : g.outcome === 'loss' ? t('поразка') : t('нічия')}</span>
                 <button className="btn btn-sm btn-ghost" onClick={() => open(g.id)}>
-                  Переглянути
+                  {t('Переглянути')}
                 </button>
               </PlayerRow>
             ))}
@@ -295,7 +295,7 @@ export function FriendsPage() {
           onChanged={load}
           remove={(() => {
             const f = friends?.friends.find((x) => x.id === viewing);
-            return f ? () => run(() => s.api.removeFriend(f.linkId), 'Прибрано з друзів').then(() => setViewing(null)) : undefined;
+            return f ? () => run(() => s.api.removeFriend(f.linkId), t('Прибрано з друзів')).then(() => setViewing(null)) : undefined;
           })()}
         />
       )}

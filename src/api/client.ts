@@ -36,6 +36,7 @@ import type { Action } from '../engine/match';
 import type { Deck } from '../engine/types';
 import { requestBotTurn } from '../ui/botClient';
 import { LiveSocket, liveUrl } from './live';
+import { getLang, t, tr } from '../i18n';
 
 export { ApiError };
 export type {
@@ -152,11 +153,12 @@ class HttpApi implements Api {
     const res = await fetch(`api/${path}`, {
       method,
       credentials: 'same-origin',
-      headers: body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
+      // The server writes letters (password reset, confirmation) in the player's language.
+      headers: { 'X-Lang': getLang(), ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}) },
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
     const data = res.status === 204 ? null : await res.json().catch(() => null);
-    if (!res.ok) throw new ApiError(res.status, data?.error ?? `Помилка сервера (${res.status})`);
+    if (!res.ok) throw new ApiError(res.status, data?.error ? tr(data.error) : t('Помилка сервера ({0})', res.status));
     return data as T;
   }
 
@@ -437,5 +439,23 @@ export async function createApi(): Promise<Api> {
   } catch {
     // No server: fall through.
   }
-  return new LocalApi();
+  return translatedErrors(new LocalApi());
+}
+
+/** The demo's service throws Ukrainian errors: show them in the chosen language, like the server's. */
+function translatedErrors(api: LocalApi): Api {
+  return new Proxy(api, {
+    get(target, key, receiver) {
+      const value = Reflect.get(target, key, receiver);
+      if (typeof value !== 'function') return value;
+      return (...args: unknown[]) => {
+        const out = value.apply(target, args);
+        return out instanceof Promise
+          ? out.catch((e: unknown) => {
+              throw e instanceof ApiError ? new ApiError(e.status, tr(e.message)) : e;
+            })
+          : out;
+      };
+    },
+  });
 }

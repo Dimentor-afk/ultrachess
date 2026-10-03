@@ -7,14 +7,15 @@ import { cardArt } from './cardArt';
 const CardClip = lazy(() => import('./CardClip').then((m) => ({ default: m.CardClip })));
 import { CARD_SPECS, SPEC_KINDS } from './cardSpec';
 import { Icon } from './icons';
+import { t } from '../i18n';
 
 const PIECE_ACC: Record<Card['pieceType'], string> = {
-  pawn: 'звичайний пішак',
-  knight: 'звичайний кінь',
-  bishop: 'звичайний слон',
-  rook: 'звичайна тура',
-  queen: 'звичайний ферзь',
-  king: 'звичайний король',
+  pawn: t('звичайний пішак'),
+  knight: t('звичайний кінь'),
+  bishop: t('звичайний слон'),
+  rook: t('звичайна тура'),
+  queen: t('звичайний ферзь'),
+  king: t('звичайний король'),
 };
 
 /** Clash-style card popup: the card, its trick in marked lines, a clip of it, and the actions. */
@@ -48,7 +49,7 @@ export function CardModal({
         aria-label={card.name}
         onClick={(e) => e.stopPropagation()}
       >
-        <button className="icon-btn card-modal-close" onClick={onClose} aria-label="Закрити">
+        <button className="icon-btn card-modal-close" onClick={onClose} aria-label={t('Закрити')}>
           ✕
         </button>
         <header className="cm-head">
@@ -88,8 +89,8 @@ export function CardModal({
         <div className="card-modal-body">
           <section className="cm-section">
             <h3 className="cm-sub">
-              {classic ? 'Як ходить' : 'Фішка'}
-              {!classic && <span className="cm-sub-note">усе інше — як {PIECE_ACC[card.pieceType]}</span>}
+              {classic ? t('Як ходить') : t('Фішка')}
+              {!classic && <span className="cm-sub-note">{t('усе інше — як {0}', PIECE_ACC[card.pieceType])}</span>}
             </h3>
             {spec ? (
               <ul className="card-spec">
@@ -109,7 +110,7 @@ export function CardModal({
 
           <section className="cm-section cm-clip">
             <h3 className="cm-sub">
-              <span className="cm-play">▶</span> У грі
+              <span className="cm-play">▶</span> {t('У грі')}
             </h3>
             <Suspense fallback={<div className="clip clip-loading" aria-hidden />}>
               <CardClip cardId={card.id} />
@@ -118,7 +119,7 @@ export function CardModal({
 
           {spec && (
             <details className="card-modal-full">
-              <summary>Повне правило</summary>
+              <summary>{t('Повне правило')}</summary>
               <p className="card-modal-rules">{card.rulesText}</p>
             </details>
           )}

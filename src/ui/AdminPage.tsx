@@ -3,6 +3,7 @@ import type { AdminUser } from '../api/client';
 import { PACKS, type PackType, packName } from '../economy/packs';
 import { packArt } from './cardArt';
 import { errorText, useSession } from './state';
+import { t } from '../i18n';
 
 const PACK_TYPES: PackType[] = ['starter', ...(Object.keys(PACKS) as PackType[])];
 
@@ -31,13 +32,13 @@ export function AdminPage() {
   return (
     <section className="page">
       <div className="page-head">
-        <h1>Адмін-панель</h1>
+        <h1>{t('Адмін-панель')}</h1>
         <p className="muted">
-          Гравці, паки й кубки. Режим: {s.api.mode === 'server' ? 'сервер (спільна база даних)' : 'демо в браузері'}.
+          {t('Гравці, паки й кубки. Режим: {0}.', s.api.mode === 'server' ? t('сервер (спільна база даних)') : t('демо в браузері'))}
         </p>
       </div>
       <div className="panel admin-tools">
-        <span>Пак для видачі:</span>
+        <span>{t('Пак для видачі:')}</span>
         <div className="chip-row">
           {PACK_TYPES.map((t) => (
             <button key={t} className={`chip ${packType === t ? 'on' : ''}`} onClick={() => setPackType(t)}>
@@ -48,19 +49,19 @@ export function AdminPage() {
       </div>
       <div className="panel">
         {!users ? (
-          <p className="muted">Завантаження…</p>
+          <p className="muted">{t('Завантаження…')}</p>
         ) : (
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>Гравець</th>
-                  <th>Роль</th>
-                  <th className="num">Кубки ⚔ / 🤖</th>
-                  <th className="num">Карток</th>
+                  <th>{t('Гравець')}</th>
+                  <th>{t('Роль')}</th>
+                  <th className="num">{t('Кубки ⚔ / 🤖')}</th>
+                  <th className="num">{t('Карток')}</th>
                   <th className="num">🪙 / 💎</th>
                   <th className="num">W / L</th>
-                  <th>Дії</th>
+                  <th>{t('Дії')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -71,29 +72,29 @@ export function AdminPage() {
                       <br />
                       <small className="muted">
                         {u.email}
-                        {!u.claimed && ' · ще не зареєструвався'}
+                        {!u.claimed && t(' · ще не зареєструвався')}
                       </small>
                     </td>
-                    <td>{u.role === 'admin' ? <span className="pill pill-ok">адмін</span> : 'гравець'}</td>
+                    <td>{u.role === 'admin' ? <span className="pill pill-ok">{t('адмін')}</span> : t('гравець')}</td>
                     <td className="num">
                       <input
                         className="num-input"
                         type="number"
                         defaultValue={u.trophies}
-                        aria-label={`Кубки ліги гравців ${u.name}`}
+                        aria-label={t('Кубки ліги гравців {0}', u.name)}
                         onBlur={(e) => {
                           const v = Number(e.target.value);
-                          if (v !== u.trophies) void run(() => s.api.adminSetTrophies(u.id, v), `Кубки: ${u.name} → ${v}`);
+                          if (v !== u.trophies) void run(() => s.api.adminSetTrophies(u.id, v), t('Кубки: {0} → {1}', u.name, v));
                         }}
                       />
                       <input
                         className="num-input"
                         type="number"
                         defaultValue={u.botTrophies}
-                        aria-label={`Кубки ліги ботів ${u.name}`}
+                        aria-label={t('Кубки ліги ботів {0}', u.name)}
                         onBlur={(e) => {
                           const v = Number(e.target.value);
-                          if (v !== u.botTrophies) void run(() => s.api.adminSetTrophies(u.id, v, 'bot'), `Кубки ліги ботів: ${u.name} → ${v}`);
+                          if (v !== u.botTrophies) void run(() => s.api.adminSetTrophies(u.id, v, 'bot'), t('Кубки ліги ботів: {0} → {1}', u.name, v));
                         }}
                       />
                     </td>
@@ -107,23 +108,23 @@ export function AdminPage() {
                     <td>
                       <div className="chip-row">
                         <button className="btn btn-sm btn-primary" onClick={() => run(() => s.api.adminGrantPack(u.id, packType), `${packName(packType)} → ${u.name}`)}>
-                          Дати пак
+                          {t('Дати пак')}
                         </button>
-                        <button className="btn btn-sm" onClick={() => run(() => s.api.adminGrantAllCards(u.id), `Усі карти → ${u.name}`)}>
-                          Усі карти
+                        <button className="btn btn-sm" onClick={() => run(() => s.api.adminGrantAllCards(u.id), t('Усі карти → {0}', u.name))}>
+                          {t('Усі карти')}
                         </button>
                         <button
                           className="btn btn-sm"
-                          onClick={() => run(() => s.api.adminGrantCurrency(u.id, 1000, 1000), `+1000 🪙 і +1000 💎 → ${u.name}`)}
+                          onClick={() => run(() => s.api.adminGrantCurrency(u.id, 1000, 1000), t('+1000 🪙 і +1000 💎 → {0}', u.name))}
                         >
                           +1000 🪙💎
                         </button>
                         {u.id !== s.profile.id && (
                           <button
                             className="btn btn-sm"
-                            onClick={() => run(() => s.api.adminSetRole(u.id, u.role === 'admin' ? 'player' : 'admin'), 'Роль змінено')}
+                            onClick={() => run(() => s.api.adminSetRole(u.id, u.role === 'admin' ? 'player' : 'admin'), t('Роль змінено'))}
                           >
-                            {u.role === 'admin' ? 'Зняти адміна' : 'Зробити адміном'}
+                            {u.role === 'admin' ? t('Зняти адміна') : t('Зробити адміном')}
                           </button>
                         )}
                       </div>

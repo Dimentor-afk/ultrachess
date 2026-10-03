@@ -17,6 +17,7 @@ import { captureFxById } from '../economy/captureFx';
 import type { FxName } from './fxSprites';
 import type { QuestView } from '../economy/quests';
 import { errorText, useSession } from './state';
+import { t, tr } from '../i18n';
 
 
 /** Which ladder the home page shows (remembered per browser). */
@@ -64,7 +65,7 @@ export function HomePage() {
   }, [packs]);
 
   const startMatch = async (ranked: boolean) => {
-    if (!activeDeck) return s.toast('Спочатку відкрийте стартовий пак і зберіть колоду.', 'error');
+    if (!activeDeck) return s.toast(t('Спочатку відкрийте стартовий пак і зберіть колоду.'), 'error');
     setBusy(true);
     try {
       setGame({ start: await api.startMatch({ ranked, level, deckId: activeDeck.id }), key: Date.now() });
@@ -170,7 +171,7 @@ export function HomePage() {
       const before = profile.quests.find((q) => q.id === id);
       s.setProfile(await api.claimQuest(id));
       play('rare');
-      if (before) s.toast(`Нагорода: ${before.reward.gold ? `🪙 ${before.reward.gold}` : ''}${before.reward.shards ? `💎 ${before.reward.shards}` : ''}`);
+      if (before) s.toast(t('Нагорода: {0}{1}', before.reward.gold ? `🪙 ${before.reward.gold}` : '', before.reward.shards ? `💎 ${before.reward.shards}` : ''));
     } catch (e) {
       s.toast(errorText(e), 'error');
     }
@@ -179,28 +180,28 @@ export function HomePage() {
   const battle =
     ladder === 'bot' ? (
       <button className="btn btn-battle hb-battle" disabled={busy || !activeDeck} onClick={() => startMatch(true)}>
-        <Icon name="sword" /> Бій
+        <Icon name="sword" /> {t('Бій')}
       </button>
     ) : s.inbox.rankedGame ? (
       <button className="btn btn-battle hb-battle" onClick={resumeRanked}>
-        <Icon name="sword" /> До гри
+        <Icon name="sword" /> {t('До гри')}
       </button>
     ) : searching ? (
       <div className="searching hb-searching">
         <span className="spinner" aria-hidden="true" />
         <span>
-          <b>Шукаємо суперника…</b>
+          <b>{t('Шукаємо суперника…')}</b>
           <small className="muted">
-            {Math.floor((Date.now() - searching.since) / 1000)} с · шукають ще: {searching.others}
+            {t('{0} с · шукають ще: {1}', Math.floor((Date.now() - searching.since) / 1000), searching.others)}
           </small>
         </span>
         <button className="btn btn-sm" onClick={cancelSearch}>
-          Скасувати
+          {t('Скасувати')}
         </button>
       </div>
     ) : (
       <button className="btn btn-battle hb-battle" disabled={!activeDeck} onClick={() => setSearching({ since: Date.now(), others: 0 })}>
-        <Icon name="sword" /> Бій
+        <Icon name="sword" /> {t('Бій')}
       </button>
     );
 
@@ -211,10 +212,10 @@ export function HomePage() {
           <span className="friend-turn-icon">⚔</span>
           <span>
             <b>
-              {s.inbox.yourTurn > 0 ? `Ваш хід у ${s.inbox.yourTurn} ${s.inbox.yourTurn === 1 ? 'грі' : 'іграх'} з друзями` : 'Вас викликали на гру'}
+              {s.inbox.yourTurn > 0 ? s.inbox.yourTurn === 1 ? t('Ваш хід у 1 грі з друзями') : t('Ваш хід у {0} іграх з друзями', s.inbox.yourTurn) : t('Вас викликали на гру')}
             </b>
             <small className="muted">
-              {s.inbox.challenges > 0 ? `Викликів: ${s.inbox.challenges} · ` : ''}відкрити «Друзі»
+              {s.inbox.challenges > 0 ? t('Викликів: {0} · ', s.inbox.challenges) : ''}{t('відкрити «Друзі»')}
             </small>
           </span>
           <span className="friend-turn-go">›</span>
@@ -224,20 +225,20 @@ export function HomePage() {
       {/* The deck and the battle button come first: they are what this screen is for. */}
       <div className="hb-main">
         <div className="hb-deck">
-          {activeDeck ? <MiniBoard deck={activeDeck} /> : <span className="muted small">Колоди ще немає</span>}
+          {activeDeck ? <MiniBoard deck={activeDeck} /> : <span className="muted small">{t('Колоди ще немає')}</span>}
           <div className="hb-deck-info">
             <label className="eyebrow" htmlFor="active-deck">
-              Колода в бій
+              {t('Колода в бій')}
             </label>
             <div className="hb-deck-row">
               <select id="active-deck" value={activeDeck?.id ?? ''} onChange={async (e) => s.setProfile(await api.setActiveDeck(e.target.value))}>
                 {decks.map((d) => (
                   <option key={d.id} value={d.id}>
-                    {d.name}
+                    {tr(d.name)}
                   </option>
                 ))}
               </select>
-              <a className="btn btn-sm hb-deck-edit" href="#/deck" aria-label="Змінити колоду" title="Змінити колоду">
+              <a className="btn btn-sm hb-deck-edit" href="#/deck" aria-label={t('Змінити колоду')} title={t('Змінити колоду')}>
                 <Icon name="edit" />
               </a>
             </div>
@@ -248,27 +249,27 @@ export function HomePage() {
           {battle}
           <div className="hb-dock-extra">
             <button className="btn btn-sm" onClick={() => setSheet('training')}>
-              <Icon name="target" /> Тренування
+              <Icon name="target" /> {t('Тренування')}
             </button>
             <button className="btn btn-sm" onClick={() => setSheet('odds')}>
-              <Icon name="dice" /> Шанси паків
+              <Icon name="dice" /> {t('Шанси паків')}
             </button>
           </div>
           <span className="hb-reward">
             {!activeDeck ? (
-              'Відкрийте стартовий пак — з нього збереться перша колода'
+              t('Відкрийте стартовий пак — з нього збереться перша колода')
             ) : (
               <>
-                За перемогу: <b>+{lv.win} 🏆</b> · 🪙 {lv.winGold}
+                {t('За перемогу:')}{' '}<b>+{lv.win} 🏆</b> · 🪙 {lv.winGold}
                 {packToday ? (
                   <>
                     {' '}
                     · <img src={packArt(lv.nextPack)} alt="" /> {packName(lv.nextPack)}
                   </>
                 ) : (
-                  ' · ліміт паків на сьогодні вичерпано'
+                  t(' · ліміт паків на сьогодні вичерпано')
                 )}
-                {ladder === 'pvp' && arenaRun && <> · 🏅 Арена гравців: перемога {arenaRun.wins + 1} з 3</>}
+                {ladder === 'pvp' && arenaRun && <> {t('· 🏅 Арена гравців: перемога {0} з 3', arenaRun.wins + 1)}</>}
               </>
             )}
           </span>
@@ -276,22 +277,22 @@ export function HomePage() {
 
         <div className="hb-slots-wrap">
           <div className="hb-slots-head">
-            <b>Паки</b>
+            <b>{t('Паки')}</b>
             <span className="muted small">
-              за перемоги сьогодні {lv.packsToday}/{lv.packsLimit}
+              {t('за перемоги сьогодні {0}/{1}', lv.packsToday, lv.packsLimit)}
             </span>
           </div>
           <div className="hb-slots">
             {slots.map((p, i) =>
               p ? (
-                <button key={p.id} className={`hb-slot pack-${p.type}`} onClick={() => setOpening(p)} title={`${p.name} · ${p.source}`}>
+                <button key={p.id} className={`hb-slot pack-${p.type}`} onClick={() => setOpening(p)} title={`${tr(p.name)} · ${tr(p.source)}`}>
                   <img src={packArt(p.type)} alt="" />
-                  <span className="hb-slot-open">Відкрити</span>
+                  <span className="hb-slot-open">{t('Відкрити')}</span>
                   {i === 3 && packs.length > 4 && <span className="hb-slot-more">+{packs.length - 3}</span>}
                 </button>
               ) : (
-                <div key={`empty-${i}`} className="hb-slot empty" title="Кожна перемога в лізі дає пак">
-                  <span>{i === 0 ? 'Перемога → пак' : ''}</span>
+                <div key={`empty-${i}`} className="hb-slot empty" title={t('Кожна перемога в лізі дає пак')}>
+                  <span>{i === 0 ? t('Перемога → пак') : ''}</span>
                 </div>
               ),
             )}
@@ -301,7 +302,7 @@ export function HomePage() {
       </div>
 
       <div className="hb-aside">
-        <div className="hb-mode" role="tablist" aria-label="Ліга">
+        <div className="hb-mode" role="tablist" aria-label={t('Ліга')}>
           {(['bot', 'pvp'] as Ladder[]).map((l) => (
             <button key={l} role="tab" aria-selected={ladder === l} className={`hb-mode-tab ${ladder === l ? 'on' : ''}`} onClick={() => setLadder(l)}>
               <span className="hb-mode-icon" aria-hidden="true">
@@ -316,35 +317,35 @@ export function HomePage() {
         </div>
 
         <div className="hb-stage">
-          <nav className="hb-rail" aria-label="Швидкі дії">
+          <nav className="hb-rail" aria-label={t('Швидкі дії')}>
             <button className="hb-rail-btn hb-quests-btn" onClick={() => setSheet('quests')}>
               <span className="hb-rail-icon rail-quests">
                 <Icon name="list" />
                 {claimable > 0 && <span className="nav-badge">{claimable}</span>}
               </span>
-              <span className="hb-rail-label">Завдання</span>
+              <span className="hb-rail-label">{t('Завдання')}</span>
             </button>
             <a className="hb-rail-btn" href="#/trials">
               <span className="hb-rail-icon rail-trials">
                 <Icon name="medal" />
                 {trialActive && <span className="hb-rail-dot" />}
               </span>
-              <span className="hb-rail-label">Випробування</span>
+              <span className="hb-rail-label">{t('Випробування')}</span>
             </a>
           </nav>
 
-          <a className="hb-arena" href={`#/leagues/${ladder}`} title="Усі ліги й нагороди">
+          <a className="hb-arena" href={`#/leagues/${ladder}`} title={t('Усі ліги й нагороди')}>
             <span className="hb-arena-rays" aria-hidden="true" />
             <img className="hb-arena-art" src={packArt(league.art)} alt="" />
             <span className="eyebrow">
-              Ліга {lv.league + 1} із {LEAGUES[ladder].length}
+              {t('Ліга {0} із {1}', lv.league + 1, LEAGUES[ladder].length)}
             </span>
-            <h1>{lv.leagueName}</h1>
+            <h1>{tr(lv.leagueName)}</h1>
             <div className="hb-trophies">
               <span className="trophies">🏆 {lv.trophies}</span>
               {lv.next && (
-                <span className="muted small" title={`Наступна ліга: ${lv.next.name}`}>
-                  ще {lv.next.minTrophies - lv.trophies} до наступної
+                <span className="muted small" title={t('Наступна ліга: {0}', tr(lv.next.name))}>
+                  {t('ще {0} до наступної', lv.next.minTrophies - lv.trophies)}
                 </span>
               )}
             </div>
@@ -353,49 +354,49 @@ export function HomePage() {
             </div>
             {ladder === 'bot' ? (
               <span className="muted small hb-foe">
-                Бот <b>{bot.name}</b> · ~{bot.elo} Elo
+                {t('Бот')}{' '}<b>{bot.name}</b> · ~{bot.elo} Elo
               </span>
             ) : (
-              <span className="muted small hb-foe">Живі суперники</span>
+              <span className="muted small hb-foe">{t('Живі суперники')}</span>
             )}
           </a>
 
-          <nav className="hb-rail" aria-label="Ще">
+          <nav className="hb-rail" aria-label={t('Ще')}>
             <button className="hb-rail-btn" onClick={() => setSheet('training')}>
               <span className="hb-rail-icon rail-training">
                 <Icon name="target" />
               </span>
-              <span className="hb-rail-label">Тренування</span>
+              <span className="hb-rail-label">{t('Тренування')}</span>
             </button>
             <button className="hb-rail-btn" onClick={() => setSheet('odds')}>
               <span className="hb-rail-icon rail-odds">
                 <Icon name="dice" />
               </span>
-              <span className="hb-rail-label">Шанси</span>
+              <span className="hb-rail-label">{t('Шанси')}</span>
             </button>
           </nav>
         </div>
 
         <aside className="hb-side">
           <div className="section-head">
-            <h2>Щоденні завдання</h2>
-            <span className="muted small">оновлюються щодня</span>
+            <h2>{t('Щоденні завдання')}</h2>
+            <span className="muted small">{t('оновлюються щодня')}</span>
           </div>
           <QuestList quests={profile.quests} onClaim={claim} />
           <a className="trial-teaser" href="#/trials">
-            🏅 <b>Випробування</b> <span className="muted small">три перемоги поспіль — легендарний пак</span> ›
+            🏅 <b>{t('Випробування')}</b> <span className="muted small">{t('три перемоги поспіль — легендарний пак')}</span> ›
           </a>
         </aside>
       </div>
 
       {sheet === 'quests' && (
-        <Sheet title="Щоденні завдання" onClose={closeSheet}>
+        <Sheet title={t('Щоденні завдання')} onClose={closeSheet}>
           <QuestList quests={profile.quests} onClaim={claim} />
         </Sheet>
       )}
       {sheet === 'training' && (
-        <Sheet title="Тренування" onClose={closeSheet}>
-          <p className="muted small">Гра з ботом без кубків і нагород: спробувати колоду чи нові картки. Оберіть силу бота:</p>
+        <Sheet title={t('Тренування')} onClose={closeSheet}>
+          <p className="muted small">{t('Гра з ботом без кубків і нагород: спробувати колоду чи нові картки. Оберіть силу бота:')}</p>
           <div className="training-levels">
             {BOT_LEVELS.map((l) => (
               <button key={l.level} className={`chip ${level === l.level ? 'on' : ''}`} onClick={() => setLevel(l.level)}>
@@ -412,15 +413,15 @@ export function HomePage() {
               void startMatch(false);
             }}
           >
-            Грати тренування
+            {t('Грати тренування')}
           </button>
           {profile.role === 'admin' && (
             <label className="admin-bot">
-              <span className="pill">адмін</span>
-              <span className="muted small">бот ліги:</span>
+              <span className="pill">{t('адмін')}</span>
+              <span className="muted small">{t('бот ліги:')}</span>
               <select
                 value={profile.botOverride ?? -1}
-                aria-label="Сила бота в лізі"
+                aria-label={t('Сила бота в лізі')}
                 onChange={async (e) => {
                   const v = Number(e.target.value);
                   try {
@@ -430,7 +431,7 @@ export function HomePage() {
                   }
                 }}
               >
-                <option value={-1}>За лігою</option>
+                <option value={-1}>{t('За лігою')}</option>
                 {BOT_LEVELS.map((l) => (
                   <option key={l.level} value={l.level}>
                     {l.name} (~{l.elo})
@@ -442,7 +443,7 @@ export function HomePage() {
         </Sheet>
       )}
       {sheet === 'odds' && (
-        <Sheet title="Шанси паків" onClose={closeSheet} wide>
+        <Sheet title={t('Шанси паків')} onClose={closeSheet} wide>
           <OddsTable />
         </Sheet>
       )}
@@ -470,7 +471,7 @@ function QuestList({ quests, onClaim }: { quests: QuestView[]; onClaim: (id: str
         return (
           <div key={q.id} className={`quest ${done ? 'done' : ''} ${q.claimed ? 'claimed' : ''}`}>
             <div className="quest-text">
-              <b>{q.text}</b>
+              <b>{tr(q.text)}</b>
               <div className="bar small-bar">
                 <span style={{ width: `${(q.progress / q.target) * 100}%` }} />
               </div>
@@ -479,7 +480,7 @@ function QuestList({ quests, onClaim }: { quests: QuestView[]; onClaim: (id: str
               </small>
             </div>
             {q.claimed ? (
-              <span className="pill pill-ok">отримано</span>
+              <span className="pill pill-ok">{t('отримано')}</span>
             ) : (
               <button className="btn btn-sm btn-primary btn-price" disabled={!done} onClick={() => onClaim(q.id)}>
                 {q.reward.gold ? `🪙 ${q.reward.gold}` : `💎 ${q.reward.shards}`}
@@ -496,13 +497,13 @@ function OddsTable() {
   const pct = (n: number) => `${String(n).replace('.', ',')}%`;
   return (
     <div className="odds">
-      <p className="muted small">Шанс рідкості — для кожної картки в паку окремо.</p>
+      <p className="muted small">{t('Шанс рідкості — для кожної картки в паку окремо.')}</p>
       <div className="odds-cards">
         <article className="odds-card">
           <header>
             <img className="odds-pack" src={packArt('starter')} alt="" />
             <b>{STARTER_PACK.name}</b>
-            <span className="muted small">6 карток · 🪙 {STARTER_PACK.gold}</span>
+            <span className="muted small">{t('6 карток · 🪙 {0}', STARTER_PACK.gold)}</span>
           </header>
           <p className="small muted">{STARTER_PACK.description}</p>
         </article>
@@ -512,7 +513,7 @@ function OddsTable() {
               <img className="odds-pack" src={packArt(p.type)} alt="" />
               <b>{p.name}</b>
               <span className="muted small">
-                {p.cards} карток · 🪙 {p.gold} · 💎 {PACK_SHARD_PRICE[p.type as keyof typeof PACK_SHARD_PRICE]}
+                {t('{0} карток · 🪙 {1}', p.cards, p.gold)} · 💎 {PACK_SHARD_PRICE[p.type as keyof typeof PACK_SHARD_PRICE]}
               </span>
             </header>
             {/* One bar split by rarity, then the exact numbers. */}
@@ -531,10 +532,10 @@ function OddsTable() {
               ))}
             </ul>
             <p className="small muted">
-              {p.guarantee ? `Гарантовано: ${RARITY_NAMES[p.guarantee].toLowerCase()} або краща. ` : ''}
-              Ліміт:{' '}
+              {p.guarantee ? t('Гарантовано: {0} або краща. ', RARITY_NAMES[p.guarantee].toLowerCase()) : ''}
+              {t('Ліміт:')}{' '}
               {Object.entries(p.limits)
-                .map(([r, n]) => `${RARITY_NAMES[r as Rarity].toLowerCase()}${r === 'mythological' ? '' : ' і вище'} — не більше ${n}`)
+                .map(([r, n]) => t('{0}{1} — не більше {2}', RARITY_NAMES[r as Rarity].toLowerCase(), r === 'mythological' ? '' : t(' і вище'), n))
                 .join(', ')}
               .
             </p>
@@ -542,13 +543,19 @@ function OddsTable() {
         ))}
       </div>
       <p className="muted small">
-        Ліміт обмежує кількість сильних карток в одному паку: якщо випадає більше, зайві стають на рівень нижчими. Наприклад, міфічний пак
-        дає рівно одну міфологічну, щонайбільше одну легендарну й не більше трьох епічних і вище разом.
+        {t('Ліміт обмежує кількість сильних карток в одному паку: якщо випадає більше, зайві стають на рівень нижчими. Наприклад, міфічний пак дає рівно одну міфологічну, щонайбільше одну легендарну й не більше трьох епічних і вище разом.')}
         <br />
-        Ліга гравців: перемога дає +{LADDER_TROPHIES.pvp.win} кубків, 🪙 {LADDER_WIN_GOLD.pvp} і одразу пак (цикл до легендарного), до{' '}
-        {LADDER_PACK_LIMIT.pvp} паків на день; поразка — {LADDER_TROPHIES.pvp.loss}. Ліга ботів: +{LADDER_TROPHIES.bot.win} / {LADDER_TROPHIES.bot.loss}{' '}
-        кубків, 🪙 {LADDER_WIN_GOLD.bot}, паки не вище рідкісного, до {LADDER_PACK_LIMIT.bot} на день. Повторки карт автоматично стають
-        уламками 💎, за які в магазині купуються паки.
+        {t(
+          'Ліга гравців: перемога дає +{0} кубків, 🪙 {1} і одразу пак (цикл до легендарного), до {2} паків на день; поразка — {3}. Ліга ботів: +{4} / {5} кубків, 🪙 {6}, паки не вище рідкісного, до {7} на день. Повторки карт автоматично стають уламками 💎, за які в магазині купуються паки.',
+          LADDER_TROPHIES.pvp.win,
+          LADDER_WIN_GOLD.pvp,
+          LADDER_PACK_LIMIT.pvp,
+          LADDER_TROPHIES.pvp.loss,
+          LADDER_TROPHIES.bot.win,
+          LADDER_TROPHIES.bot.loss,
+          LADDER_WIN_GOLD.bot,
+          LADDER_PACK_LIMIT.bot,
+        )}
       </p>
     </div>
   );

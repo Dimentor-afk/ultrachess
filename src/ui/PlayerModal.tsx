@@ -3,6 +3,7 @@ import type { PublicProfile } from '../api/client';
 import { CARDS } from '../engine/cards';
 import { Avatar } from './common';
 import { errorText, useSession } from './state';
+import { t, tr } from '../i18n';
 
 /** Another player's public profile, with the friend action that fits. */
 export function PlayerModal({
@@ -31,7 +32,7 @@ export function PlayerModal({
   const add = async () => {
     try {
       await s.api.addFriend(userId);
-      s.toast(p?.relation === 'incoming' ? 'Тепер ви друзі!' : 'Заявку надіслано.');
+      s.toast(p?.relation === 'incoming' ? t('Тепер ви друзі!') : t('Заявку надіслано.'));
       await load();
       onChanged?.();
       void s.refreshInbox();
@@ -43,9 +44,9 @@ export function PlayerModal({
   const games = p ? p.wins + p.losses + p.draws : 0;
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal player-modal" role="dialog" aria-label="Профіль гравця" onClick={(e) => e.stopPropagation()}>
+      <div className="modal player-modal" role="dialog" aria-label={t('Профіль гравця')} onClick={(e) => e.stopPropagation()}>
         {!p ? (
-          <p className="muted">Завантаження…</p>
+          <p className="muted">{t('Завантаження…')}</p>
         ) : (
           <>
             <div className="player-modal-head">
@@ -61,11 +62,11 @@ export function PlayerModal({
             <div className="stat-grid compact">
               <div className="stat">
                 <b>🏆 {p.trophies}</b>
-                <span>{p.arena}</span>
+                <span>{tr(p.arena)}</span>
               </div>
               <div className="stat">
                 <b>{p.bestTrophies}</b>
-                <span>рекорд</span>
+                <span>{t('рекорд')}</span>
               </div>
               <div className="stat">
                 <b>{games ? Math.round((p.wins / games) * 100) : 0}%</b>
@@ -77,29 +78,29 @@ export function PlayerModal({
                 <b>
                   {p.cards}/{CARDS.length}
                 </b>
-                <span>карток</span>
+                <span>{t('карток')}</span>
               </div>
             </div>
             <div className="editor-actions">
               {p.relation === 'none' && (
                 <button className="btn btn-primary" onClick={add}>
-                  + Додати в друзі
+                  {t('+ Додати в друзі')}
                 </button>
               )}
               {p.relation === 'incoming' && (
                 <button className="btn btn-primary" onClick={add}>
-                  Прийняти заявку
+                  {t('Прийняти заявку')}
                 </button>
               )}
-              {p.relation === 'outgoing' && <span className="pill">заявку надіслано</span>}
-              {p.relation === 'friend' && <span className="pill pill-ok">друг</span>}
+              {p.relation === 'outgoing' && <span className="pill">{t('заявку надіслано')}</span>}
+              {p.relation === 'friend' && <span className="pill pill-ok">{t('друг')}</span>}
               {p.relation === 'friend' && remove && (
                 <button className="btn btn-sm btn-ghost" onClick={remove}>
-                  Прибрати з друзів
+                  {t('Прибрати з друзів')}
                 </button>
               )}
               <button className="btn" onClick={onClose}>
-                Закрити
+                {t('Закрити')}
               </button>
             </div>
           </>
