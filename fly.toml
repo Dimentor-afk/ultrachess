@@ -12,7 +12,11 @@ primary_region = "fra"
   # `fly secrets set RESEND_API_KEY=... MAIL_FROM="Ultrachess <no-reply@your-domain>"`.
   # PUBLIC_URL = "https://ultrachess.fly.dev"
 
-# The server with one bot thread uses ~160 MB; 256 MB (the default) leaves too little headroom.
+# Small and cheap: fine for a class (the server with one bot thread uses ~160 MB).
+# For 500–1000 players online (load test, docs/networking.md#масштаб) 512 MB is too
+# little (~560 MB at 1000 sockets): use memory = "1gb" or more and dedicated cores,
+# e.g. cpu_kind = "performance", cpus = 4 (measured: bot answers ~1 s at the peak);
+# with fewer cores the strong bots think shorter at the peak, 8 keeps their full time.
 [[vm]]
   memory = "512mb"
   cpu_kind = "shared"
@@ -33,8 +37,8 @@ primary_region = "fra"
   # whole class at once, instead of the low default limits.
   [http_service.concurrency]
     type = "connections"
-    soft_limit = 400
-    hard_limit = 500
+    soft_limit = 1200
+    hard_limit = 1500
 
   [[http_service.checks]]
     grace_period = "10s"

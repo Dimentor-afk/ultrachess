@@ -35,6 +35,14 @@ const BOOT = `import('tsx/esm/api').then(({ register }) => { register(); return 
 const TIME_SCALE = Number(process.env.BOT_TIME_SCALE ?? 1) || 1;
 /** No answer after this long: the worker is replaced and the job fails (the service plays a fallback move). */
 const JOB_TIMEOUT_MS = 20_000;
+/**
+ * Under load the bot thinks less instead of making players wait: each search
+ * gets at most the time that lets the turns already waiting clear in about
+ * QUEUE_TARGET_MS. The search always finishes depth 1, so a hurried bot plays
+ * weaker moves, never illegal or random ones.
+ */
+const QUEUE_TARGET_MS = 2000;
+const MIN_THINK_MS = 20;
 
 export class BotPool {
   private slots: Slot[] = [];
@@ -45,9 +53,17 @@ export class BotPool {
   private startFailures = 0;
 
   /** BOT_WORKERS sets the number of threads; by default one per spare CPU core (1–4). */
-  constructor(size = Number(process.env.BOT_WORKERS) || Math.max(1, Math.min(4, availableParallelism() - 1))) {
+  constructor(size = Number(process.env.BOT_WORKERS) || Math.max(1, Math.min(8, availableParallelism() - 1))) {
     for (let i = 0; i < size; i++) this.slots.push(this.spawn());
+    // A line a minute while the bot is overloaded: the sign to add CPU (or BOT_WORKERS).
+    setInterval(() => {
+      if (this.peak > this.slots.length) console.warn(`Bot busy: up to ${this.peak} turns waited for ${this.slots.length} threads; searches were shortened.`);
+      this.peak = 0;
+    }, 60_000).unref();
   }
+
+  /** The longest queue seen this minute. */
+  private peak = 0;
 
   /** Same shape as the service's BotRunner. */
   run = (state: MatchState, color: Color, opts: BotOptions): Promise<BotTurn> => {
@@ -115,10 +131,15 @@ export class BotPool {
   private next(): void {
     for (const slot of this.slots) {
       if (slot.job || !this.queue.length) continue;
+      this.peak = Math.max(this.peak, this.queue.length);
       const job = this.queue.shift()!;
       slot.job = job;
       slot.timer = setTimeout(() => this.replace(slot, new Error('bot timed out')), JOB_TIMEOUT_MS);
-      slot.worker.postMessage({ state: job.state, color: job.color, opts: job.opts });
+      // Turns still waiting behind this one, per thread: 0 when the bot keeps up.
+      const waiting = this.queue.length / this.slots.length;
+      const fair = waiting > 0 ? QUEUE_TARGET_MS / waiting : Infinity;
+      const timeMs = Math.round(Math.max(MIN_THINK_MS, Math.min(job.opts.timeMs, fair)));
+      slot.worker.postMessage({ state: job.state, color: job.color, opts: { ...job.opts, timeMs } });
     }
   }
 }
