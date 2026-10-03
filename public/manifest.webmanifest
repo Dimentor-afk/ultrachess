@@ -1,7 +1,7 @@
 {
   "name": "Ultrachess",
   "short_name": "Ultrachess",
-  "description": "Шахи, де кожна фігура — картка з модифікованим ходом.",
+  "description": "Збери свою армію. Зламай правила шахів.",
   "lang": "uk",
   "start_url": "./",
   "scope": "./",

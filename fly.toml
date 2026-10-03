@@ -10,7 +10,7 @@ primary_region = "fra"
   DB_FILE = "/data/ultrachess.db"
   # Links in letters point here; set the mail key with
   # `fly secrets set RESEND_API_KEY=... MAIL_FROM="Ultrachess <no-reply@your-domain>"`.
-  # PUBLIC_URL = "https://ultrachess.fly.dev"
+  # PUBLIC_URL (a secret: https://ultrachess.app): with it set, pages on *.fly.dev redirect there.
 
 # Small and cheap: fine for a class (the server with one bot thread uses ~160 MB).
 # For 500–1000 players online (load test, docs/networking.md#масштаб) 512 MB is too

@@ -564,7 +564,7 @@ const dict: Record<string, string> = {
   "Як вас звати на арені": "Il tuo nome nell'arena",
   "Нікнейм": "Nickname",
   "Вхід": "Accesso",
-  "Шахи, де кожна фігура — картка. Відкривай паки, збирай колоду, піднімайся аренами.": "Scacchi in cui ogni pezzo è una carta. Apri pacchetti, costruisci il mazzo, scala le arene.",
+  "Збери свою армію. Зламай правила шахів.": "Crea il tuo esercito. Rompi le regole degli scacchi.",
   "ілюзія": "illusione",
   "Ходів суперника до зникнення платформи": "Mosse dell'avversario prima che la piattaforma sparisca",
   "Пішак-пасажир": "Pedone passeggero",

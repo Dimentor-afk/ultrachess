@@ -41,7 +41,7 @@ the fallback), per-viewer views so hidden information reaches only its owner
 Still to do:
 
 1. **Public deploy:** live at https://ultrachess.app (domain bought on Cloudflare, DNS-only records to
-   Fly; also https://ultrachess.fly.dev) (Fly app `ultrachess`, region fra,
+   Fly; ultrachess.fly.dev pages redirect there with 301, its /api/ still answers) (Fly app `ultrachess`, region fra,
    one machine with the `ultrachess_data` volume, auto-stops when idle). Deploy from the author's
    Mac with `fly deploy`. Left: Resend secrets (`RESEND_API_KEY`, `MAIL_FROM`, `PUBLIC_URL`) and
    `min_machines_running = 1` before the defense.

@@ -424,6 +424,11 @@ function serveStatic(req: IncomingMessage, res: ServerResponse): void {
 const server = createServer(async (req, res) => {
   if (isSecure(req)) res.setHeader('Strict-Transport-Security', HSTS);
   const path = (req.url ?? '/').split('?')[0];
+  // The site lives on its own domain: pages opened on <app>.fly.dev move there for good.
+  // The API stays reachable (webhooks and open tabs do not follow redirects).
+  if (PUBLIC_URL && !path.startsWith('/api/') && String(req.headers.host ?? '').endsWith('.fly.dev') && (req.method === 'GET' || req.method === 'HEAD')) {
+    return void res.writeHead(301, { Location: PUBLIC_URL + (req.url ?? '/').slice(1) }).end();
+  }
   if (!path.startsWith('/api/')) return serveStatic(req, res);
   if (path === '/api/payments/paddle/webhook' && req.method === 'POST') {
     if (!allow('api', clientIp(req))) return void res.writeHead(429).end();
