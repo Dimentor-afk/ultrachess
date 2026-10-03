@@ -1,7 +1,7 @@
 {
   "name": "Ultrachess",
   "short_name": "Ultrachess",
-  "description": "Збери свою армію. Зламай правила шахів.",
+  "description": "Шахи, де кожна фігура — унікальна.",
   "lang": "uk",
   "start_url": "./",
   "scope": "./",

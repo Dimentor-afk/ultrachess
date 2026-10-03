@@ -43,7 +43,7 @@ export function AuthPage({ api, onAuth }: { api: Api; onAuth: (p: Profile) => vo
         <h1 className="logo">
           Ultra<b>chess</b>
         </h1>
-        <p className="auth-tagline">{t('Збери свою армію. Зламай правила шахів.')}</p>
+        <p className="auth-tagline">{t('Шахи, де кожна фігура — унікальна. Відкривай паки, збирай колоду, піднімайся аренами.')}</p>
       </div>
 
       {mode === 'forgot' ? (
