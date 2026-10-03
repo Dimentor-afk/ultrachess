@@ -14,10 +14,10 @@ export interface ShardProduct {
 }
 
 export const SHARD_PRODUCTS: ShardProduct[] = [
-  { id: 'shards-120', shards: 120, bonus: 0, price: 99, ccy: 'USD' },
-  { id: 'shards-650', shards: 650, bonus: 8, price: 499, ccy: 'USD' },
-  { id: 'shards-1400', shards: 1400, bonus: 16, price: 999, ccy: 'USD' },
-  { id: 'shards-3000', shards: 3000, bonus: 24, price: 1999, ccy: 'USD' },
+  { id: 'shards-400', shards: 400, bonus: 0, price: 99, ccy: 'USD' },
+  { id: 'shards-2220', shards: 2220, bonus: 10, price: 499, ccy: 'USD' },
+  { id: 'shards-4850', shards: 4850, bonus: 20, price: 999, ccy: 'USD' },
+  { id: 'shards-10500', shards: 10500, bonus: 30, price: 1999, ccy: 'USD' },
 ];
 
 export const productById = (id: string) => SHARD_PRODUCTS.find((p) => p.id === id);
