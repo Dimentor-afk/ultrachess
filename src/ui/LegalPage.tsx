@@ -7,10 +7,10 @@ import { t } from '../i18n';
  * Merchant of Record, so its own terms govern the payment itself.
  */
 const CONTACT = {
-  /** Where players write about the game and purchases. Fill in before taking real payments. */
-  email: '[пошта для звернень]',
+  /** Where players write about the game and purchases (forwarded to the author's inbox). */
+  email: 'support@ultrachess.app',
   /** The date of this text. */
-  date: '[дата]',
+  date: '03.10.2026',
 };
 
 export function LegalPage({ page }: { page: 'terms' | 'privacy' }) {

@@ -40,7 +40,8 @@ the fallback), per-viewer views so hidden information reaches only its owner
 
 Still to do:
 
-1. **Public deploy:** live at https://ultrachess.fly.dev (Fly app `ultrachess`, region fra,
+1. **Public deploy:** live at https://ultrachess.app (domain bought on Cloudflare, DNS-only records to
+   Fly; also https://ultrachess.fly.dev) (Fly app `ultrachess`, region fra,
    one machine with the `ultrachess_data` volume, auto-stops when idle). Deploy from the author's
    Mac with `fly deploy`. Left: Resend secrets (`RESEND_API_KEY`, `MAIL_FROM`, `PUBLIC_URL`) and
    `min_machines_running = 1` before the defense.
@@ -52,7 +53,8 @@ Still to do:
    own name, no ФОП needed, pays out by bank transfer or Payoneer — Lemon Squeezy was dropped because it
    cannot pay out to Ukraine; `PADDLE_*` secrets, `server/paddle.ts`, checkout overlay via Paddle.js) and test
    payments (`PAYMENTS=test`, and in the demo). Prices in USD cents. Pack odds in the shop, `#/terms`,
-   `#/privacy`. Left for the author: Paddle sandbox → live account + secrets, contact email in `LegalPage.tsx`.
+   `#/privacy`. Sandbox purchase tested end to end. Left for the author: live Paddle account + secrets, Payoneer.
+   Support email support@ultrachess.app (Cloudflare Email Routing to the author's Gmail).
    (monobank provider for a ФОП exists in git history, commit `e93d7fd`.)
 
 ### Open question for the teacher

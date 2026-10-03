@@ -3,7 +3,7 @@
 > Шахи, де кожна фігура — картка з модифікованим ходом. Збери колоду, перехитри суперника
 > наживо — або дивись, як грають друзі.
 
-**Грати:** **https://ultrachess.fly.dev** — _перше відкриття після простою займає кілька секунд:
+**Грати:** **https://ultrachess.app** — _перше відкриття після простою займає кілька секунд:
 сервер прокидається. Локально — `npm start` і http://localhost:8080._
 
 ![Двоє гравців у двох вікнах: хід в одному з'являється в іншому](docs/two-players.gif)
@@ -127,7 +127,7 @@ npm test           # тести рушія, економіки, мережево
 напр. `0.5` на слабкому сервері), `RESEND_API_KEY` і `MAIL_FROM` (листи через
 [Resend](https://resend.com): відновлення пароля й підтвердження пошти; без ключа посилання з листів
 пишуться в лог сервера), `PUBLIC_URL` (адреса сайту для посилань у листах, напр.
-`https://ultrachess.fly.dev`), `PADDLE_API_KEY`, `PADDLE_CLIENT_TOKEN`, `PADDLE_PRODUCT_ID`, `PADDLE_WEBHOOK_SECRET`, `PADDLE_SANDBOX`
+`https://ultrachess.app`), `PADDLE_API_KEY`, `PADDLE_CLIENT_TOKEN`, `PADDLE_PRODUCT_ID`, `PADDLE_WEBHOOK_SECRET`, `PADDLE_SANDBOX`
 (Paddle: уламки за гроші, див. [docs/payments.md](docs/payments.md)), `PAYMENTS=test` (тестова оплата без грошей — лише локально).
 Потрібен Node 22.5+ (`node:sqlite`).
 

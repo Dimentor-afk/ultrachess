@@ -64,13 +64,13 @@ PAYMENTS=test npm start
    - **API key** (секретний, `pdl_sdbx_apikey_…` у sandbox) з правами на transactions (read/write);
    - **Client-side token** (публічний, `test_…` у sandbox) — ним браузер відкриває вікно оплати.
 3. **Вебхук:** Developer tools → Notifications → New destination: URL
-   `https://ultrachess.fly.dev/api/payments/paddle/webhook`, події `transaction.completed`,
+   `https://ultrachess.app/api/payments/paddle/webhook`, події `transaction.completed`,
    `adjustment.created`, `adjustment.updated`. Скопіюйте **secret key** цього destination.
-4. **Сайт:** Checkout → Checkout settings → **Default payment link** = `https://ultrachess.fly.dev/`;
+4. **Сайт:** Checkout → Checkout settings → **Default payment link** = `https://ultrachess.app/`;
    у бойовому акаунті додайте домен на перевірку (Website approval).
 5. **Секрети на Fly:**
    ```bash
-   fly secrets set PADDLE_API_KEY=… PADDLE_CLIENT_TOKEN=… PADDLE_PRODUCT_ID=pro_… PADDLE_WEBHOOK_SECRET=… PADDLE_SANDBOX=1 PUBLIC_URL=https://ultrachess.fly.dev
+   fly secrets set PADDLE_API_KEY=… PADDLE_CLIENT_TOKEN=… PADDLE_PRODUCT_ID=pro_… PADDLE_WEBHOOK_SECRET=… PADDLE_SANDBOX=1 PUBLIC_URL=https://ultrachess.app
    ```
 6. **Тест:** купіть набір на сайті, у вікні Paddle — тестова картка `4242 4242 4242 4242`, будь-яка майбутня
    дата, CVC `100`. Уламки мають прийти за кілька секунд, в адмін-панелі покупка «оплачено».
@@ -78,8 +78,8 @@ PAYMENTS=test npm start
    `fly secrets set …`, а `PADDLE_SANDBOX` приберіть: `fly secrets unset PADDLE_SANDBOX`.
 8. **Виплати:** Business account → Payouts → банківський рахунок або Payoneer.
 
-Перед подачею на схвалення впишіть пошту для звернень і дату в `src/ui/LegalPage.tsx` (`CONTACT`):
-Paddle перевіряє, що на сайті є ціни, умови продажу, політика конфіденційності й контакти.
+Пошта для звернень і дата — у `src/ui/LegalPage.tsx` (`CONTACT`): Paddle перевіряє, що на сайті є ціни,
+умови продажу, політика конфіденційності й контакти.
 
 Інший сервіс (Xsolla, monobank для ФОП — реалізація monobank є в історії git, коміт `e93d7fd`) — це ще
 один клас, що реалізує `PaymentProvider` (`createInvoice`, `status`) і перевіряє підпис своїх повідомлень,

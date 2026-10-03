@@ -109,7 +109,7 @@ const admins = process.env.ADMIN_EMAILS ? process.env.ADMIN_EMAILS.split(',').ma
 const svc = new GameService(store, hasher, Date.now, Math.random, bots.run, admins);
 svc.mailer = resendMailer();
 if (!svc.mailer) console.log('No RESEND_API_KEY: links from letters (password reset, confirmation) go to this log.');
-// PUBLIC_URL="https://ultrachess.fly.dev" — where links in letters point. Without it, the
+// PUBLIC_URL="https://ultrachess.app" — where links in letters point. Without it, the
 // request's Host is used; set it in production so a forged Host cannot redirect the links.
 const PUBLIC_URL = process.env.PUBLIC_URL ? process.env.PUBLIC_URL.replace(/\/*$/, '/') : null;
 if (!PUBLIC_URL && svc.mailer) console.warn('PUBLIC_URL is not set: links in letters use the Host of each request.');
