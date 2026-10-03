@@ -864,10 +864,17 @@ function lostPieces(match: MatchState, color: Color): PieceType[] {
 function Captured({ types, color }: { types: PieceType[]; color: Color }) {
   if (!types.length) return null;
   return (
-    <span className="captured" title="Взяті фігури">
-      {types.map((t, i) => (
-        <Glyph key={i} type={t} color={color} />
-      ))}
+    <span className={`captured captured-${color}`} title="Взяті фігури">
+      {/* One glyph per kind with a count, so the tray stays one short line. */}
+      {[...new Set(types)].map((t) => {
+        const n = types.filter((x) => x === t).length;
+        return (
+          <span key={t} className="captured-kind">
+            <Glyph type={t} color={color} />
+            {n > 1 && <small>×{n}</small>}
+          </span>
+        );
+      })}
     </span>
   );
 }
