@@ -365,43 +365,68 @@ const emailOk = (e: string) => e.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.t
 
 // ── Letters ──
 
+/** Where players write (forwarded to the author's inbox); also in src/ui/LegalPage.tsx. */
+const SUPPORT_EMAIL = 'support@ultrachess.app';
+
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 /** Text of a letter in the reader's language: the Ukrainian text with {0}-style placeholders is the key. */
 export type Say = (text: string, ...args: unknown[]) => string;
 const ukrainian: Say = (text, ...args) => text.replace(/\{(\d+)\}/g, (m, i) => (i < args.length ? String(args[+i]) : m));
 
-function letter(say: Say, to: string, subject: string, lines: string[], link?: { href: string; label: string }): Mail {
-  const text = [...lines, ...(link ? ['', link.href] : []), '', '— Ultrachess'].join('\n');
-  const html = `<div style="font-family:system-ui,sans-serif;font-size:15px;line-height:1.5;color:#1d2433;max-width:520px">
-${lines.map((l) => `<p>${esc(l)}</p>`).join('\n')}
-${link ? `<p><a href="${esc(link.href)}" style="display:inline-block;padding:10px 18px;background:#e0a526;color:#1d2433;border-radius:8px;text-decoration:none;font-weight:700">${esc(link.label)}</a></p>
-<p style="font-size:13px;color:#667">${esc(say('Якщо кнопка не працює, скопіюйте посилання:'))} ${esc(link.href)}</p>` : ''}
-<p style="color:#667">— Ultrachess</p></div>`;
+/**
+ * A letter in the site's look (dark card, gold button). Mail clients ignore
+ * <style> and flexbox, so it is tables with inline styles; `text` is the
+ * plain copy for clients that show no HTML.
+ */
+function letter(say: Say, base: string, to: string, subject: string, lines: string[], link?: { href: string; label: string }): Mail {
+  const footer = [say('Цей лист надіслано, бо цю пошту вказано в акаунті Ultrachess.'), say('Питання щодо гри й покупок: {0}.', SUPPORT_EMAIL)];
+  const text = [...lines, ...(link ? ['', link.href] : []), '', '— Ultrachess', '', ...footer].join('\n');
+  const font = "font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+  const p = (l: string, i: number) =>
+    `<p style="margin:0 0 14px;${i === 0 ? 'font-size:18px;font-weight:700;color:#ffffff' : 'font-size:15px;line-height:1.55;color:#c9d2ee'}">${esc(l)}</p>`;
+  const button = link
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:22px 0 18px"><tr><td style="border-radius:10px;background:#f5c451">
+<a href="${esc(link.href)}" style="display:inline-block;padding:13px 26px;${font};font-size:15px;font-weight:700;color:#1b1405;text-decoration:none;border-radius:10px">${esc(link.label)}</a></td></tr></table>
+<p style="margin:0;font-size:12px;line-height:1.5;color:#7f8bb0">${esc(say('Якщо кнопка не працює, скопіюйте посилання:'))}<br><a href="${esc(link.href)}" style="color:#9fb6ff;word-break:break-all">${esc(link.href)}</a></p>`
+    : '';
+  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"><title>${esc(subject)}</title></head>
+<body style="margin:0;padding:0;background:#0c1120">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0c1120;${font}"><tr><td align="center" style="padding:28px 12px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px">
+<tr><td style="padding:0 4px 16px"><a href="${esc(base)}" style="text-decoration:none">
+<img src="${esc(base)}icon-192.png" width="36" height="36" alt="" style="vertical-align:middle;border:0;border-radius:8px">
+<span style="vertical-align:middle;margin-left:8px;font-size:20px;font-weight:800;letter-spacing:1px;color:#f5c451">ULTRACHESS</span></a></td></tr>
+<tr><td style="background:#151f3a;border:1px solid #2a3a66;border-radius:14px;padding:28px 26px">
+${lines.map(p).join('\n')}
+${button}
+</td></tr>
+<tr><td style="padding:16px 6px 0;font-size:12px;line-height:1.5;color:#6c789d">${footer.map(esc).join('<br>')}</td></tr>
+</table></td></tr></table></body></html>`;
   return { to, subject, text, html };
 }
 
-function resetMail(say: Say, name: string, to: string, href: string): Mail {
-  return letter(say, to, say('Ultrachess: новий пароль'), [
+function resetMail(say: Say, base: string, name: string, to: string, href: string): Mail {
+  return letter(say, base, to, say('Ultrachess: новий пароль'), [
     say('Привіт, {0}!', name),
     say('Хтось (сподіваємось, ви) попросив змінити пароль до вашого акаунта Ultrachess.'),
     say('Посилання працює одну годину й лише один раз. Якщо ви нічого не просили, просто проігноруйте цей лист: пароль лишиться тим самим.'),
   ], { href, label: say('Задати новий пароль') });
 }
 
-function verifyMail(say: Say, name: string, to: string, href: string): Mail {
-  return letter(say, to, say('Ultrachess: підтвердіть пошту'), [
+function verifyMail(say: Say, base: string, name: string, to: string, href: string): Mail {
+  return letter(say, base, to, say('Ultrachess: підтвердіть пошту'), [
     say('Привіт, {0}!', name),
     say('Підтвердіть, що це ваша пошта: так ви зможете відновити пароль, якщо його забудете.'),
     say('Посилання працює 3 дні.'),
   ], { href, label: say('Підтвердити пошту') });
 }
 
-function emailChangedMail(say: Say, name: string, to: string, next: string): Mail {
-  return letter(say, to, say('Ultrachess: пошту акаунта змінено'), [
+function emailChangedMail(say: Say, base: string, name: string, to: string, next: string): Mail {
+  return letter(say, base, to, say('Ultrachess: пошту акаунта змінено'), [
     say('Привіт, {0}!', name),
     say('Пошту вашого акаунта Ultrachess щойно змінено на {0}.', next),
-    say('Якщо це були не ви, негайно напишіть адміністратору гри: ми повернемо акаунт на цю адресу.'),
+    say('Якщо це були не ви, негайно напишіть на {0}: ми повернемо акаунт на цю адресу.', SUPPORT_EMAIL),
   ]);
 }
 
@@ -579,7 +604,7 @@ export class GameService {
     const token = randomId(32);
     await this.store.insertToken({ hash: await sha256(token), userId: u.id, kind, email, expiresAt: this.now() + LINK_TTL[kind] });
     const link = `${base}#/${kind}/${token}`;
-    const mail = kind === 'reset' ? resetMail(this.say(lang), u.name, email, link) : verifyMail(this.say(lang), u.name, email, link);
+    const mail = kind === 'reset' ? resetMail(this.say(lang), base, u.name, email, link) : verifyMail(this.say(lang), base, u.name, email, link);
     if (this.mailer) await this.mailer(mail);
     else if (!this.showLinks) console.log(`[mail to ${email}] ${mail.subject}: ${link}`);
     return this.showLinks ? { sent: true, link } : { sent: true };
@@ -681,7 +706,7 @@ export class GameService {
     try {
       mail = await this.sendLink(moved, 'verify', email, base, lang);
       // The old address learns about it: if it was not its owner, they know at once.
-      if (this.mailer) await this.mailer(emailChangedMail(this.say(lang), u.name, old, email)).catch(() => undefined);
+      if (this.mailer) await this.mailer(emailChangedMail(this.say(lang), base, u.name, old, email)).catch(() => undefined);
     } catch (e) {
       console.error('Verification mail failed:', e);
     }
