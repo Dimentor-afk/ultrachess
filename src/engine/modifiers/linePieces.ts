@@ -53,7 +53,11 @@ export const linePieceGenerators: Record<string, Generator> = {
   'rook-jumper': (ctx, p, from) => [...rook(ctx, p, from), ...jumpOverMoves(ctx, p, from, ORTHO, {}, 1)],
   'rook-ricochet': (ctx, p, from) => dedupe([...rook(ctx, p, from), ...ricochetMoves(ctx, p, from, ORTHO)]),
   'rook-illusionist': rook,
-  'rook-tunnel': (ctx, p, from) => slideMoves(ctx, p, from, ORTHO, { passOwn: () => true }),
+  // Тихий крок: 1 клітинка по діагоналі, лише на вільну (без взяття і не б'є це поле).
+  'rook-tunnel': (ctx, p, from) => [
+    ...rook(ctx, p, from),
+    ...leapMoves(ctx, p, from, DIAG, { noCapture: true }).map((m) => ({ ...m, kind: 'special' as const, label: 'Тихий крок' })),
+  ],
   'rook-corner': (ctx, p, from) => dedupe([...rook(ctx, p, from), ...turnMoves(ctx, p, from, ORTHO)]),
   'rook-battering': (ctx, p, from) => [...rook(ctx, p, from), ...batteringMoves(ctx, p, from, ORTHO)],
   'rook-displacer': (ctx, p, from) => [...rook(ctx, p, from), ...displaceMoves(ctx, p, from, ORTHO)],

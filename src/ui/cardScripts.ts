@@ -413,13 +413,14 @@ export const CARD_SCRIPTS: Record<string, ClipScript> = {
     ],
   },
   'rook-tunnel': {
-    pieces: { d1: 'hero!', d2: 'w:pawn', d3: 'w:knight', d7: 'b:pawn' },
+    pieces: { d1: 'hero!', c1: 'w:bishop', d2: 'w:pawn', e1: 'w:knight', c2: 'b:pawn' },
     steps: [
-      { marks: 'd1', say: 'Свої фігури не заважають — шлях відкритий' },
+      { marks: 'd1', say: 'Тура замкнена своїми фігурами — звичайна тут не зрушила б' },
       {
-        move: 'd1 d7',
-        say: 'Проходить крізь свої фігури, як тунелем',
-        then: 'Звичайну туру свої пішак і кінь зупинили б',
+        move: 'd1 e2',
+        label: /Тихий крок/,
+        say: 'Тихий крок: 1 клітинка по діагоналі на вільну',
+        then: "По діагоналі не б'є: пішака на c2 так не взяти",
       },
     ],
   },

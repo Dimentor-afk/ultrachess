@@ -196,10 +196,16 @@ describe('rook cards', () => {
     expect(targets(pos, 'a1')).toContain('b8');
   });
 
-  it('Тунельна тура passes through own pieces', () => {
-    const pos = build({ ...K, a1: 'w:rook-tunnel', a2: 'w:pawn-classic', a5: 'b:pawn-classic' });
-    expect(targets(pos, 'a1')).toEqual(expect.arrayContaining(['a3', 'a4', 'a5']));
-    expect(targets(pos, 'a1')).not.toContain('a6');
+  it('Тунельна тура steps 1 diagonally onto an empty square, never capturing', () => {
+    const pos = build({ ...K, d4: 'w:rook-tunnel', c5: 'b:pawn-classic', d5: 'w:pawn-classic' });
+    const t = targets(pos, 'd4');
+    expect(t).toEqual(expect.arrayContaining(['e5', 'c3', 'e3', 'd1', 'h4']));
+    expect(t).not.toContain('c5');
+    expect(t).not.toContain('f6');
+    expect(t).not.toContain('d6');
+    // The quiet step gives no check: a king on the diagonal is not attacked.
+    const kings = build({ d4: 'w:rook-tunnel', a1: 'w:king-classic', e5: 'b:king-classic' });
+    expect(inCheck({ ...kings, turn: 'b', ply: 1 })).toBe(false);
   });
 
   it('Кутова тура turns 90° after a short leg', () => {

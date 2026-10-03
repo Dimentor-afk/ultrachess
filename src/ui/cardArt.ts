@@ -45,7 +45,7 @@ const ART: Record<string, Art> = {
   'rook-jumper': [141, 148],
   'rook-ricochet': [155, 162],
   'rook-illusionist': [169, 176],
-  'rook-tunnel': [338, 346],
+  'rook-tunnel': [260],
   'rook-corner': [183, 191],
   'rook-battering': [302],
   'rook-displacer': [214],

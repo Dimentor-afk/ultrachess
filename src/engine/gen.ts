@@ -85,7 +85,7 @@ export function mk(piece: Piece, from: Square, to: Square | null, fields: Partia
 
 export interface WalkStep {
   s: Square;
-  /** Passed through an own piece (Трамплін, Тунельна тура). */
+  /** Passed through an own piece (Трамплін). */
   pass: boolean;
 }
 
