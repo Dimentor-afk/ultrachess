@@ -78,6 +78,8 @@ export interface Profile {
   role: Role;
   /** The game's owner (ADMIN_EMAILS): the only one who appoints and removes admins. */
   owner: boolean;
+  /** Something an admin did to the account, shown once (null: nothing to show). */
+  notice: Notice | null;
   trophies: number;
   wins: number;
   losses: number;
@@ -371,6 +373,15 @@ export interface AdminUser {
   banReason: string;
 }
 
+/** A message for the player about what an admin did, shown on their next visit. */
+export interface Notice {
+  kind: 'renamed';
+  from: string;
+  to: string;
+  reason: string;
+  at: number;
+}
+
 /** A ban "for good": the latest date JavaScript can hold. */
 export const BAN_FOREVER = 8.64e15;
 /** The longest ban with an end date (about ten years), in hours. */
@@ -550,6 +561,7 @@ export class GameService {
       deleted: false,
       bannedUntil: 0,
       banReason: '',
+      notice: '',
     };
   }
 
@@ -843,6 +855,7 @@ export class GameService {
       name: u.name,
       role: u.role,
       owner: this.isOwner(u),
+      notice: u.notice ? (JSON.parse(u.notice) as Notice) : null,
       trophies: u.trophies,
       wins: u.wins,
       losses: u.losses,
@@ -1068,6 +1081,13 @@ export class GameService {
   /** The signed-in user's id (the WebSocket hub checks a connection's session with it). */
   async userIdOf(token: string): Promise<string> {
     return (await this.auth(token)).id;
+  }
+
+  /** The player has read the notice: it is not shown again. */
+  async dismissNotice(token: string): Promise<Profile> {
+    const u = await this.auth(token);
+    if (u.notice) await this.store.updateUser(u.id, { notice: '' });
+    return this.profileOf(u.id);
   }
 
   async me(token: string): Promise<Profile> {
@@ -2340,6 +2360,22 @@ export class GameService {
     });
     await this.leaveGames(u);
     await this.store.deleteUserSessions(u.id);
+  }
+
+  /**
+   * Give the player another nickname (theirs breaks the rules). They read who
+   * renamed them and why on their next visit, and keep the new name for the
+   * usual 7 days, so it cannot be changed straight back.
+   */
+  async adminRename(token: string, userId: string, nameRaw: string, reason: string): Promise<void> {
+    const me = await this.admin(token);
+    const u = await this.managed(me, userId);
+    const name = cleanName(String(nameRaw ?? ''));
+    const bad = nameProblem(name);
+    if (bad) throw new ApiError(400, bad);
+    if (name === u.name) throw new ApiError(400, 'У гравця вже такий нікнейм.');
+    const notice: Notice = { kind: 'renamed', from: u.name, to: name, reason: String(reason ?? '').trim().slice(0, 200), at: this.now() };
+    await this.store.updateUser(u.id, { name, nameChangedAt: this.now(), notice: JSON.stringify(notice) });
   }
 
   async adminUnban(token: string, userId: string): Promise<void> {

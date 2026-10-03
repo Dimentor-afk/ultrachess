@@ -131,6 +131,9 @@ export interface Api {
   /** `hours` null: for good. */
   adminBan(userId: string, hours: number | null, reason: string): Promise<void>;
   adminUnban(userId: string): Promise<void>;
+  adminRename(userId: string, name: string, reason: string): Promise<void>;
+  /** The player has read profile.notice. */
+  dismissNotice(): Promise<Profile>;
   adminLogout(userId: string): Promise<void>;
   adminDeleteUser(userId: string): Promise<void>;
   updateProfile(patch: { name?: string; avatar?: string }): Promise<Profile>;
@@ -243,6 +246,8 @@ class HttpApi implements Api {
     this.call<void>('POST', `admin/users/${userId}/currency`, { gold, shards });
   adminBan = (userId: string, hours: number | null, reason: string) => this.call<void>('POST', `admin/users/${userId}/ban`, { hours, reason });
   adminUnban = (userId: string) => this.call<void>('POST', `admin/users/${userId}/unban`, {});
+  adminRename = (userId: string, name: string, reason: string) => this.call<void>('POST', `admin/users/${userId}/rename`, { name, reason });
+  dismissNotice = () => this.call<Profile>('POST', 'profile/notice', {});
   adminLogout = (userId: string) => this.call<void>('POST', `admin/users/${userId}/logout`, {});
   adminDeleteUser = (userId: string) => this.call<void>('POST', `admin/users/${userId}/delete`, {});
   updateProfile = (patch: { name?: string; avatar?: string }) => this.call<Profile>('POST', 'profile', patch);
@@ -436,6 +441,8 @@ class LocalApi implements Api {
     this.svc.adminGrantCurrency(await this.t(), userId, gold, shards);
   adminBan = async (userId: string, hours: number | null, reason: string) => this.svc.adminBan(await this.t(), userId, hours, reason);
   adminUnban = async (userId: string) => this.svc.adminUnban(await this.t(), userId);
+  adminRename = async (userId: string, name: string, reason: string) => this.svc.adminRename(await this.t(), userId, name, reason);
+  dismissNotice = async () => this.svc.dismissNotice(await this.t());
   adminLogout = async (userId: string) => this.svc.adminLogout(await this.t(), userId);
   adminDeleteUser = async (userId: string) => this.svc.adminDeleteUser(await this.t(), userId);
   updateProfile = async (patch: { name?: string; avatar?: string }) => this.svc.updateProfile(await this.t(), patch);

@@ -63,6 +63,8 @@ export interface UserRow {
   bannedUntil: number;
   /** Why, as the admin wrote it (the player sees it when signing in). */
   banReason: string;
+  /** A message the player sees once on their next visit (JSON Notice, '' for none). */
+  notice: string;
 }
 
 export interface SessionRow {

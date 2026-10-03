@@ -1426,5 +1426,15 @@ const dict: Record<string, string> = {
   "Акаунт заблоковано назавжди. Причина: {0}": "Dieses Konto ist für immer gesperrt. Grund: {0}",
   "Акаунт заблоковано до {0} UTC.": "Dieses Konto ist bis {0} UTC gesperrt.",
   "Акаунт заблоковано до {0} UTC. Причина: {1}": "Dieses Konto ist bis {0} UTC gesperrt. Grund: {1}",
+  "Гравець побачить, що його перейменовано, і причину, коли наступного разу зайде в гру.": "Der Spieler sieht beim nächsten Besuch, dass er umbenannt wurde, und den Grund.",
+  "Новий нікнейм": "Neuer Nickname",
+  "Причина перейменування": "Grund der Umbenennung",
+  "Перейменовано: {0} → {1}": "Umbenannt: {0} → {1}",
+  "Перейменувати": "Umbenennen",
+  "У гравця вже такий нікнейм.": "Der Spieler hat diesen Nickname schon.",
+  "Ваш нікнейм змінено": "Dein Nickname wurde geändert",
+  "Адміністратор змінив ваш нікнейм «{0}» на «{1}», бо він порушує правила гри.": "Ein Admin hat deinen Nickname „{0}“ in „{1}“ geändert, weil er gegen die Spielregeln verstößt.",
+  "Вибрати інший нікнейм можна в профілі через 7 днів. Повторне порушення може закінчитися баном.": "In 7 Tagen kannst du im Profil einen anderen Nickname wählen. Ein erneuter Verstoß kann zu einer Sperre führen.",
+  "Зрозуміло": "Verstanden",
 };
 export default dict;

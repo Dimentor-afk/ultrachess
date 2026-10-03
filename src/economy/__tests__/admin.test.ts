@@ -88,4 +88,16 @@ describe('admin actions', () => {
     const me = await svc.me(anna.token);
     expect([me.gold, me.shards]).toEqual([0, 0]);
   });
+
+  it('renames a player: the filter applies, the player reads why once and cannot rename back at once', async () => {
+    const { svc, mod, anna } = await setup();
+    await expect(svc.adminRename(mod.token, anna.profile.id, 'Сука', '')).rejects.toThrow(/не можна/);
+    await svc.adminRename(mod.token, anna.profile.id, 'Гравець 7', 'Образливий нікнейм');
+    const me = await svc.me(anna.token);
+    expect(me.name).toBe('Гравець 7');
+    expect(me.notice).toMatchObject({ kind: 'renamed', from: 'Анна', to: 'Гравець 7', reason: 'Образливий нікнейм' });
+    await expect(svc.updateProfile(anna.token, { name: 'Анна' })).rejects.toThrow(/7 днів/);
+    expect((await svc.dismissNotice(anna.token)).notice).toBeNull();
+    expect((await svc.me(anna.token)).notice).toBeNull();
+  });
 });

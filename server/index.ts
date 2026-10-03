@@ -358,6 +358,8 @@ const routes: [string, RegExp, Handler][] = [
     /^admin\/users\/(\w+)\/ban$/,
     ({ token, params, body }) => svc.adminBan(token, params[0], body.hours === null || body.hours === undefined ? null : Number(body.hours), String(body.reason ?? '')),
   ],
+  ['POST', /^admin\/users\/(\w+)\/rename$/, ({ token, params, body }) => svc.adminRename(token, params[0], String(body.name ?? ''), String(body.reason ?? ''))],
+  ['POST', /^profile\/notice$/, ({ token }) => svc.dismissNotice(token)],
   ['POST', /^admin\/users\/(\w+)\/unban$/, ({ token, params }) => svc.adminUnban(token, params[0])],
   ['POST', /^admin\/users\/(\w+)\/logout$/, ({ token, params }) => svc.adminLogout(token, params[0])],
   ['POST', /^admin\/users\/(\w+)\/delete$/, ({ token, params }) => svc.adminDeleteUser(token, params[0])],

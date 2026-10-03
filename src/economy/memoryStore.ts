@@ -76,6 +76,7 @@ export function withUserDefaults(u: UserRow): UserRow {
     deleted: u.deleted ?? false,
     bannedUntil: u.bannedUntil ?? 0,
     banReason: u.banReason ?? '',
+    notice: u.notice ?? '',
   };
 }
 

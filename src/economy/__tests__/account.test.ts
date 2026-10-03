@@ -28,6 +28,16 @@ describe('nicknames and passwords', () => {
     }
   });
 
+  it('the swearing filter: repeated letters, digits for letters, transliteration, other languages', () => {
+    for (const bad of ['хууууй', 'Fuuuck', 'p1zda', 'Pizdets', 'Blyat_99', 'Сука', 'su ka', 'ПиДоР', 'долбойоб', 'Єбанько', 'yebat', 'Cazzo', 'Hurensohn', 'Puta', 'big ass', 'Wolf 1488', 'Гітлер', 'xyйня', 'shiiit']) {
+      expect(nameProblem(bad), bad).toMatch(/не можна/);
+    }
+    // Ordinary names with a bad root inside them stay allowed.
+    for (const ok of ['Херсонець', 'Dickens', 'Hitchcock', 'Essex', 'Nazim', 'Lebanon', 'Rebate', 'Fukuda', 'Сучков', 'Bassist', 'Diputado', 'Онлайн', 'Анна']) {
+      expect(nameProblem(ok), ok).toBeNull();
+    }
+  });
+
   it('passwords: long enough, not a common one, not the e-mail', () => {
     expect(passwordProblem('secret12')).toBeNull();
     expect(passwordProblem('short1')).toMatch(/8/);

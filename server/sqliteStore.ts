@@ -179,6 +179,7 @@ const USER_COLS: Record<keyof UserRow, string> = {
   deleted: 'deleted',
   bannedUntil: 'banned_until',
   banReason: 'ban_reason',
+  notice: 'notice',
 };
 
 /** Columns added after the first release, for databases created before them. */
@@ -208,6 +209,7 @@ const USER_MIGRATIONS: [string, string][] = [
   ['deleted', 'INTEGER NOT NULL DEFAULT 0'],
   ['banned_until', 'INTEGER NOT NULL DEFAULT 0'],
   ['ban_reason', "TEXT NOT NULL DEFAULT ''"],
+  ['notice', "TEXT NOT NULL DEFAULT ''"],
 ];
 
 /** Columns added to other tables after the first release. */
@@ -274,6 +276,7 @@ function user(r: Row | undefined): UserRow | null {
     deleted: !!r.deleted,
     bannedUntil: Number(r.banned_until ?? 0),
     banReason: (r.ban_reason as string | null) ?? '',
+    notice: (r.notice as string | null) ?? '',
   };
 }
 

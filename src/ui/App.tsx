@@ -11,6 +11,7 @@ import { themeById } from '../economy/themes';
 import { cardArt } from './cardArt';
 import { ErrorBoundary } from './ErrorBoundary';
 import { Icon } from './icons';
+import { Sheet } from './Sheet';
 import { currentPath, navigate, onNavigate, useRoutePath } from './router';
 import { LeaguesPage } from './LeaguesPage';
 import { TrialsPage } from './TrialsPage';
@@ -263,6 +264,32 @@ function Shell() {
           </Suspense>
         </ErrorBoundary>
       </main>
+      {s.profile.notice && <NoticeSheet />}
     </div>
+  );
+}
+
+/** What an admin did to the account (a rename), shown once until the player closes it. */
+function NoticeSheet() {
+  const s = useSession();
+  const n = s.profile.notice!;
+  const close = async () => {
+    try {
+      s.setProfile(await s.api.dismissNotice());
+    } catch (e) {
+      s.toast(errorText(e), 'error');
+    }
+  };
+  return (
+    <Sheet title={t('Ваш нікнейм змінено')} onClose={() => void close()}>
+      <div className="notice-sheet">
+        <p>{t('Адміністратор змінив ваш нікнейм «{0}» на «{1}», бо він порушує правила гри.', n.from, n.to)}</p>
+        {n.reason && <p className="notice-reason">{t('Причина: {0}', n.reason)}</p>}
+        <p className="muted small">{t('Вибрати інший нікнейм можна в профілі через 7 днів. Повторне порушення може закінчитися баном.')}</p>
+        <button className="btn btn-primary" onClick={() => void close()}>
+          {t('Зрозуміло')}
+        </button>
+      </div>
+    </Sheet>
   );
 }

@@ -242,6 +242,8 @@ function PlayerSheet({ u, run, onClose }: { u: AdminUser; run: (fn: () => Promis
   const [banHours, setBanHours] = useState<number | null>(24);
   const [reason, setReason] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [newName, setNewName] = useState('');
+  const [renameWhy, setRenameWhy] = useState('');
   // Mirrors the server's rule: not oneself, never the owner, another admin only by the owner.
   const manageable = u.id !== me.id && !u.owner && (u.role !== 'admin' || me.owner);
 
@@ -283,6 +285,25 @@ function PlayerSheet({ u, run, onClose }: { u: AdminUser; run: (fn: () => Promis
           </p>
         ) : (
           <>
+            <h3>{t('Нікнейм')}</h3>
+            <p className="muted small">{t('Гравець побачить, що його перейменовано, і причину, коли наступного разу зайде в гру.')}</p>
+            <div className="admin-row">
+              <input type="text" maxLength={24} placeholder={t('Новий нікнейм')} value={newName} onChange={(e) => setNewName(e.target.value)} aria-label={t('Новий нікнейм')} />
+              <input type="text" maxLength={200} placeholder={t('Причина (гравець її побачить)')} value={renameWhy} onChange={(e) => setRenameWhy(e.target.value)} aria-label={t('Причина перейменування')} />
+              <button
+                className="btn btn-sm btn-primary"
+                disabled={!newName.trim()}
+                onClick={async () => {
+                  if (await run(() => s.api.adminRename(u.id, newName, renameWhy), t('Перейменовано: {0} → {1}', u.name, newName.trim()))) {
+                    setNewName('');
+                    setRenameWhy('');
+                  }
+                }}
+              >
+                {t('Перейменувати')}
+              </button>
+            </div>
+
             <h3>{t('Бан')}</h3>
             {u.bannedUntil > 0 ? (
               <>
