@@ -111,8 +111,25 @@ describe('buying shards', () => {
     await expect(svc.buyShards(a.token, product.id, BASE)).rejects.toThrow(/незавершених/);
     await expect(svc.buyShards(a.token, 'free-shards', BASE)).rejects.toThrow(/немає/);
     svc.payments = null;
-    expect(svc.shardOffer().enabled).toBe(false);
+    expect((await svc.shardOffer(a.token)).enabled).toBe(false);
     await expect(svc.buyShards(a.token, product.id, BASE)).rejects.toThrow(/недоступні/);
+  });
+
+  it('admins only while the sale is closed: others neither see nor buy shards for money', async () => {
+    const store = new MemoryStore();
+    const svc = new GameService(store, hasher, Date.now, Math.random, undefined, ['boss@x.com']);
+    await svc.init();
+    svc.payments = new FakeBank();
+    svc.paymentsAdminOnly = true;
+    const boss = await svc.register('boss@x.com', 'secret-pass-1', 'Богдан');
+    const a = await svc.register('anna@x.com', 'secret-pass-1', 'Анна');
+    expect(await svc.shardOffer(a.token)).toMatchObject({ hidden: true, enabled: false, products: [] });
+    expect((await svc.shardOffer(null)).hidden).toBe(true);
+    await expect(svc.buyShards(a.token, product.id, BASE)).rejects.toThrow(/недоступні/);
+    expect(await svc.shardOffer(boss.token)).toMatchObject({ hidden: false, enabled: true });
+    await svc.buyShards(boss.token, product.id, BASE);
+    svc.paymentsAdminOnly = false;
+    expect((await svc.shardOffer(a.token)).hidden).toBe(false);
   });
 
   it('test payments: the in-app page pays or declines; not available with a real bank', async () => {

@@ -399,10 +399,7 @@ class LocalApi implements Api {
   changePassword = async (current: string, next: string) => this.svc.changePassword(await this.t(), current, next);
   changeEmail = async (password: string, email: string) => this.svc.changeEmail(await this.t(), password, email, siteBase());
   logoutOthers = async () => this.svc.logoutOthers(await this.t());
-  shardOffer = async () => {
-    await this.t();
-    return this.svc.shardOffer();
-  };
+  shardOffer = async () => this.svc.shardOffer(await this.t());
   buyShards = async (product: string) => this.svc.buyShards(await this.t(), product, siteBase());
   purchase = async (id: string) => this.svc.purchase(await this.t(), id);
   purchases = async () => this.svc.purchases(await this.t());

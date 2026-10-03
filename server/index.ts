@@ -133,6 +133,10 @@ svc.payments = paddle ?? (process.env.PAYMENTS === 'test' ? new TestPayments() :
 if (svc.payments?.id === 'test') console.warn('PAYMENTS=test: purchases need no money. Never use this in production.');
 else if (paddle) console.log(`Payments: Paddle${paddleCfg!.sandbox ? ' (sandbox)' : ''}.`);
 else console.log('No PADDLE_* settings: shards are not on sale.');
+// Until the payment service has approved the site, only admins see and buy shards for money.
+// PAYMENTS_PUBLIC=1 opens the sale to everyone.
+svc.paymentsAdminOnly = !!paddle && process.env.PAYMENTS_PUBLIC !== '1';
+if (svc.paymentsAdminOnly) console.log('Shards for money: admins only (set PAYMENTS_PUBLIC=1 to open the sale).');
 
 /** Paddle's notice: the raw body is needed to check its signature. */
 async function paddleWebhook(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -278,7 +282,7 @@ const routes: [string, RegExp, Handler][] = [
   ['GET', /^packs$/, ({ token }) => svc.packs(token)],
   ['POST', /^packs\/(\w+)\/open$/, ({ token, params }) => svc.openPack(token, params[0])],
   ['GET', /^shop$/, ({ token }) => svc.shop(token)],
-  ['GET', /^shop\/shards$/, async () => svc.shardOffer()],
+  ['GET', /^shop\/shards$/, ({ token }) => svc.shardOffer(token)],
   ['POST', /^shop\/shards$/, ({ req, token, body }) => svc.buyShards(token, String(body.product ?? ''), siteBase(req))],
   ['GET', /^purchases$/, ({ token }) => svc.purchases(token)],
   ['GET', /^purchases\/(\w+)$/, ({ token, params }) => svc.purchase(token, params[0])],

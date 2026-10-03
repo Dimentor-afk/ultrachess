@@ -29,7 +29,7 @@ export function ShardStore() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (!offer) return null;
+  if (!offer || offer.hidden) return null;
   const buy = async (p: ShardProduct) => {
     setBusy(p.id);
     try {

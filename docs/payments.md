@@ -80,6 +80,8 @@ PAYMENTS=test npm start
 7. **Бойовий режим:** після схвалення акаунта — ті самі кроки 1–4 у vendors.paddle.com, нові ключі в
    `fly secrets set …`, а `PADDLE_SANDBOX` приберіть: `fly secrets unset PADDLE_SANDBOX`.
 8. **Виплати:** Business account → Payouts → банківський рахунок або Payoneer.
+9. **Відкрити продаж усім:** поки Paddle перевіряє сайт, набори уламків бачать і купують лише адміни.
+   Коли акаунт схвалено й бойова покупка пройшла: `fly secrets set PAYMENTS_PUBLIC=1`.
 
 Пошта для звернень і дата — у `src/ui/LegalPage.tsx` (`CONTACT`): Paddle перевіряє, що на сайті є ціни,
 умови продажу, політика конфіденційності й контакти.

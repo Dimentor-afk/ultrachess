@@ -1205,8 +1205,18 @@ export class GameService {
   /** The payment service (Paddle on the server, test payments in the demo); null: not on sale. */
   payments: PaymentProvider | null = null;
 
-  shardOffer(): ShardOffer {
-    return { products: SHARD_PRODUCTS, enabled: !!this.payments, test: this.payments?.id === 'test', checkout: this.payments?.client ?? null };
+  /** Sales open to admins only (the server sets it until PAYMENTS_PUBLIC=1): others do not see the shards for money. */
+  paymentsAdminOnly = false;
+
+  private async canBuy(token: string | null | undefined): Promise<boolean> {
+    if (!this.paymentsAdminOnly) return true;
+    const u = await this.auth(token).catch(() => null);
+    return u?.role === 'admin';
+  }
+
+  async shardOffer(token?: string | null): Promise<ShardOffer> {
+    if (!(await this.canBuy(token))) return { products: [], enabled: false, test: false, checkout: null, hidden: true };
+    return { products: SHARD_PRODUCTS, enabled: !!this.payments, test: this.payments?.id === 'test', checkout: this.payments?.client ?? null, hidden: false };
   }
 
   private purchaseView(p: PurchaseRow): PurchaseView {
@@ -1220,7 +1230,7 @@ export class GameService {
    */
   async buyShards(token: string, productId: string, base: string): Promise<{ purchaseId: string; pageUrl: string }> {
     const u = await this.auth(token);
-    if (!this.payments) throw new ApiError(503, 'Покупки за гроші поки недоступні.');
+    if (!this.payments || !(await this.canBuy(token))) throw new ApiError(503, 'Покупки за гроші поки недоступні.');
     const product = productById(productId);
     if (!product) throw new ApiError(404, 'Такого набору немає.');
     const recent = (await this.store.listPurchases(u.id, 20)).filter((p) => p.status === 'pending' && this.now() - p.createdAt < 60 * 60_000);

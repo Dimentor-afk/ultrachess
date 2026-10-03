@@ -94,6 +94,8 @@ export interface ShardOffer {
   enabled: boolean;
   test: boolean;
   checkout: CheckoutClient | null;
+  /** Not on show to this player (sales open to admins only while the payment service checks the site). */
+  hidden: boolean;
 }
 
 /** What the player sees about a purchase. */
