@@ -34,6 +34,8 @@ export function boardRing(view: PlayerView, marks: Map<Square, unknown>): number
 // between legs so each landing reads (the knight touches the wall, then runs).
 
 const LEG_PAUSE = 90;
+/** Землетрус: the wave along the line, ms per square. */
+const QUAKE_STEP = 70;
 /** The squash after landing. */
 const SETTLE_MS = 150;
 
@@ -146,6 +148,24 @@ function GlidePiece({ glide, orientation, ring, children }: { glide: Glide; orie
   );
 }
 
+/** Pieces of a blown-up square flying off: offset (cqw), spin and colour. */
+const DEBRIS = Array.from({ length: 12 }, (_, i) => {
+  const a = (i / 12) * Math.PI * 2 + (i % 2 ? 0.3 : -0.2);
+  const r = 9 + (i % 4) * 3.5;
+  return { dx: +(Math.cos(a) * r).toFixed(1), dy: +(Math.sin(a) * r - 4).toFixed(1), rot: (i % 2 ? 1 : -1) * (180 + i * 40), c: ['#ffb02e', '#ff6b3d', '#5b4a3a', '#ffe08a'][i % 4] };
+});
+
+/** A won game: bursts in the colours of the rarities, one after another. */
+const FIREWORKS = [
+  { x: 28, y: 30, c: 'var(--r-legendary)', delay: 0 },
+  { x: 70, y: 24, c: 'var(--r-epic)', delay: 260 },
+  { x: 50, y: 55, c: 'var(--r-mythological)', delay: 520 },
+  { x: 22, y: 70, c: 'var(--r-rare)', delay: 780 },
+  { x: 76, y: 66, c: 'var(--r-legendary)', delay: 1040 },
+  { x: 45, y: 22, c: 'var(--r-rare)', delay: 1300 },
+  { x: 62, y: 80, c: 'var(--r-epic)', delay: 1560 },
+];
+
 /** Centre of a square in percent of the board, for overlays and animations. */
 export function squareCenter(s: Square, orientation: Color, ring = THIN_RING): { x: number; y: number } {
   const total = 8 + 2 * ring;
@@ -233,8 +253,18 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
     live.moves.forEach((m) => {
       if (m.after) glides.get(m.to)!.delay = moverMs;
     });
+    if (live.shake) {
+      // Землетрус: the pieces on the line jump one after another, a wave along it.
+      const line = live.sprites.filter((x) => x.kind === 'quake').map((x) => x.square);
+      live.moves.forEach((m) => {
+        const k = line.indexOf(m.from);
+        if (k >= 0) glides.get(m.to)!.delay = 60 + k * QUAKE_STEP;
+      });
+    }
   }
   const sprites: { name: FxName; square: Square; delay: number }[] = [];
+  const cracks: { square: Square; delay: number }[] = [];
+  const debris: { square: Square; delay: number }[] = [];
   // Captured pieces stay on their squares until the blow lands.
   const ghosts = new Map<Square, { piece: ViewPiece; ms: number }>();
   if (live) {
@@ -242,7 +272,7 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
       const name = x.kind === 'capture' && x.by && captureFx?.[x.by] ? captureFx[x.by]! : (x.kind as FxName);
       // Quake and eclipse ripple along their line; a capture plays when the
       // mover arrives (each one in turn for a chain).
-      let delay = x.kind === 'quake' || x.kind === 'eclipse' ? i * 45 : x.kind === 'explode' ? 180 : 0;
+      let delay = x.kind === 'quake' ? i * QUAKE_STEP : x.kind === 'eclipse' ? i * 45 : x.kind === 'explode' ? 180 : 0;
       if (x.wait !== undefined) delay = moverMs + x.wait;
       if (x.kind === 'portal' && x.leg !== undefined) {
         // The gate opens a little before the piece gets there; the far gate
@@ -263,13 +293,24 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
         }
       }
       sprites.push({ name, square: x.square, delay });
-      if (x.kind === 'quake') sprites.push({ name: 'dust', square: x.square, delay: i * 45 + 120 });
+      if (x.kind === 'quake') {
+        sprites.push({ name: 'dust', square: x.square, delay: i * QUAKE_STEP + 120 });
+        cracks.push({ square: x.square, delay: i * QUAKE_STEP });
+      }
+      if (x.kind === 'explode') {
+        // Смертник and friends: a mushroom of fire over the flash, and debris flying off.
+        sprites.push({ name: 'boom', square: x.square, delay: delay + 60 });
+        debris.push({ square: x.square, delay: delay + 40 });
+      }
     });
     if (checkSquare !== null) sprites.push({ name: 'check', square: checkSquare, delay: 250 });
   }
   if (celebrate) {
     [27, 34, 64, 73, 45, 56].forEach((s, i) => sprites.push({ name: 'win', square: s, delay: i * 220 }));
   }
+  const jolt = !live?.shake && debris.length > 0;
+  // Cracks run along the shaken line: across for a rank, up and down for a file.
+  const crackVertical = cracks.length > 1 && fileOf(cracks[0].square) === fileOf(cracks[1].square);
 
   const cells = [];
   for (const r of ranks) {
@@ -346,8 +387,8 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
   }
   return (
     <div
-      className={`board ${live?.shake ? 'shake' : ''} ${ring > THIN_RING ? 'wide-ring' : ''}`}
-      key={live?.shake ? `shake-${anim.current.n}` : 'board'}
+      className={`board ${live?.shake ? 'shake' : ''} ${jolt ? 'jolt' : ''} ${ring > THIN_RING ? 'wide-ring' : ''}`}
+      key={live?.shake || jolt ? `shake-${anim.current.n}` : 'board'}
       style={
         {
           gridTemplateColumns: `${ring}fr repeat(8, 1fr) ${ring}fr`,
@@ -358,6 +399,28 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
     >
       {cells}
       <div className="fx-layer" aria-hidden="true">
+        {cracks.map((x, i) => {
+          const c = squareCenter(x.square, orientation, ring);
+          return <span key={`crack-${anim.current.n}-${i}`} className={`crack crack-${i % 3} ${crackVertical ? 'crack-v' : ''}`} style={{ left: `${c.x}%`, top: `${c.y}%`, width: `${100 / TOTAL}cqw`, animationDelay: `${x.delay}ms` }} />;
+        })}
+        {debris.flatMap((x, k) => {
+          const c = squareCenter(x.square, orientation, ring);
+          return DEBRIS.map((d, i) => (
+            <span
+              key={`debris-${anim.current.n}-${k}-${i}`}
+              className="debris"
+              style={{ left: `${c.x}%`, top: `${c.y}%`, '--dx': `${d.dx}cqw`, '--dy': `${d.dy}cqw`, '--rot': `${d.rot}deg`, '--c': d.c, animationDelay: `${x.delay}ms` } as CSSProperties}
+            />
+          ));
+        })}
+        {celebrate &&
+          FIREWORKS.map((f, k) => (
+            <span key={`fw-${k}`} className="firework" style={{ left: `${f.x}%`, top: `${f.y}%`, '--c': f.c } as CSSProperties}>
+              {Array.from({ length: 14 }, (_, i) => (
+                <i key={i} style={{ '--a': `${(360 / 14) * i}deg`, animationDelay: `${f.delay}ms` } as CSSProperties} />
+              ))}
+            </span>
+          ))}
         {sprites.map((x, i) => {
           const spec = FX[x.name];
           const c = squareCenter(x.square, orientation, ring);

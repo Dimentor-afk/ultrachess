@@ -870,7 +870,11 @@ function fxMs(fx: MatchFx, shown: number): number {
   for (const x of fx.sprites) {
     if (x.kind === 'capture') end = Math.max(end, mover + 300);
     if (x.wait !== undefined) end = Math.max(end, mover + x.wait + 400);
+    // The fire cloud over an explosion.
+    if (x.kind === 'explode') end = Math.max(end, mover + 1000);
   }
+  // Землетрус: the wave runs along the whole line.
+  if (fx.shake) end = Math.max(end, 1300);
   return end;
 }
 

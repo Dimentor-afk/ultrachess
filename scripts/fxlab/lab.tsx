@@ -5,6 +5,7 @@ import { createRoot } from 'react-dom/client';
 import { classicDeck } from '../../src/engine/deck';
 import { type Action, type MatchState, createMatch, performAction } from '../../src/engine/match';
 import { legalMoves } from '../../src/engine/legal';
+import { abilityOptions } from '../../src/engine/abilities';
 import { parseSquare } from '../../src/engine/coords';
 import { playerView } from '../../src/engine/view';
 import type { Deck } from '../../src/engine/types';
@@ -19,6 +20,12 @@ const SCENES: Record<string, { white?: Partial<Deck>; black?: Partial<Deck>; ste
   // Портальний слон out through a6, back in on h3, on to d7.
   portal: { white: { bishop2: 'bishop-portal' }, steps: ['e2e3', 'a7a5', 'f1d7~'], watch: 1 },
   // Берсерк takes twice in one move.
+  // Землетрус on the 7th rank: the pieces jump one after another, cracks run along.
+  quake: { white: { rook1: 'rook-earthquake' }, steps: ['a2a4', 'h7h6', 'a1a3', 'h6h5', '!rook-earthquake:*'], watch: 1 },
+  // Смертник takes the knight that took it.
+  kamikaze: { white: { rook1: 'rook-kamikaze' }, steps: ['a2a4', 'b7b5', 'a4b5', 'a7a6', 'a1a6', 'b8a6'], watch: 1 },
+  // A won game: fireworks.
+  win: { steps: ['e2e4'], watch: 0 },
   berserk: { white: { knight2: 'knight-berserk' }, steps: ['g1f3', 'e7e6', 'f3g5', 'a7a6', 'g5e6~'], watch: 1 },
 };
 
@@ -33,7 +40,9 @@ function step(m: MatchState, s: Step): MatchState {
   if (s.startsWith('!')) {
     const [card, key] = s.slice(1).split(':');
     const piece = m.board.find((p) => p?.cardId === card && p.color === m.turn)!;
-    return performAction(m, { type: 'ability', pieceId: piece.id, key } as Action);
+    // "*": the first option that moves some pieces (a line with pieces on it).
+    const k = key === '*' ? abilityOptions(m, piece.id).filter((o) => o.squares.filter((q) => m.board[q]).length > 2)[0].key : key;
+    return performAction(m, { type: 'ability', pieceId: piece.id, key: k } as Action);
   }
   const [uci, label] = s.split('~');
   const from = parseSquare(uci.slice(0, 2));
@@ -65,7 +74,7 @@ function Lab() {
   const view = playerView(states[i], 'w');
   return (
     <div style={{ width: 432, padding: 12, boxSizing: 'border-box' }}>
-      <Board view={view} orientation="w" selected={null} marks={new Map()} lastMove={new Set()} hint={new Set()} preview={new Set()} checkSquare={null} onSquare={() => {}} />
+      <Board view={view} orientation="w" selected={null} marks={new Map()} lastMove={new Set()} hint={new Set()} preview={new Set()} checkSquare={null} onSquare={() => {}} celebrate={name === 'win' && i === states.length - 1} />
       <p style={{ color: '#fff', font: '14px sans-serif' }}>{view.history.at(-1)?.text ?? ''}</p>
     </div>
   );
