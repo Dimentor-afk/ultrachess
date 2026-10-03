@@ -8571,72 +8571,145 @@ button.hb-slot {
   flex: none;
 }
 
-/* ── Pawn kinds: numbers 1/2 on the chips, the board and the formation dots ── */
+/* ── Pawns: two kind tiles and the a–h rank in miniature ── */
 .pawn-panel {
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
+  gap: 0.55rem;
 }
-.pawn-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
+.pawn-kinds {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.5rem;
 }
-.pawn-panel p {
-  margin: 0;
-}
-.version-chip b.pv-1,
-.pv-badge.pv-1,
-.fdot.pv-1 {
-  background: #4f8cff;
-  color: #fff;
-}
-.version-chip b.pv-2,
-.pv-badge.pv-2,
-.fdot.pv-2 {
-  background: #f5a142;
-  color: #1b1405;
-}
-.pv-badge {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 1rem;
-  height: 1rem;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  font-size: 0.62rem;
-  font-weight: 800;
-  pointer-events: none;
-}
-.formation-row {
+.pawn-kind {
+  position: relative;
+  min-width: 0;
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 0.4rem;
-}
-.pawn-panel .formation {
-  display: inline-flex;
-  flex-direction: row;
-  flex-wrap: nowrap;
-  align-items: center;
-  width: auto;
-  gap: 3px;
-  padding: 0.4rem 0.5rem;
+  gap: 0.55rem;
+  min-height: 3.4rem;
+  padding: 0.45rem 0.6rem;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 12px;
   background: var(--panel-2);
   cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
 }
-.pawn-panel .formation.on {
-  border-color: var(--gold);
-  box-shadow: 0 0 0 1px var(--gold);
+.pawn-kind::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.55rem;
+  bottom: 0.55rem;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--kind);
 }
-.pawn-panel .fdot {
+.pawn-kind.kind-0 {
+  --kind: var(--gold);
+}
+.pawn-kind.kind-1 {
+  --kind: #5ec8e5;
+}
+.pawn-kind.empty {
+  justify-content: center;
+  border-style: dashed;
+  background: none;
+  color: var(--muted);
+}
+.pawn-kind.empty::before {
+  display: none;
+}
+.pawn-kind.can-drop {
+  border-color: var(--kind);
+  background: rgba(255, 255, 255, 0.05);
+}
+.pawn-kind-art {
+  width: 2rem;
+  height: 2rem;
   flex: none;
-  width: 7px;
-  height: 7px;
+  image-rendering: pixelated;
+}
+.pawn-kind-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.2;
+}
+.pawn-kind-text b {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 0.85rem;
+  line-height: 1.15;
+}
+.pawn-kind-text small {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+.pawn-kind.empty .pawn-kind-text {
+  align-items: center;
+}
+.pawn-kind-remove {
+  margin-left: auto;
+  width: 1.6rem;
+  height: 1.6rem;
+  flex: none;
+  border: 0;
   border-radius: 50%;
+  background: none;
+  color: var(--muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.pawn-kind-remove:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+}
+.pawn-rank {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 3px;
+  padding: 4px;
+  border-radius: 10px;
+  background: var(--bg-2);
+}
+.pawn-file {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 0.25rem 0 0.15rem;
+  border: 0;
+  border-radius: 7px;
+  background: var(--panel);
+  box-shadow: inset 0 -3px 0 var(--kind);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.65rem;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+.pawn-file:active {
+  transform: scale(0.94);
+}
+.pawn-file.kind-0 {
+  --kind: var(--gold);
+}
+.pawn-file.kind-1 {
+  --kind: #5ec8e5;
+}
+.pawn-file-art {
+  width: 70%;
+  max-width: 1.8rem;
+  aspect-ratio: 1;
+  image-rendering: pixelated;
+}
+.pawn-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-align: center;
 }

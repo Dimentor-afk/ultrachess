@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CARDS, CARD_BY_ID, PIECE_NAMES, PIECE_ORDER, RARITY_ORDER } from '../engine/cards';
-import { FORMATION_PRESETS, cardAt, deckPositions, placeCard, slotType, validateDeck } from '../engine/deck';
+import { cardAt, deckPositions, placeCard, slotType, validateDeck } from '../engine/deck';
+import { PawnPanel, pawnKindTarget, replacePawnKind } from './PawnPanel';
 import type { Card, Deck, PieceType } from '../engine/types';
 import { Emblem } from './art';
 import { CardModal } from './CardModal';
@@ -185,6 +186,22 @@ function DeckHub({ deck }: { deck: Deck }) {
     setMessage({ text: allPawns ? `«${name}» на всіх 8 пішаках.` : `«${name}» стоїть на ${squareName(index)}.`, bad: false });
   };
 
+  /** A pawn card onto a kind tile: that kind changes on all its squares. */
+  const dropKind = (kind: 0 | 1, cardId: string) => {
+    if (CARD_BY_ID[cardId].pieceType !== 'pawn') {
+      setMessage({ text: `«${CARD_BY_ID[cardId].name}» — не пішак.`, bad: true });
+      return;
+    }
+    if (!owned[cardId]) {
+      setMessage({ text: `«${CARD_BY_ID[cardId].name}» ще не відкрита — шукайте її в паках.`, bad: true });
+      return;
+    }
+    const r = replacePawnKind(draft, kind, cardId);
+    update(r.deck);
+    setArmed(null);
+    setMessage({ text: r.note, bad: false });
+  };
+
   // Tapping a card opens its details; "Використати" then arms it for a square.
   const tapCard = (cardId: string) => setDetail(cardId);
   const armCard = (cardId: string) => {
@@ -213,7 +230,8 @@ function DeckHub({ deck }: { deck: Deck }) {
       const el = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>('[data-drop]');
       if (!el) return;
       const target = el.dataset.drop!;
-      if (target === 'all-pawns') place(8, p.cardId, true);
+      const kind = pawnKindTarget(target);
+      if (kind !== null) dropKind(kind, p.cardId);
       else place(Number(target), p.cardId);
     };
     window.addEventListener('pointermove', move);
@@ -262,9 +280,6 @@ function DeckHub({ deck }: { deck: Deck }) {
           )}
         </span>
         <span className="deck-sq-name">{card.name}</span>
-        {index >= 8 && draft.pawnVersions.length === 2 && (
-          <span className={`pv-badge pv-${draft.pawnVersions.indexOf(card.id) + 1}`}>{draft.pawnVersions.indexOf(card.id) + 1}</span>
-        )}
       </button>
     );
   };
@@ -276,7 +291,6 @@ function DeckHub({ deck }: { deck: Deck }) {
   const locked = shown.filter((c) => !owned[c.id]);
   const ownedCount = Object.keys(owned).length;
   const detailCard = detail ? CARD_BY_ID[detail] : null;
-  const pawnVersions = draft.pawnVersions.map((id) => CARD_BY_ID[id]);
 
   const miniCard = (c: Card, isLocked: boolean) => (
     <div
@@ -391,58 +405,21 @@ function DeckHub({ deck }: { deck: Deck }) {
           </div>
 
           <div className="builder-under">
-            <div className="pawn-panel">
-              <div className="pawn-head">
-                <b>Пішаки</b>
-                <span className="muted small">до 2 видів у колоді, у будь-якому порядку</span>
-              </div>
-              <div className="pawn-versions">
-                {pawnVersions.map((c, i) => (
-                  <span key={c.id} className={`version-chip r-${c.rarity}`}>
-                    {pawnVersions.length === 2 && <b className={`pv-${i + 1}`}>{i + 1}</b>} {c.name}
-                    <small className="muted">×{pawnVersions.length === 1 ? 8 : [...draft.pawnFormation].filter((d) => d === String(i + 1)).length}</small>
-                  </span>
-                ))}
-              </div>
-              {pawnVersions.length === 1 ? (
-                <p className="muted tiny">
-                  Другий вид: поставте іншого пішака на будь-яку клітинку 2-го ряду. Решта клітинок лишиться за «{pawnVersions[0].name}».
-                </p>
-              ) : (
-                <div className="formation-row">
-                  <span className="muted small">Розстановка:</span>
-                  {FORMATION_PRESETS.map((f) => (
-                    <button
-                      key={f}
-                      type="button"
-                      className={`formation ${draft.pawnFormation === f ? 'on' : ''}`}
-                      onClick={() => update({ ...draft, pawnFormation: f })}
-                      aria-label={`Розстановка ${f}`}
-                    >
-                      {[...f].map((d, i) => (
-                        <span key={i} className={`fdot pv-${d}`} />
-                      ))}
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-ghost"
-                    onClick={() => update({ ...draft, pawnFormation: [...draft.pawnFormation].map((d) => (d === '1' ? '2' : '1')).join('') })}
-                  >
-                    ⇄ Поміняти
-                  </button>
-                </div>
-              )}
-            </div>
-            <div
-              data-drop="all-pawns"
-              role="button"
-              tabIndex={0}
-              className={`all-pawns-drop ${activeType === 'pawn' ? 'can-drop' : ''}`}
-              onClick={() => armed && CARD_BY_ID[armed].pieceType === 'pawn' && place(8, armed, true)}
-            >
-              {activeType === 'pawn' ? 'Сюди — на всі 8 пішаків' : 'Пішака сюди — стане на всі 8 клітинок'}
-            </div>
+            <PawnPanel
+              deck={draft}
+              armed={armed}
+              dragging={activeType === 'pawn'}
+              onChange={(d, note) => {
+                if (d !== draft) update(d);
+                setArmed(null);
+                setMessage({ text: note, bad: false });
+              }}
+              onTileTap={() => {
+                setFilter('pawn');
+                setMessage({ text: 'Оберіть пішака в колекції нижче й перетягніть його на плитку (або «Використати» → плитка).', bad: false });
+              }}
+              onInfo={(id) => setDetail(id)}
+            />
           </div>
           {message ? (
             <p className={message.bad ? 'error-text' : 'ok-text'}>{message.text}</p>
