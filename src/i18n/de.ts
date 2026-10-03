@@ -295,7 +295,7 @@ const dict: Record<string, string> = {
   "Якщо перша частина ходу до 3 клітинок по вертикалі/горизонталі, може раз повернути на 90° і пройти до 2 клітинок після повороту; якщо поворот не використано — ходить без обмеження.": "Ist der erste Teil des Zuges bis zu 3 Felder entlang einer Linie oder Reihe lang, kann er einmal um 90° abbiegen und nach der Kurve bis zu 2 Felder gehen; ohne Abbiegen zieht er unbegrenzt.",
   "Кутова тура": "Eckturm",
   "Ходить як тура, а ще може піти на 1 клітинку по діагоналі — лише на вільну, без взяття.": "Zieht wie ein Turm und kann außerdem 1 Feld diagonal gehen – nur auf ein freies Feld, ohne zu schlagen.",
-  "Тунельна тура": "Tunnelturm",
+  "Тиха тура": "Stiller Turm",
   "Тура-ілюзіоніст": "Illusionisten-Turm",
   "Доходячи до краю дошки, в межах того ж ходу відрикошетить на 1 клітинку вліво чи вправо.": "Erreicht er den Brettrand, prallt er im selben Zug 1 Feld nach links oder rechts ab.",
   "Рикошетна тура": "Abprall-Turm",

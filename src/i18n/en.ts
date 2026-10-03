@@ -295,7 +295,7 @@ const dict: Record<string, string> = {
   "Якщо перша частина ходу до 3 клітинок по вертикалі/горизонталі, може раз повернути на 90° і пройти до 2 клітинок після повороту; якщо поворот не використано — ходить без обмеження.": "If the first part of the move is up to 3 squares along a file or rank, it can turn 90° once and go up to 2 squares after the turn; if it doesn't turn, it moves without limit.",
   "Кутова тура": "Corner Rook",
   "Ходить як тура, а ще може піти на 1 клітинку по діагоналі — лише на вільну, без взяття.": "Moves like a rook, and it can also step 1 square diagonally: only onto an empty square, without capturing.",
-  "Тунельна тура": "Tunnel Rook",
+  "Тиха тура": "Quiet Rook",
   "Тура-ілюзіоніст": "Illusionist Rook",
   "Доходячи до краю дошки, в межах того ж ходу відрикошетить на 1 клітинку вліво чи вправо.": "On reaching the edge of the board, within the same move it ricochets 1 square to the left or right.",
   "Рикошетна тура": "Ricochet Rook",

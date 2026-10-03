@@ -196,7 +196,7 @@ describe('rook cards', () => {
     expect(targets(pos, 'a1')).toContain('b8');
   });
 
-  it('Тунельна тура steps 1 diagonally onto an empty square, never capturing', () => {
+  it('Тиха тура steps 1 diagonally onto an empty square, never capturing', () => {
     const pos = build({ ...K, d4: 'w:rook-tunnel', c5: 'b:pawn-classic', d5: 'w:pawn-classic' });
     const t = targets(pos, 'd4');
     expect(t).toEqual(expect.arrayContaining(['e5', 'c3', 'e3', 'd1', 'h4']));

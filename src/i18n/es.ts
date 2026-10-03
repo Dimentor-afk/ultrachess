@@ -295,7 +295,7 @@ const dict: Record<string, string> = {
   "Якщо перша частина ходу до 3 клітинок по вертикалі/горизонталі, може раз повернути на 90° і пройти до 2 клітинок після повороту; якщо поворот не використано — ходить без обмеження.": "Si la primera parte del movimiento es de hasta 3 casillas en vertical u horizontal, puede girar 90° una vez y avanzar hasta 2 casillas tras el giro; si no gira, mueve sin límite.",
   "Кутова тура": "Torre de esquina",
   "Ходить як тура, а ще може піти на 1 клітинку по діагоналі — лише на вільну, без взяття.": "Mueve como una torre y además puede dar 1 paso en diagonal: solo a una casilla libre, sin capturar.",
-  "Тунельна тура": "Torre del túnel",
+  "Тиха тура": "Torre silenciosa",
   "Тура-ілюзіоніст": "Torre ilusionista",
   "Доходячи до краю дошки, в межах того ж ходу відрикошетить на 1 клітинку вліво чи вправо.": "Al llegar al borde del tablero, en el mismo movimiento rebota 1 casilla a la izquierda o a la derecha.",
   "Рикошетна тура": "Torre de rebote",
