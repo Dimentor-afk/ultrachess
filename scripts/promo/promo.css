@@ -1,0 +1,133 @@
+html, body, #root { margin: 0; height: 100%; background: #05070f; overflow: hidden; }
+/* Laid out for a 432×768 phone; ?zoom=2.5 fills a 1080×1920 frame. */
+.promo {
+  --r: var(--r-legendary);
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  color: #fff;
+  font-family: var(--font-body);
+  background: radial-gradient(120% 70% at 50% 38%, color-mix(in srgb, var(--r) 35%, #0c1120), #05070f 72%);
+}
+.promo.r-mythological { --r: var(--r-mythological); }
+.promo.r-legendary { --r: var(--r-legendary); }
+.promo.r-epic { --r: var(--r-epic); }
+.promo.r-rare { --r: var(--r-rare); }
+.promo-glow {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  width: 650px;
+  height: 650px;
+  translate: -50% -50%;
+  background: conic-gradient(from 0deg, transparent 0 10%, color-mix(in srgb, var(--r) 45%, transparent) 12%, transparent 16% 35%, color-mix(in srgb, var(--r) 40%, transparent) 37%, transparent 41% 60%, color-mix(in srgb, var(--r) 45%, transparent) 62%, transparent 66% 85%, color-mix(in srgb, var(--r) 40%, transparent) 87%, transparent 91%);
+  mask: radial-gradient(circle, #000 0 18%, transparent 55%);
+  animation: promo-spin 9s linear infinite;
+  transition: opacity 0.5s;
+}
+@keyframes promo-spin { to { rotate: 360deg; } }
+
+.promo-hook {
+  position: absolute;
+  z-index: 3;
+  left: 22px;
+  right: 22px;
+  top: 9%;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 38px;
+  line-height: 1.12;
+  text-align: center;
+  text-transform: uppercase;
+  color: #fff;
+  text-shadow: 0 4px 0 rgba(0, 0, 0, 0.55), 0 0 30px rgba(0, 0, 0, 0.6);
+  animation: promo-hook-in 0.55s cubic-bezier(0.2, 1.5, 0.4, 1) both;
+  transition: top 0.6s cubic-bezier(0.3, 1.2, 0.4, 1), font-size 0.6s;
+}
+.promo-hook b { color: var(--r); font-weight: 400; }
+@keyframes promo-hook-in { from { opacity: 0; scale: 1.6; } }
+
+.promo-card {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  top: 30%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  translate: -50% 0;
+  transition: top 0.6s cubic-bezier(0.3, 1.2, 0.4, 1), scale 0.6s cubic-bezier(0.3, 1.2, 0.4, 1);
+  transform-origin: 50% 0;
+}
+.promo-art {
+  width: 250px;
+  height: 250px;
+  display: grid;
+  place-items: center;
+  border-radius: 28px;
+  border: 4px solid var(--r);
+  background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--r) 40%, #1b2848), #0c1120 75%);
+  box-shadow: 0 0 60px color-mix(in srgb, var(--r) 60%, transparent), 0 20px 50px rgba(0, 0, 0, 0.6);
+  animation: promo-art-in 0.9s cubic-bezier(0.2, 1.4, 0.4, 1) 0.15s both, promo-float 2.4s ease-in-out 1s infinite;
+}
+.promo-art img { width: 82%; height: 82%; object-fit: contain; image-rendering: pixelated; filter: drop-shadow(0 8px 0 rgba(0, 0, 0, 0.45)); }
+@keyframes promo-art-in { from { opacity: 0; scale: 0.3; rotate: -12deg; } }
+@keyframes promo-float { 50% { translate: 0 -8px; } }
+.promo-name { display: flex; flex-direction: column; align-items: center; gap: 2px; animation: promo-hook-in 0.5s ease-out 0.6s both; }
+.promo-rarity { font-weight: 800; font-size: 15px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--r); }
+.promo-name b { font-family: var(--font-display); font-weight: 400; font-size: 30px; }
+
+/* The clip: the card shrinks to the top, the board takes the screen. */
+.promo.clip .promo-hook, .promo.end .promo-hook { top: 4.5%; font-size: 27px; }
+.promo.clip .promo-card { top: 15.5%; scale: 0.42; }
+.promo.clip .promo-name { opacity: 0; }
+.promo.clip .promo-glow { opacity: 0.35; }
+.promo-clip {
+  position: absolute;
+  z-index: 4;
+  left: 14px;
+  right: 14px;
+  top: 37%;
+  animation: promo-clip-in 0.5s cubic-bezier(0.2, 1.3, 0.4, 1) both;
+}
+@keyframes promo-clip-in { from { opacity: 0; translate: 0 60px; scale: 0.9; } }
+.promo-clip .clip { --rc: var(--r); border-width: 2px; border-radius: 18px; box-shadow: 0 0 40px color-mix(in srgb, var(--r) 45%, transparent), 0 16px 40px rgba(0, 0, 0, 0.6); }
+.promo-clip .clip-caption { font-size: 19px !important; padding: 12px 14px !important; }
+
+.promo-end {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 24px;
+  text-align: center;
+  background: radial-gradient(120% 70% at 50% 35%, #1b2f66, #05070f 72%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.45s;
+}
+.promo.end .promo-end { opacity: 1; }
+.promo.end { background: #05070f; }
+.promo-end img { width: 118px; height: 118px; border-radius: 26px; box-shadow: 0 10px 40px rgba(245, 196, 81, 0.35); }
+.promo-logo { font-family: var(--font-display); font-size: 48px; }
+.promo-logo b { color: #f5c451; font-weight: 400; }
+.promo-end p { margin: 0; font-size: 22px; font-weight: 700; color: #c9d2ee; max-width: 340px; }
+.promo-url { margin-top: 10px; font-family: var(--font-display); font-size: 32px; color: #1b1405; background: #f5c451; padding: 12px 26px; border-radius: 18px; box-shadow: 0 6px 0 #b98a1d; }
+.promo.end .promo-url { animation: promo-pulse 1.2s ease-in-out 0.5s infinite; }
+@keyframes promo-pulse { 50% { scale: 1.06; } }
+.promo-end small { font-size: 15px; color: #95a2c8; font-weight: 700; letter-spacing: 0.04em; }
+
+/* Cuts: a flash at every new card, the intro line big in the middle. */
+.promo-flash { position: absolute; inset: 0; z-index: 20; background: #fff; pointer-events: none; animation: promo-flash 0.32s ease-out both; }
+@keyframes promo-flash { from { opacity: 0.85; } to { opacity: 0; } }
+.promo.intro .promo-intro { top: 36%; font-size: 44px; animation: promo-hook-in 0.55s cubic-bezier(0.2, 1.5, 0.4, 1) both, promo-shake 0.5s ease-in-out 0.7s; }
+@keyframes promo-shake { 25% { translate: -5px 0; } 50% { translate: 5px 0; } 75% { translate: -3px 0; } }
+.promo.closeup .promo-art { animation: promo-art-in 0.5s cubic-bezier(0.2, 1.4, 0.4, 1) both, promo-float 2.4s ease-in-out 0.6s infinite; }
+.promo.closeup .promo-name { animation-delay: 0.2s; }
+.promo.clip .promo-clip .clip-steps { display: none; }
