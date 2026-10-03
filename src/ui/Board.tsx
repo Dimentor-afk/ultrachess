@@ -34,6 +34,8 @@ export function boardRing(view: PlayerView, marks: Map<Square, unknown>): number
 // between legs so each landing reads (the knight touches the wall, then runs).
 
 const LEG_PAUSE = 90;
+/** The squash after landing. */
+const SETTLE_MS = 150;
 
 function dist(a: Square, b: Square): number {
   return Math.max(Math.abs(fileOf(a) - fileOf(b)), Math.abs(rankOf(a) - rankOf(b)));
@@ -91,12 +93,14 @@ function GlidePiece({ glide, orientation, ring, children }: { glide: Glide; orie
       return { x: c.x - end.x, y: c.y - end.y };
     };
     const total = timed[timed.length - 1].end;
+    // After the last leg the piece settles: a small squash shows where it landed.
+    const settle = timed[timed.length - 1].leg.style === 'rise' ? 0 : SETTLE_MS;
     const frames: Keyframe[] = [];
-    const tr = (p: { x: number; y: number }, lift = 0, scale = 1) => `translate(${p.x}cqw, ${p.y - lift}cqw) scale(${scale})`;
+    const tr = (p: { x: number; y: number }, lift = 0, scale: number | string = 1) => `translate(${p.x}cqw, ${p.y - lift}cqw) scale(${scale})`;
     for (const { leg, from, start, end: stop } of timed) {
       const a = off(from);
       const b = off(leg.to);
-      const o = (t: number) => (total ? t / total : 1);
+      const o = (t: number) => (total ? t / (total + settle) : 1);
       if (leg.style === 'hop') {
         const lift = 3 + dist(from, leg.to) * 1.2;
         frames.push({ offset: o(start), transform: tr(a), opacity: 1, easing: 'cubic-bezier(0.3, 0, 0.6, 1)' });
@@ -125,8 +129,13 @@ function GlidePiece({ glide, orientation, ring, children }: { glide: Glide; orie
         frames.push({ offset: o(stop), transform: tr(b), opacity: 1 });
       }
     }
+    if (settle) {
+      const k = (t: number) => (total + t) / (total + settle);
+      frames.push({ offset: k(settle * 0.4), transform: tr({ x: 0, y: 0 }, 0, '1.1, 0.88'), easing: 'ease-out' });
+      frames.push({ offset: 1, transform: tr({ x: 0, y: 0 }) });
+    }
     // Hold still at the start while waiting (a pushed piece waits for the pusher).
-    const anim = el.animate(frames, { duration: Math.max(total, 1), delay, fill: 'backwards' });
+    const anim = el.animate(frames, { duration: Math.max(total + settle, 1), delay, fill: 'backwards' });
     return () => anim.cancel();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -236,10 +245,11 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
       let delay = x.kind === 'quake' || x.kind === 'eclipse' ? i * 45 : x.kind === 'explode' ? 180 : 0;
       if (x.wait !== undefined) delay = moverMs + x.wait;
       if (x.kind === 'portal' && x.leg !== undefined) {
-        // The gate opens a little before the piece gets there.
+        // The gate opens a little before the piece gets there; the far gate
+        // opens while the piece is still inside, so it steps out of it.
         if (x.leg < moverSkip) return;
         const t = moverTimed[x.leg - moverSkip];
-        delay = t ? Math.max(0, t.end - 260) : 0;
+        delay = !t ? 0 : t.leg.style === 'warp' ? t.start + (t.end - t.start) * 0.15 : Math.max(0, t.end - 260);
       }
       if (x.kind === 'capture') {
         if (x.leg !== undefined && x.leg < moverSkip) return;

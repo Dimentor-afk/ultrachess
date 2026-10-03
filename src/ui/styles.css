@@ -5941,6 +5941,8 @@ html.no-anim .fx {
 .glide {
   position: relative;
   z-index: 6;
+  /* Squash and stretch from the piece's feet. */
+  transform-origin: 50% 85%;
   display: grid;
   place-items: center;
   width: 100%;
@@ -5957,11 +5959,13 @@ html.no-anim .fx {
   display: grid;
   place-items: center;
   pointer-events: none;
-  animation: ghost-out 0.28s ease-in both;
+  animation: ghost-out 0.42s ease-in both;
 }
+/* Struck: a white flash, then knocked up and away with a spin. */
 @keyframes ghost-out {
-  from { opacity: 1; transform: none; }
-  to { opacity: 0; transform: scale(0.5) rotate(18deg); filter: brightness(2.5); }
+  0% { opacity: 1; transform: none; filter: none; }
+  14% { opacity: 1; transform: scale(1.14); filter: brightness(3.2); }
+  100% { opacity: 0; transform: translate(18%, -55%) scale(0.55) rotate(28deg); filter: brightness(1.6); }
 }
 
 /* ---------- Ladders, leagues, trials ---------- */

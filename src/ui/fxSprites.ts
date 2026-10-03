@@ -59,7 +59,7 @@ export const FX: Record<FxName, FxSpec> = {
   hint: { w: 48, h: 48, n: 12, ms: 900, size: 1, dy: -0.7 },
   promote: { w: 32, h: 24, n: 20, ms: 1000, size: 0.9, dy: -0.6 },
   barricade: { w: 64, h: 64, n: 10, ms: 800, size: 1.6 },
-  portal: { w: 64, h: 64, n: 10, ms: 800, size: 1.6 },
+  portal: { w: 64, h: 64, n: 16, ms: 1100, size: 1.6 },
   levitate: { w: 64, h: 64, n: 9, ms: 800, size: 1.3, dy: -0.2 },
   check: { w: 40, h: 40, n: 14, ms: 900, size: 0.8, dy: -0.75 },
   win: { w: 48, h: 48, n: 27, ms: 1400, size: 2.2 },

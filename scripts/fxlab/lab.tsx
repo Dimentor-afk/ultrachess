@@ -17,9 +17,9 @@ const SCENES: Record<string, { white?: Partial<Deck>; black?: Partial<Deck>; ste
   // The struck Безсмертна rises and comes back on d1.
   immortal: { white: { queen: 'queen-immortal' }, steps: ['e2e4', 'g7g6', '!queen-immortal:arm', 'd1h5', 'g6h5'], watch: 3 },
   // Портальний слон out through a6, back in on h3, on to d7.
-  portal: { white: { bishop2: 'bishop-portal' }, steps: ['e2e3', 'a7a6', 'g2g3', 'h7h6', 'f1d3~', 'b7b6'], watch: 4 },
+  portal: { white: { bishop2: 'bishop-portal' }, steps: ['e2e3', 'a7a5', 'f1d7~'], watch: 1 },
   // Берсерк takes twice in one move.
-  berserk: { white: { knight2: 'knight-berserk' }, steps: ['g1f3', 'e7e5', 'f3g5', 'd7d5', 'g5e6~', 'a7a6'], watch: 4 },
+  berserk: { white: { knight2: 'knight-berserk' }, steps: ['g1f3', 'e7e6', 'f3g5', 'a7a6', 'g5e6~'], watch: 1 },
 };
 
 const q = new URLSearchParams(location.search);
