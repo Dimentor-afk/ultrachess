@@ -7427,6 +7427,13 @@ button.hb-slot {
   height: 1.9rem;
 }
 
+/* An invisible twin of the icon on the right: the word sits in the very middle of the button. */
+.hb-battle::after {
+  content: '';
+  width: 1.9rem;
+  flex: none;
+}
+
 .hb-searching {
   min-height: 4rem;
 }
