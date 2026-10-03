@@ -353,6 +353,14 @@ const routes: [string, RegExp, Handler][] = [
     /^admin\/users\/(\w+)\/currency$/,
     ({ token, params, body }) => svc.adminGrantCurrency(token, params[0], Number(body.gold ?? 0), Number(body.shards ?? 0)),
   ],
+  [
+    'POST',
+    /^admin\/users\/(\w+)\/ban$/,
+    ({ token, params, body }) => svc.adminBan(token, params[0], body.hours === null || body.hours === undefined ? null : Number(body.hours), String(body.reason ?? '')),
+  ],
+  ['POST', /^admin\/users\/(\w+)\/unban$/, ({ token, params }) => svc.adminUnban(token, params[0])],
+  ['POST', /^admin\/users\/(\w+)\/logout$/, ({ token, params }) => svc.adminLogout(token, params[0])],
+  ['POST', /^admin\/users\/(\w+)\/delete$/, ({ token, params }) => svc.adminDeleteUser(token, params[0])],
 ];
 
 function isSecure(req: IncomingMessage): boolean {

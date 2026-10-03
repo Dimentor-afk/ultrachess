@@ -177,6 +177,8 @@ const USER_COLS: Record<keyof UserRow, string> = {
   emailVerified: 'email_verified',
   nameChangedAt: 'name_changed_at',
   deleted: 'deleted',
+  bannedUntil: 'banned_until',
+  banReason: 'ban_reason',
 };
 
 /** Columns added after the first release, for databases created before them. */
@@ -204,6 +206,8 @@ const USER_MIGRATIONS: [string, string][] = [
   ['email_verified', 'INTEGER NOT NULL DEFAULT 0'],
   ['name_changed_at', 'INTEGER NOT NULL DEFAULT 0'],
   ['deleted', 'INTEGER NOT NULL DEFAULT 0'],
+  ['banned_until', 'INTEGER NOT NULL DEFAULT 0'],
+  ['ban_reason', "TEXT NOT NULL DEFAULT ''"],
 ];
 
 /** Columns added to other tables after the first release. */
@@ -268,6 +272,8 @@ function user(r: Row | undefined): UserRow | null {
     emailVerified: !!r.email_verified,
     nameChangedAt: Number(r.name_changed_at ?? 0),
     deleted: !!r.deleted,
+    bannedUntil: Number(r.banned_until ?? 0),
+    banReason: (r.ban_reason as string | null) ?? '',
   };
 }
 

@@ -8964,3 +8964,30 @@ button.hb-slot {
 .legal-links a {
   color: var(--muted);
 }
+
+/* ── Admin: filters, player sheet, bans ── */
+.admin-stats .stat b { font-size: 1.3rem; }
+.admin-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.8rem;
+}
+.admin-filter input { flex: 1 1 14rem; min-width: 0; }
+.admin-online { color: var(--ok); font-weight: 700; }
+tr.admin-banned td { background: rgba(255, 107, 122, 0.07); }
+.pill-ban { color: var(--danger); border-color: currentColor; }
+.admin-sheet h3 { margin: 1.1rem 0 0.4rem; font-size: 1rem; }
+.admin-sheet p { margin: 0 0 0.5rem; }
+.admin-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.admin-row input[type='text'] { flex: 1 1 12rem; min-width: 0; }
+.admin-note { margin-top: 1rem !important; }
+.admin-delete { margin-top: 1.2rem; padding: 0.9rem 1rem; }
+.admin-delete h3 { margin-top: 0; color: var(--danger); }

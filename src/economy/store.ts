@@ -59,6 +59,10 @@ export interface UserRow {
   nameChangedAt: number;
   /** The account was deleted: personal data is gone, games stay for the opponents. */
   deleted: boolean;
+  /** Banned until this time (0: not banned; BAN_FOREVER in the service: for good). */
+  bannedUntil: number;
+  /** Why, as the admin wrote it (the player sees it when signing in). */
+  banReason: string;
 }
 
 export interface SessionRow {

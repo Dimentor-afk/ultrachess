@@ -76,6 +76,8 @@ export interface Profile {
   nameChangeAt: number;
   name: string;
   role: Role;
+  /** The game's owner (ADMIN_EMAILS): the only one who appoints and removes admins. */
+  owner: boolean;
   trophies: number;
   wins: number;
   losses: number;
@@ -359,6 +361,27 @@ export interface AdminUser {
   gold: number;
   shards: number;
   claimed: boolean;
+  owner: boolean;
+  emailVerified: boolean;
+  createdAt: number;
+  lastSeen: number;
+  online: boolean;
+  /** Banned until (0: not banned, BAN_FOREVER: for good) and why. */
+  bannedUntil: number;
+  banReason: string;
+}
+
+/** A ban "for good": the latest date JavaScript can hold. */
+export const BAN_FOREVER = 8.64e15;
+/** The longest ban with an end date (about ten years), in hours. */
+const BAN_MAX_HOURS = 24 * 3650;
+
+/** What a banned player is told when signing in or on their next request. */
+function banError(u: UserRow): ApiError {
+  const r = u.banReason;
+  if (u.bannedUntil >= BAN_FOREVER) return new ApiError(403, r ? `Акаунт заблоковано назавжди. Причина: ${r}` : 'Акаунт заблоковано назавжди.');
+  const until = new Date(u.bannedUntil).toISOString().slice(0, 16).replace('T', ' ');
+  return new ApiError(403, r ? `Акаунт заблоковано до ${until} UTC. Причина: ${r}` : `Акаунт заблоковано до ${until} UTC.`);
 }
 
 const emailOk = (e: string) => e.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
@@ -525,6 +548,8 @@ export class GameService {
       emailVerified: false,
       nameChangedAt: 0,
       deleted: false,
+      bannedUntil: 0,
+      banReason: '',
     };
   }
 
@@ -570,6 +595,7 @@ export class GameService {
     // answer takes as long and the timing does not tell which e-mails exist.
     const ok = await this.hasher.verify(password.slice(0, 1024), user?.passHash ?? (await this.dummyHash()));
     if (!user || !user.passHash || user.deleted || !ok) throw new ApiError(401, 'Неправильна пошта або пароль.');
+    if (user.bannedUntil > this.now()) throw banError(user);
     return { token: await this.newSession(user.id), profile: await this.profileOf(user.id) };
   }
 
@@ -727,10 +753,20 @@ export class GameService {
   async deleteAccount(token: string, password: string): Promise<void> {
     const u = await this.auth(token);
     await this.checkPassword(u, password);
+    await this.eraseUser(u);
+  }
+
+  /** Open games resigned, the search for a game dropped (the player leaves the game: ban, deletion). */
+  private async leaveGames(u: UserRow): Promise<void> {
     for (const p of await this.store.listPvp(u.id, 200)) {
-      if (p.status === 'active') await this.pvpResign(token, p.id).catch(() => undefined);
+      if (p.status === 'active') await this.resignPvp(p, p.whiteId === u.id ? 'w' : 'b').catch(() => undefined);
     }
     await this.store.deleteSeek(u.id);
+  }
+
+  /** The deletion itself (by the player or by an admin). */
+  private async eraseUser(u: UserRow): Promise<void> {
+    await this.leaveGames(u);
     for (const f of await this.store.listFriends(u.id)) await this.store.deleteFriend(f.id);
     for (const c of await this.store.listChallenges(u.id)) {
       if (c.status === 'pending') await this.store.updateChallenge(c.id, { status: 'cancelled' });
@@ -764,6 +800,7 @@ export class GameService {
     if (!s || s.expiresAt < this.now()) throw new ApiError(401, 'Сесія завершилась. Увійдіть знову.');
     const u = await this.store.getUser(s.userId);
     if (!u || u.deleted) throw new ApiError(401, 'Акаунт не знайдено.');
+    if (u.bannedUntil > this.now()) throw banError(u);
     // Presence for friends: refresh at most every 30 seconds.
     if (this.now() - u.lastSeen > 30_000) {
       u.lastSeen = this.now();
@@ -778,6 +815,24 @@ export class GameService {
     return u;
   }
 
+  /** The game's owner: an admin from ADMIN_EMAILS. Nobody can ban, delete or demote them. */
+  private isOwner(u: UserRow): boolean {
+    return this.admins.includes(u.email);
+  }
+
+  /**
+   * The player an admin wants to ban, delete, log out or change the role of.
+   * Not oneself, never the owner, and another admin only by the owner.
+   */
+  private async managed(me: UserRow, userId: string): Promise<UserRow> {
+    const u = await this.store.getUser(userId);
+    if (!u || u.deleted) throw new ApiError(404, 'Гравця не знайдено.');
+    if (u.id === me.id) throw new ApiError(400, 'Це ваш власний акаунт.');
+    if (this.isOwner(u)) throw new ApiError(403, 'Власника гри змінити не можна.');
+    if (u.role === 'admin' && !this.isOwner(me)) throw new ApiError(403, 'Інших адміністраторів може змінювати лише власник гри.');
+    return u;
+  }
+
   private async profileOf(userId: string): Promise<Profile> {
     const u = (await this.store.getUser(userId))!;
     return {
@@ -787,6 +842,7 @@ export class GameService {
       nameChangeAt: u.nameChangedAt && u.nameChangedAt + NAME_CHANGE_MS > this.now() ? u.nameChangedAt + NAME_CHANGE_MS : 0,
       name: u.name,
       role: u.role,
+      owner: this.isOwner(u),
       trophies: u.trophies,
       wins: u.wins,
       losses: u.losses,
@@ -1671,7 +1727,7 @@ export class GameService {
 
   async leaderboard(): Promise<LeaderRow[]> {
     // Top 50 of each ladder (the page sorts by the one it shows).
-    const all = (await this.store.listUsers(1000)).filter((u) => u.passHash);
+    const all = (await this.store.listUsers(1000)).filter((u) => u.passHash && u.bannedUntil <= this.now());
     const top = (key: (u: UserRow) => number) => [...all].sort((a, b) => key(b) - key(a) || b.wins - a.wins).slice(0, 50);
     const picked = new Map([...top((u) => u.trophies), ...top((u) => u.botTrophies)].map((u) => [u.id, u]));
     return [...picked.values()]
@@ -2129,6 +2185,11 @@ export class GameService {
     const me = await this.auth(token);
     const { row, color } = await this.pvpFor(me.id, id);
     if (row.status !== 'active') throw new ApiError(409, 'Партію завершено.');
+    return this.pvpView(await this.resignPvp(row, color), color);
+  }
+
+  /** `color` gives up an active game (by the player, or because they were banned or deleted). */
+  private async resignPvp(row: PvpRow, color: Color): Promise<PvpRow> {
     const state = resign(this.replayPvp(row), color);
     const patch: Partial<PvpRow> = {
       status: 'finished',
@@ -2139,7 +2200,7 @@ export class GameService {
     await this.store.updatePvp(row.id, patch);
     await this.pvpQuests(row, state.result!.winner);
     this.emit({ type: 'game', id: row.id, users: [row.whiteId, row.blackId] });
-    return this.pvpView({ ...row, ...patch }, color);
+    return { ...row, ...patch };
   }
 
   private async pvpQuests(row: PvpRow, winner: Color | null): Promise<void> {
@@ -2207,6 +2268,13 @@ export class GameService {
         gold: u.gold,
         shards: u.shards,
         claimed: !!u.passHash,
+        owner: this.isOwner(u),
+        emailVerified: u.emailVerified,
+        createdAt: u.createdAt,
+        lastSeen: u.lastSeen,
+        online: this.now() - u.lastSeen < ONLINE_MS,
+        bannedUntil: u.bannedUntil > this.now() ? u.bannedUntil : 0,
+        banReason: u.bannedUntil > this.now() ? u.banReason : '',
       });
     }
     return out.sort((a, b) => b.trophies - a.trophies);
@@ -2234,19 +2302,62 @@ export class GameService {
     await this.store.updateUser(userId, ladder === 'bot' ? { botTrophies: t } : { trophies: t });
   }
 
+  /** Appointing and removing admins: the owner only. */
   async adminSetRole(token: string, userId: string, role: Role): Promise<void> {
     const me = await this.admin(token);
-    if (me.id === userId && role !== 'admin') throw new ApiError(400, 'Не можна зняти адмінку із себе.');
+    if (!this.isOwner(me)) throw new ApiError(403, 'Призначати й знімати адміністраторів може лише власник гри.');
+    if (role !== 'admin' && role !== 'player') throw new ApiError(400, 'Такої ролі немає.');
+    await this.managed(me, userId);
     await this.store.updateUser(userId, { role });
   }
 
+  /** Add (or, with negative numbers, take away) gold and shards; never below zero. */
   async adminGrantCurrency(token: string, userId: string, gold: number, shards: number): Promise<void> {
     await this.admin(token);
     const u = await this.store.getUser(userId);
-    if (!u) throw new ApiError(404, 'Гравця не знайдено.');
+    if (!u || u.deleted) throw new ApiError(404, 'Гравця не знайдено.');
+    const n = (x: number) => (Number.isFinite(x) ? Math.max(-1e7, Math.min(1e7, Math.round(x))) : 0);
     await this.store.updateUser(userId, {
-      gold: Math.max(0, u.gold + (Number.isFinite(gold) ? Math.round(gold) : 0)),
-      shards: Math.max(0, u.shards + (Number.isFinite(shards) ? Math.round(shards) : 0)),
+      gold: Math.max(0, u.gold + n(gold)),
+      shards: Math.max(0, u.shards + n(shards)),
     });
+  }
+
+  /**
+   * Ban for `hours` (null: for good). The player is signed out everywhere, their
+   * open games are resigned and their search for a game dropped; signing in
+   * shows the end date and the reason.
+   */
+  async adminBan(token: string, userId: string, hours: number | null, reason: string): Promise<void> {
+    const me = await this.admin(token);
+    const u = await this.managed(me, userId);
+    if (hours !== null && !(Number.isFinite(hours) && hours > 0 && hours <= BAN_MAX_HOURS)) {
+      throw new ApiError(400, 'Вкажіть строк бану.');
+    }
+    await this.store.updateUser(u.id, {
+      bannedUntil: hours === null ? BAN_FOREVER : this.now() + Math.round(hours * 3_600_000),
+      banReason: String(reason ?? '').trim().slice(0, 200),
+    });
+    await this.leaveGames(u);
+    await this.store.deleteUserSessions(u.id);
+  }
+
+  async adminUnban(token: string, userId: string): Promise<void> {
+    const me = await this.admin(token);
+    const u = await this.managed(me, userId);
+    await this.store.updateUser(u.id, { bannedUntil: 0, banReason: '' });
+  }
+
+  /** Sign the player out on every device (e.g. after a stolen password). */
+  async adminLogout(token: string, userId: string): Promise<void> {
+    const me = await this.admin(token);
+    const u = await this.managed(me, userId);
+    await this.store.deleteUserSessions(u.id);
+  }
+
+  /** Delete the account as the player could (personal data erased, games stay for the opponents). */
+  async adminDeleteUser(token: string, userId: string): Promise<void> {
+    const me = await this.admin(token);
+    await this.eraseUser(await this.managed(me, userId));
   }
 }

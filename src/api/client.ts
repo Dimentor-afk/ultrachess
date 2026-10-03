@@ -128,6 +128,11 @@ export interface Api {
   adminSetTrophies(userId: string, trophies: number, ladder?: 'bot' | 'pvp'): Promise<void>;
   adminSetRole(userId: string, role: Role): Promise<void>;
   adminGrantCurrency(userId: string, gold: number, shards: number): Promise<void>;
+  /** `hours` null: for good. */
+  adminBan(userId: string, hours: number | null, reason: string): Promise<void>;
+  adminUnban(userId: string): Promise<void>;
+  adminLogout(userId: string): Promise<void>;
+  adminDeleteUser(userId: string): Promise<void>;
   updateProfile(patch: { name?: string; avatar?: string }): Promise<Profile>;
   playerProfile(userId: string): Promise<PublicProfile>;
   history(): Promise<HistoryRow[]>;
@@ -236,6 +241,10 @@ class HttpApi implements Api {
   adminSetRole = (userId: string, role: Role) => this.call<void>('POST', `admin/users/${userId}/role`, { role });
   adminGrantCurrency = (userId: string, gold: number, shards: number) =>
     this.call<void>('POST', `admin/users/${userId}/currency`, { gold, shards });
+  adminBan = (userId: string, hours: number | null, reason: string) => this.call<void>('POST', `admin/users/${userId}/ban`, { hours, reason });
+  adminUnban = (userId: string) => this.call<void>('POST', `admin/users/${userId}/unban`, {});
+  adminLogout = (userId: string) => this.call<void>('POST', `admin/users/${userId}/logout`, {});
+  adminDeleteUser = (userId: string) => this.call<void>('POST', `admin/users/${userId}/delete`, {});
   updateProfile = (patch: { name?: string; avatar?: string }) => this.call<Profile>('POST', 'profile', patch);
   playerProfile = (userId: string) => this.call<PublicProfile>('GET', `players/${userId}`);
   history = () => this.call<HistoryRow[]>('GET', 'history');
@@ -425,6 +434,10 @@ class LocalApi implements Api {
   adminSetRole = async (userId: string, role: Role) => this.svc.adminSetRole(await this.t(), userId, role);
   adminGrantCurrency = async (userId: string, gold: number, shards: number) =>
     this.svc.adminGrantCurrency(await this.t(), userId, gold, shards);
+  adminBan = async (userId: string, hours: number | null, reason: string) => this.svc.adminBan(await this.t(), userId, hours, reason);
+  adminUnban = async (userId: string) => this.svc.adminUnban(await this.t(), userId);
+  adminLogout = async (userId: string) => this.svc.adminLogout(await this.t(), userId);
+  adminDeleteUser = async (userId: string) => this.svc.adminDeleteUser(await this.t(), userId);
   updateProfile = async (patch: { name?: string; avatar?: string }) => this.svc.updateProfile(await this.t(), patch);
   playerProfile = async (userId: string) => this.svc.playerProfile(await this.t(), userId);
   history = async () => this.svc.history(await this.t());
