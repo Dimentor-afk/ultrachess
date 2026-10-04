@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import type { PackView } from '../api/client';
 import { PACKS, PACK_SHARD_PRICE, SHARDS_PER_DUPE, type PackType } from '../economy/packs';
 import { type BoardTheme, themeById } from '../economy/themes';
 import { type CaptureFx, captureFxById } from '../economy/captureFx';
@@ -10,14 +11,30 @@ import { Icon } from './icons';
 import { errorText, useSession } from './state';
 import { t, tr } from '../i18n';
 import { PackOdds, PaymentReturn, ShardStore } from './Payments';
+import { PackOpening } from './PackOpening';
 import { useRoutePath } from './router';
 
 type ShopPack = Exclude<PackType, 'starter'>;
 
 /**
+ * Scroll to the shards for money (or, while those are hidden, the packs for
+ * shards). The shard offer comes from the server a moment after the page.
+ */
+export function scrollToShards(): () => void {
+  let tries = 0;
+  const timer = setInterval(() => {
+    const el = document.querySelector('.shard-store') ?? (tries > 10 ? document.getElementById('shop-packs') : null);
+    if (el || ++tries > 20) clearInterval(timer);
+    el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 100);
+  return () => clearInterval(timer);
+}
+
+/**
  * Today's showcase first: three boards and three capture effects for gold,
- * new every day. Then packs for shards. What you own is put on in the deck
- * page's style tab.
+ * new every day. Then packs for shards, then shards for money. A bought pack
+ * opens right here; #/shop/shards scrolls down to the shards (the wallet in
+ * the header links there). What you own is put on in the deck page's style tab.
  */
 export function ShopPage() {
   const s = useSession();
@@ -28,7 +45,15 @@ export function ShopPage() {
   // Gold buys take two taps: the first asks "Купити?", so a stray tap costs nothing.
   const [confirm, setConfirm] = useState<string | null>(null);
   // Back from a payment page: #/shop/paid/<purchase>.
-  const paid = /^\/shop\/paid\/(\w+)$/.exec(useRoutePath())?.[1];
+  const path = useRoutePath();
+  const paid = /^\/shop\/paid\/(\w+)$/.exec(path)?.[1];
+  // A pack just bought, waiting to be opened.
+  const [opening, setOpening] = useState<PackView | null>(null);
+
+  // #/shop/shards: to the shards for money.
+  useEffect(() => {
+    if (path === '/shop/shards') return scrollToShards();
+  }, [path]);
 
   const run = async (key: string, fn: () => Promise<void>) => {
     setBusy(key);
@@ -46,8 +71,7 @@ export function ShopPage() {
     run(type, async () => {
       const r = await s.api.buyPack(type);
       s.setProfile(r.profile);
-      s.setPacks(await s.api.packs());
-      s.toast(t('{0} куплено — відкрийте його на головній.', tr(r.pack.name)));
+      setOpening(r.pack);
     });
 
   const buyTheme = (theme: BoardTheme) =>
@@ -152,9 +176,7 @@ export function ShopPage() {
         </a>
       </div>
 
-      <ShardStore />
-
-      <div className="section-head">
+      <div className="section-head" id="shop-packs">
         <h2>{t('💎 Паки за уламки')}</h2>
         <span className="muted small">
           {t('У вас')} <b className="shards-text">{profile.shards}</b> 💎
@@ -189,9 +211,23 @@ export function ShopPage() {
         {t('Уламки за одну повторку:')}{' '}
         {(Object.entries(SHARDS_PER_DUPE) as [Rarity, number][]).map(([r, n]) => `${RARITY_NAMES[r].toLowerCase()} ${n}`).join(' · ')}.
       </p>
+      <ShardStore />
+
       <p className="muted tiny legal-links">
         <a href="#/terms">{t('Умови продажу')}</a> · <a href="#/privacy">{t('Конфіденційність')}</a>
       </p>
+      {opening && (
+        <PackOpening
+          pack={opening}
+          open={() => s.api.openPack(opening.id)}
+          onClose={async (res) => {
+            setOpening(null);
+            // Closed unopened: it waits with the other packs on the home page.
+            if (!res) s.toast(t('{0} чекає на головній.', tr(opening.name)));
+            await s.refresh();
+          }}
+        />
+      )}
     </section>
   );
 }

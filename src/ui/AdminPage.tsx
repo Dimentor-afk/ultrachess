@@ -380,7 +380,18 @@ function AdminPurchases() {
     s.api.adminPurchases().then(setRows, () => setRows([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // Deleting takes two taps: the first one asks.
+  const [confirm, setConfirm] = useState<string | null>(null);
   if (!rows) return null;
+  const remove = async (id: string) => {
+    setConfirm(null);
+    try {
+      await s.api.adminDeletePurchase(id);
+      setRows(rows.filter((r) => r.id !== id));
+    } catch (e) {
+      s.toast(errorText(e), 'error');
+    }
+  };
   const paid = rows.filter((r) => r.status === 'paid');
   const total = paid.reduce((sum, r) => sum + r.amount, 0);
   return (
@@ -403,6 +414,7 @@ function AdminPurchases() {
                 <th>{t('Уламки')}</th>
                 <th>{t('Сума')}</th>
                 <th>{t('Статус')}</th>
+                {s.profile.owner && <th />}
               </tr>
             </thead>
             <tbody>
@@ -415,6 +427,18 @@ function AdminPurchases() {
                   <td>💎 {r.shards}</td>
                   <td>{r.price}</td>
                   <td>{STATUS[r.status] ?? r.status}</td>
+                  {s.profile.owner && (
+                    <td>
+                      <button
+                        className={`btn btn-sm ${confirm === r.id ? 'btn-danger' : 'btn-ghost'}`}
+                        onClick={() => (confirm === r.id ? remove(r.id) : setConfirm(r.id))}
+                        onBlur={() => setConfirm((c) => (c === r.id ? null : c))}
+                        title={t('Прибрати з журналу (уламки лишаються в гравця)')}
+                      >
+                        {confirm === r.id ? t('Прибрати?') : '✕'}
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

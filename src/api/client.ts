@@ -99,6 +99,7 @@ export interface Api {
   /** The test payment page (demo and PAYMENTS=test only). */
   completeTestPayment(id: string, ok: boolean): Promise<{ purchase: PurchaseView; profile: Profile }>;
   adminPurchases(): Promise<(PurchaseView & { email: string; name: string; price: string })[]>;
+  adminDeletePurchase(id: string): Promise<void>;
   collection(): Promise<Collection>;
   packs(): Promise<PackView[]>;
   openPack(id: string): Promise<OpenResult>;
@@ -214,6 +215,7 @@ class HttpApi implements Api {
   purchases = () => this.call<PurchaseView[]>('GET', 'purchases');
   completeTestPayment = (id: string, ok: boolean) => this.call<{ purchase: PurchaseView; profile: Profile }>('POST', `payments/test/${id}`, { ok });
   adminPurchases = () => this.call<(PurchaseView & { email: string; name: string; price: string })[]>('GET', 'admin/purchases');
+  adminDeletePurchase = (id: string) => this.call<void>('POST', `admin/purchases/${id}/delete`, {});
   private socket: LiveSocket | undefined;
   /** Opened on first use (signed in by then: the socket is authenticated by the session cookie). */
   get live(): LiveSocket {
@@ -405,6 +407,7 @@ class LocalApi implements Api {
   purchases = async () => this.svc.purchases(await this.t());
   completeTestPayment = async (id: string, ok: boolean) => this.svc.completeTestPayment(await this.t(), id, ok);
   adminPurchases = async () => this.svc.adminPurchases(await this.t());
+  adminDeletePurchase = async (id: string) => this.svc.adminDeletePurchase(await this.t(), id);
   deleteAccount = async (password: string) => {
     await this.svc.deleteAccount(await this.t(), password);
     this.remember(null);

@@ -5,7 +5,7 @@ import { LinkPage } from './AccountPages';
 import { LegalPage, type LegalPageId } from './LegalPage';
 import { DeckPage } from './DeckPage';
 import { HomePage } from './HomePage';
-import { ShopPage } from './ShopPage';
+import { ShopPage, scrollToShards } from './ShopPage';
 import { Avatar } from './common';
 import { themeById } from '../economy/themes';
 import { cardArt } from './cardArt';
@@ -132,6 +132,11 @@ export function App() {
   );
 }
 
+/** The shards in the wallet: to the shards in the shop, scrolling again when already there. */
+function toShards() {
+  if (currentPath() === '/shop/shards') scrollToShards();
+}
+
 function Shell() {
   const s = useSession();
   // An unopened starter pack takes the player home, where it opens by itself.
@@ -203,7 +208,7 @@ function Shell() {
         <a href="#/shop" className="wallet-item gold" aria-label={t('Золото: {0}', s.profile.gold)}>
           🪙 <b>{s.profile.gold}</b>
         </a>
-        <a href="#/shop" className="wallet-item shards" aria-label={t('Уламки: {0}', s.profile.shards)}>
+        <a href="#/shop/shards" onClick={toShards} className="wallet-item shards" aria-label={t('Уламки: {0}', s.profile.shards)}>
           💎 <b>{s.profile.shards}</b>
         </a>
         <a className={`m-help ${route === 'help' ? 'active' : ''}`} href="#/help" aria-label={t('Як грати')}>
@@ -230,7 +235,7 @@ function Shell() {
           <a href="#/shop" className="wallet-item gold" title={t('Золото: купує дошки й ефекти в магазині')}>
             🪙 <b>{s.profile.gold}</b>
           </a>
-          <a href="#/shop" className="wallet-item shards" title={t('Уламки: з повторок, купують паки')}>
+          <a href="#/shop/shards" onClick={toShards} className="wallet-item shards" title={t('Уламки: з повторок, купують паки')}>
             💎 <b>{s.profile.shards}</b>
           </a>
         </div>

@@ -163,6 +163,10 @@ export class MemoryStore implements Store {
   async listAllPurchases(limit: number) {
     return clone(this.data.purchases.slice(-limit).reverse());
   }
+  async deletePurchase(id: string) {
+    this.data.purchases = this.data.purchases.filter((p) => p.id !== id);
+    this.save();
+  }
   async settlePurchase(id: string, from: PurchaseStatus, to: PurchaseStatus, shards: number, now: number) {
     const p = this.data.purchases.find((x) => x.id === id);
     if (!p || p.status !== from) return false;

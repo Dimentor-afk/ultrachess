@@ -1014,7 +1014,6 @@ const dict: Record<string, string> = {
   "бракує": "mancano",
   "Ефект «{0}» ваш — побачите його в наступному бою!": "L'effetto «{0}» è tuo: lo vedrai nella prossima battaglia!",
   "Дошка «{0}» ваша і вже стоїть у грі!": "La scacchiera «{0}» è tua ed è già in gioco!",
-  "{0} куплено — відкрийте його на головній.": "{0} acquistato: aprilo nella schermata principale.",
   "ваших {0} з {1}": "{0} su {1} tue",
   "Скасувати примірку": "Annulla la prova",
   "Зараз не продається — чекайте в щоденній вітрині магазину.": "Ora non è in vendita: aspettala nella vetrina giornaliera del negozio.",
@@ -1411,5 +1410,10 @@ const dict: Record<string, string> = {
   "«{0}» створено.": "«{0}» creato.",
   "Скасувати не можна.": "Non si può annullare.",
   "Змінити нікнейм можна буде через 7 днів.": "Potrai cambiare il nickname tra 7 giorni.",
+  "{0} чекає на головній.": "{0} ti aspetta nella schermata principale.",
+  "Прибрати?": "Rimuovere?",
+  "Прибрати з журналу (уламки лишаються в гравця)": "Rimuovi dal registro (il giocatore tiene i frammenti)",
+  "Видаляти покупки з журналу може лише власник гри.": "Solo il proprietario del gioco può rimuovere acquisti dal registro.",
+  "Такої покупки немає.": "Questo acquisto non esiste.",
 };
 export default dict;

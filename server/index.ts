@@ -288,6 +288,7 @@ const routes: [string, RegExp, Handler][] = [
   ['GET', /^purchases\/(\w+)$/, ({ token, params }) => svc.purchase(token, params[0])],
   ['POST', /^payments\/test\/(\w+)$/, ({ token, params, body }) => svc.completeTestPayment(token, params[0], !!body.ok)],
   ['GET', /^admin\/purchases$/, ({ token }) => svc.adminPurchases(token)],
+  ['POST', /^admin\/purchases\/(\w+)\/delete$/, ({ token, params }) => svc.adminDeletePurchase(token, params[0])],
   ['POST', /^shop\/pack$/, ({ token, body }) => svc.buyPack(token, String(body.type) as never)],
   ['POST', /^shop\/theme$/, ({ token, body }) => svc.buyTheme(token, String(body.id ?? ''))],
   ['POST', /^profile\/theme$/, ({ token, body }) => svc.setBoardTheme(token, String(body.id ?? ''))],

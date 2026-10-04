@@ -1350,6 +1350,17 @@ export class GameService {
     return out;
   }
 
+  /**
+   * Remove an entry from the purchase journal (owner only), e.g. the test
+   * purchases from the sandbox. The shards it brought stay with the player.
+   */
+  async adminDeletePurchase(token: string, id: string): Promise<void> {
+    const me = await this.admin(token);
+    if (!this.isOwner(me)) throw new ApiError(403, 'Видаляти покупки з журналу може лише власник гри.');
+    if (!(await this.store.getPurchase(id))) throw new ApiError(404, 'Такої покупки немає.');
+    await this.store.deletePurchase(id);
+  }
+
   /** Buy a board theme for gold and put it on. */
   async buyTheme(token: string, id: string): Promise<Profile> {
     const u = await this.auth(token);

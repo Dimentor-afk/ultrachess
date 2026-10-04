@@ -457,6 +457,9 @@ export class SqliteStore implements Store {
   async listAllPurchases(limit: number) {
     return (this.db.prepare('SELECT * FROM purchases ORDER BY created_at DESC LIMIT ?').all(limit) as Row[]).map((r) => purchase(r)!);
   }
+  async deletePurchase(id: string) {
+    this.db.prepare('DELETE FROM purchases WHERE id = ?').run(id);
+  }
   async settlePurchase(id: string, from: PurchaseStatus, to: PurchaseStatus, shards: number, now: number) {
     // One transaction: the status move is the lock, the shards follow it or nothing happens.
     this.db.exec('BEGIN IMMEDIATE');

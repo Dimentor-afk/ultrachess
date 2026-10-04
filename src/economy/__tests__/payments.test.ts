@@ -132,6 +132,23 @@ describe('buying shards', () => {
     expect((await svc.shardOffer(a.token)).hidden).toBe(false);
   });
 
+  it('only the owner removes entries from the journal; the shards stay', async () => {
+    const store = new MemoryStore();
+    const svc = new GameService(store, hasher, Date.now, Math.random, undefined, ['boss@x.com']);
+    await svc.init();
+    svc.payments = new TestPayments();
+    const boss = await svc.register('boss@x.com', 'secret-pass-1', 'Богдан');
+    const a = await svc.register('anna@x.com', 'secret-pass-1', 'Анна');
+    await svc.adminSetRole(boss.token, a.profile.id, 'admin');
+    const { purchaseId } = await svc.buyShards(boss.token, product.id, BASE);
+    const { profile } = await svc.completeTestPayment(boss.token, purchaseId, true);
+    await expect(svc.adminDeletePurchase(a.token, purchaseId)).rejects.toThrow(/власник/);
+    await svc.adminDeletePurchase(boss.token, purchaseId);
+    expect(await svc.adminPurchases(boss.token)).toEqual([]);
+    expect((await svc.me(boss.token)).shards).toBe(profile.shards);
+    await expect(svc.adminDeletePurchase(boss.token, purchaseId)).rejects.toThrow(/немає/);
+  });
+
   it('test payments: the in-app page pays or declines; not available with a real bank', async () => {
     const { svc, a, shards } = await setup();
     await expect(svc.completeTestPayment(a.token, 'x', true)).rejects.toThrow(/Тестових/);

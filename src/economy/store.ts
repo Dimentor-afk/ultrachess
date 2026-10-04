@@ -247,6 +247,8 @@ export interface Store {
    * was not in `from` any more — someone else settled it first, nothing changed.
    */
   settlePurchase(id: string, from: PurchaseStatus, to: PurchaseStatus, shards: number, now: number): Promise<boolean>;
+  /** Drop an entry from the journal (shards stay as they are). */
+  deletePurchase(id: string): Promise<void>;
 
   listSeeks(): Promise<SeekRow[]>;
   putSeek(s: SeekRow): Promise<void>;
