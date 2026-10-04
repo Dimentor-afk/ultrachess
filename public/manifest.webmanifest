@@ -1,8 +1,8 @@
 {
   "name": "Ultrachess",
   "short_name": "Ultrachess",
-  "description": "Шахи, де кожна фігура — унікальна.",
-  "lang": "uk",
+  "description": "Chess where every piece is unique.",
+  "lang": "en",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

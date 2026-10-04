@@ -384,10 +384,12 @@ const MIME: Record<string, string> = {
   '.json': 'application/json',
   '.webmanifest': 'application/manifest+json',
   '.ico': 'image/x-icon',
+  '.txt': 'text/plain; charset=utf-8',
+  '.xml': 'application/xml; charset=utf-8',
 };
 
 /** Text files are gzipped on the way out (the app bundle shrinks about 3×). */
-const COMPRESSIBLE = new Set(['.html', '.js', '.css', '.svg', '.json', '.webmanifest']);
+const COMPRESSIBLE = new Set(['.html', '.js', '.css', '.svg', '.json', '.webmanifest', '.txt', '.xml']);
 
 function serveStatic(req: IncomingMessage, res: ServerResponse): void {
   let url: string;
