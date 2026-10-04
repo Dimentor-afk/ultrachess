@@ -4,6 +4,9 @@
 import type { PackType } from '../../src/economy/packs';
 import type { SceneSpec } from './scene';
 
+/** One half of a versus shot. */
+export type VersusSide = SceneSpec & { lead?: number; gap?: number };
+
 /** What the music does under a shot (sound.py): the full beat, a tense pulse, a build-up, the last chord. */
 export type Music = 'full' | 'tense' | 'build' | 'end';
 
@@ -28,7 +31,9 @@ export type Shot = (
       count?: number;
       countMs?: number;
     })
-  | { kind: 'pack'; pack: PackType; packName?: string; cards: string[]; caption?: string; hold?: number; pace?: number; ms: number }
+  | { kind: 'pack'; pack: PackType; packName?: string; cards: string[]; caption?: string; after?: string; hold?: number; pace?: number; ms: number }
+  /** Split screen: the same idea in normal chess (top) and in Ultrachess (bottom, plays `delay` ms later). */
+  | { kind: 'versus'; top: VersusSide; bottom: VersusSide; title?: string; piece?: string; delay: number; ms: number }
   | { kind: 'card'; id: string; caption?: string; ms: number }
   | { kind: 'end'; text?: string; caption?: string; ms: number }
   /** A tier list filling up: `rows` already placed, `add` drops into its row now. */
@@ -316,7 +321,77 @@ const PUZZLE: Shot[] = [
   { kind: 'end', text: 'Every piece breaks the rules', caption: 'Got all 3? *Comment* ✅', ms: Math.round(7 * PB), music: 'end' },
 ];
 
+// ── Normal chess vs Ultrachess (120 BPM): split screen, the normal move first, then the card's. ──
+const VB = 500;
+const versus = (piece: string, top: VersusSide, bottom: VersusSide, beats = 7, title?: string): Shot => ({
+  kind: 'versus',
+  piece,
+  title,
+  top: { lead: 300, ...top },
+  bottom: { lead: 300, ...bottom },
+  delay: 1100,
+  ms: beats * VB,
+  music: 'tense',
+});
+const VERSUS: Shot[] = [
+  versus(
+    'Rook',
+    { pos: { ...KH, d1: 'w:rook-classic', d5: 'b:knight-classic', d7: 'b:queen-classic', c7: 'b:pawn-classic' }, steps: ['d1d5'] },
+    { pos: BATTER.pos, steps: BATTER.steps },
+    7,
+    'Normal chess vs *Ultrachess*',
+  ),
+  versus('Knight', { pos: { ...K, g1: 'w:knight-classic', e5: 'b:queen-classic' }, steps: ['g1e2'] }, { pos: GALLOP.pos, steps: GALLOP.steps }),
+  versus(
+    'Bishop',
+    { pos: { ...KH, f1: 'w:bishop-classic', d7: 'b:queen-classic', c6: 'b:pawn-classic' }, clear: ['h3', 'b6'], steps: ['f1d3'] },
+    { pos: PORTAL.pos, clear: PORTAL.clear, steps: PORTAL.steps },
+  ),
+  versus(
+    'Pawn',
+    { pos: { ...KH, e2: 'w:pawn-classic', d2: 'w:pawn-classic', f2: 'w:pawn-classic', d7: 'b:pawn-classic' }, steps: ['e2e4'] },
+    { pos: MARATHON.pos, steps: MARATHON.steps },
+  ),
+  versus(
+    'King',
+    { pos: { e1: 'w:king-classic', a8: 'b:king-classic', h1: 'w:rook-classic', a1: 'b:rook-classic' }, steps: ['e1f1'] },
+    { pos: SWAP.pos, steps: SWAP.steps },
+  ),
+  versus(
+    'Queen',
+    { pos: { ...KH, d4: 'w:queen-classic', d8: 'b:rook-classic', a2: 'w:pawn-classic' }, steps: ['a2a3', 'd8d4'], gap: 700 },
+    { pos: IMMORTAL.pos, steps: IMMORTAL.steps, gap: 700 },
+    10,
+  ),
+  { kind: 'end', text: 'Same game. New rules.', caption: 'Which one would you play? 👇', ms: 6 * VB, music: 'end' },
+];
+
+// ── Opening packs until a mythic (128 BPM): each pack better than the last. ──
+const PACKS: Shot[] = [
+  { kind: 'pack', pack: 'rare', packName: 'Rare Pack', cards: ['bishop-ricochet'], caption: 'Opening packs until I pull a *MYTHIC* 🎰', after: 'Rare… 😐', pace: 0.5, hold: 99_999, ms: Math.round(7 * BEAT), music: 'tense' },
+  { kind: 'pack', pack: 'epic', packName: 'Epic Pack', cards: ['rook-kamikaze'], caption: 'Pack 2… 🤞', after: 'Epic! *Closer* 👀', pace: 0.5, hold: 99_999, ms: Math.round(12 * BEAT), music: 'tense' },
+  { kind: 'pack', pack: 'mythic', packName: 'Mythic Pack', cards: ['queen-immortal'], caption: 'Last pack… 🙏', after: '*MYTHIC!!!* 🔥', pace: 0.5, hold: 99_999, ms: Math.round(15 * BEAT), music: 'build' },
+  { kind: 'card', id: 'queen-immortal', caption: 'A queen that *can’t die*', ms: Math.round(4 * BEAT) },
+  onBeat({ ...IMMORTAL, caption: 'Watch 👇', lead: 250, gap: 950 }, 9),
+  { kind: 'end', text: 'Every piece is a card', caption: 'Rate my pulls *1–10* 👇', ms: Math.round(6 * BEAT), music: 'end' },
+];
+
+// ── POV plot twists (124 BPM): the setup in a tense pulse, the twist on the drop. ──
+const TB = 60_000 / 124;
+const twist = (s: Board, beats: number): Shot => ({ ...s, tail: Math.round(beats * TB - (s.lead ?? 600) - s.steps.length * (s.gap ?? 1500)), music: 'tense' });
+const PLOT: Shot[] = [
+  twist({ ...KAMIKAZE, caption: 'POV: they take your rook 😏', steps: ['f5d4|It was a *KAMIKAZE* 💥'], lead: 1300, gap: 1700 }, 7),
+  twist({ ...IMMORTAL, caption: 'They finally trap your queen 😭', steps: ['!queen-immortal:arm', 'a2a3', 'd8d4|…she *respawns* 😎'], lead: 900, gap: 800 }, 9),
+  twist({ ...MIRAGE, caption: 'They know where your knight is…', steps: ['e4>mirage|…*or do they?* 👀'], lead: 1300, gap: 1700 }, 7),
+  twist({ ...BERSERK, caption: 'One knight. Two targets.', steps: ['d4g7~|*Both.* 🔪'], lead: 1100, gap: 1600 }, 6),
+  twist({ ...MATE, caption: 'And the final plot twist…', steps: ['d6d8|*Checkmate.* 👑'], lead: 1100, gap: 1500 }, 7),
+  { kind: 'end', text: 'Every piece has a plot twist', caption: 'Play it free 👇', ms: Math.round(6 * TB), music: 'end' },
+];
+
 export const ADS: Record<string, Shot[]> = {
+  versus: VERSUS,
+  packs: PACKS,
+  plot: PLOT,
   promo: PROMO,
   tierlist: tierList(),
   puzzle: PUZZLE,

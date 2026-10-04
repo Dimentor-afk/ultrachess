@@ -121,3 +121,17 @@ html, body, #root { margin: 0; height: 100%; background: #05070f; overflow: hidd
 .ad-tier-name b { font-family: var(--font-display); font-weight: 400; font-size: 28px; }
 .ad-shot[data-music='build'] .ad-tier.t-S { animation: ad-tier-pulse 0.47s ease-in-out infinite; }
 @keyframes ad-tier-pulse { 50% { box-shadow: inset 0 0 0 3px #ff4d6d, 0 0 24px rgba(255, 77, 109, 0.6); } }
+
+/* Normal chess vs Ultrachess: two boards stacked, a VS band between them. */
+.ad-versus { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 4px; padding: 8px 46px; background: radial-gradient(110% 60% at 50% 70%, #2a1d07, #05070f 70%); }
+.ad-vs-half { position: relative; width: 100%; transition: opacity 0.3s, filter 0.3s; }
+.ad-vs-half.dim { opacity: 0.55; filter: grayscale(0.7); }
+.ad-vs-half.ultra .board { box-shadow: 0 0 0 2px rgba(245, 196, 81, 0.25); transition: box-shadow 0.3s; }
+.ad-vs-half.ultra.lit .board { box-shadow: 0 0 0 3px #f5c451, 0 0 34px rgba(245, 196, 81, 0.55); }
+.ad-vs-tag { position: absolute; z-index: 20; top: -2px; left: 50%; translate: -50% 0; padding: 3px 12px; border-radius: 999px; font-weight: 800; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; background: #3a4258; color: #dfe5f5; box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5); }
+.ad-vs-half.ultra .ad-vs-tag { background: linear-gradient(#ffd56b, #f5a623); color: #2a1a00; }
+.ad-vs-mid { position: relative; z-index: 30; display: flex; align-items: center; justify-content: center; gap: 10px; height: 36px; font-family: var(--font-display); text-transform: uppercase; animation: ad-cap-in 0.4s cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+.ad-vs-mid i { font-style: normal; font-size: 26px; color: #f5c451; -webkit-text-stroke: 1px #05070f; paint-order: stroke fill; }
+.ad-vs-mid b { font-weight: 400; font-size: 22px; white-space: nowrap; color: #fff; -webkit-text-stroke: 1px #05070f; paint-order: stroke fill; text-shadow: 0 3px 0 rgba(0, 0, 0, 0.6); }
+.ad-vs-mid b b { color: #f5c451; font-size: inherit; }
+.ad-vs-mid.title b { font-size: 18px; }

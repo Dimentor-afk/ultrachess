@@ -70,6 +70,7 @@ async function main() {
           </div>
         )}
         {!!s.count && count === 0 && <i className="ad-reveal" />}
+        {!s.count && s.music === 'tense' && i === states.length - 1 && i > 0 && <i className="ad-reveal" />}
         <div
           className="ad-camera"
           style={{ '--fx': `${focus.x}%`, '--fy': `${focus.y}%`, '--z': s.zoom ?? 1.25, animationDuration: `${shotMs(s)}ms` } as CSSProperties}
@@ -95,12 +96,15 @@ async function main() {
   function PackShot({ s }: { s: Extract<Shot, { kind: 'pack' }> }) {
     const ref = useRef<HTMLDivElement>(null);
     // Tap the pack, then each card once it is face up and has been seen.
+    // The caption changes once the (last) card is face up.
+    const [shown, setShown] = useState(false);
     useEffect(() => {
       let flippedAt = 0;
       const tap = setTimeout(() => ref.current?.querySelector<HTMLButtonElement>('.opening-pack')?.click(), 250);
       const tick = setInterval(() => {
         const flip = ref.current?.querySelector('.flip.flipped');
         if (!flip) return void (flippedAt = 0);
+        setShown(true);
         // The last card stays on screen until the shot ends.
         const [at, of] = (ref.current?.querySelector('.reveal-count')?.textContent ?? '').split('/').map((x) => Number(x.trim()));
         if (at && at === of) return;
@@ -124,7 +128,57 @@ async function main() {
           onClose={() => {}}
           pace={s.pace}
         />
-        {s.caption && <Caption text={s.caption} pos="top" />}
+        {(shown && s.after ? s.after : s.caption) && <Caption text={(shown && s.after) || s.caption!} pos="top" />}
+      </div>
+    );
+  }
+
+  /** A scene played on its own clock: the step shown now. */
+  function useScene(spec: Parameters<typeof engine.playScene>[0], lead: number, gap: number) {
+    const states = useMemo(() => engine.playScene(spec), []);
+    const [i, setI] = useState(0);
+    useEffect(() => {
+      if (i >= states.length - 1) return;
+      const t = setTimeout(() => setI(i + 1), i === 0 ? lead : gap);
+      return () => clearTimeout(t);
+    }, [i]);
+    return { states, i };
+  }
+
+  function SideBoard({ states, i }: { states: ReturnType<typeof engine.playScene>; i: number }) {
+    return (
+      <Board
+        view={engine.view(states[i])}
+        orientation="w"
+        selected={null}
+        marks={new Map()}
+        lastMove={new Set()}
+        hint={new Set()}
+        preview={new Set()}
+        checkSquare={engine.checkSquare(states[i])}
+        onSquare={() => {}}
+        celebrate={false}
+      />
+    );
+  }
+
+  /** Normal chess on top, Ultrachess below: the same idea, the card's move a beat later. */
+  function VersusShot({ s }: { s: Extract<Shot, { kind: 'versus' }> }) {
+    const top = useScene(s.top, s.top.lead ?? 300, s.top.gap ?? 1200);
+    const bottom = useScene(s.bottom, (s.bottom.lead ?? 300) + s.delay, s.bottom.gap ?? 1200);
+    const played = bottom.i > 0;
+    return (
+      <div className="ad-versus">
+        <div className={`ad-vs-half normal ${played ? 'dim' : ''}`}>
+          <span className="ad-vs-tag">Normal chess</span>
+          <SideBoard {...top} />
+        </div>
+        <div className={`ad-vs-mid ${s.title ? 'title' : ''}`}>{s.title ? <b>{gold(s.title)}</b> : <><i>VS</i><b>{s.piece}</b></>}</div>
+        <div className={`ad-vs-half ultra ${played ? 'lit' : ''}`}>
+          <span className="ad-vs-tag">Ultrachess</span>
+          <SideBoard {...bottom} />
+        </div>
+        {played && <i className="ad-reveal" />}
       </div>
     );
   }
@@ -244,6 +298,7 @@ async function main() {
             {s.kind === 'card' && <CardShot s={s} />}
             {s.kind === 'end' && <End s={s} />}
             {s.kind === 'tier' && <TierShot s={s} />}
+            {s.kind === 'versus' && <VersusShot s={s} />}
           </div>
           {n > 0 && <div className="ad-flash" />}
         </div>
