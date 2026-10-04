@@ -1,0 +1,77 @@
+/* 9:16 ad frame, laid out for 432×768 (zoomed 2.5× for 1080×1920). */
+html, body, #root { margin: 0; height: 100%; background: #05070f; overflow: hidden; }
+.ad, .ad-shot { position: relative; width: 100%; height: 100%; overflow: hidden; }
+.ad { background: radial-gradient(120% 70% at 50% 35%, #16234a, #05070f 72%); font-family: var(--font-body); color: #fff; }
+
+/* A hard cut: white flash and a small punch-in. */
+.ad-shot { animation: ad-punch 0.35s cubic-bezier(0.2, 1.2, 0.4, 1); }
+@keyframes ad-punch { from { transform: scale(1.06); } }
+.ad-flash { position: absolute; inset: 0; z-index: 50; background: #fff; pointer-events: none; animation: ad-flash 0.28s ease-out forwards; }
+@keyframes ad-flash { from { opacity: 0.8; } to { opacity: 0; } }
+
+/* Captions: big, bold, outlined, popping in. */
+.ad-cap { position: absolute; z-index: 400; left: 14px; right: 14px; display: flex; justify-content: center; pointer-events: none; }
+.ad-cap-top { top: 7%; }
+.ad-cap-bottom { bottom: 8%; }
+.ad-cap-mid { top: 42%; }
+.ad-cap span {
+  font-family: var(--font-display);
+  font-size: 30px;
+  line-height: 1.12;
+  text-align: center;
+  text-transform: uppercase;
+  color: #fff;
+  -webkit-text-stroke: 1.5px #05070f;
+  paint-order: stroke fill;
+  text-shadow: 0 4px 0 rgba(0, 0, 0, 0.6), 0 0 22px rgba(0, 0, 0, 0.7);
+  animation: ad-cap-in 0.4s cubic-bezier(0.2, 1.6, 0.4, 1) both;
+}
+.ad-cap b { color: #f5c451; font-weight: 400; }
+@keyframes ad-cap-in { from { opacity: 0; transform: scale(1.5) rotate(-3deg); } }
+
+/* Battle: the board fills the width, the camera slowly pushes in on the action. */
+.ad-board-shot { position: absolute; inset: 0; display: grid; place-items: center; padding: 120px 8px 70px; }
+.ad-camera { width: 100%; transform-origin: var(--fx) var(--fy); animation-name: ad-push; animation-timing-function: cubic-bezier(0.4, 0, 0.3, 1); animation-fill-mode: both; }
+@keyframes ad-push { from { transform: scale(1); } to { transform: scale(var(--z)); } }
+.ad-board-shot .board { box-shadow: 0 18px 50px rgba(0, 0, 0, 0.6); }
+
+/* Pack opening fills the frame. */
+.ad-pack-shot { position: absolute; inset: 0; }
+.ad-pack-shot .opening { position: absolute !important; }
+.ad-pack-shot .reveal-skip-all, .ad-pack-shot .reveal .muted.small, .ad-pack-shot .opening-hint, .ad-pack-shot .opening-title .btn { display: none !important; }
+
+/* A card slammed onto the screen. */
+.ad-card-shot { --r: var(--r-legendary); position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; background: radial-gradient(90% 55% at 50% 48%, color-mix(in srgb, var(--r) 45%, #0c1120), #05070f 72%); }
+.ad-card-shot.r-mythological { --r: var(--r-mythological); }
+.ad-card-shot.r-epic { --r: var(--r-epic); }
+.ad-card-shot.r-rare { --r: var(--r-rare); }
+.ad-rays { position: absolute; left: 50%; top: 46%; width: 700px; height: 700px; translate: -50% -50%; background: repeating-conic-gradient(color-mix(in srgb, var(--r) 40%, transparent) 0 8deg, transparent 8deg 22deg); mask: radial-gradient(circle, #000 0 20%, transparent 60%); animation: ad-spin 8s linear infinite; }
+@keyframes ad-spin { to { rotate: 360deg; } }
+.ad-card-slam { position: relative; width: 250px; animation: ad-slam 0.55s cubic-bezier(0.2, 1.5, 0.4, 1) both; filter: drop-shadow(0 0 30px color-mix(in srgb, var(--r) 70%, transparent)); }
+@keyframes ad-slam { from { opacity: 0; transform: scale(2.4) rotate(-10deg); } }
+.ad-card-name { position: relative; display: flex; flex-direction: column; align-items: center; animation: ad-cap-in 0.4s ease-out 0.35s both; }
+.ad-card-name span { font-weight: 800; letter-spacing: 0.2em; text-transform: uppercase; font-size: 14px; color: var(--r); }
+.ad-card-name b { font-family: var(--font-display); font-weight: 400; font-size: 30px; }
+
+/* Hook line. */
+.ad-hook { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 24px; text-align: center; background: radial-gradient(100% 60% at 50% 45%, #3a2a0e, #05070f 70%); }
+.ad-hook-art { width: 150px; height: 150px; object-fit: contain; image-rendering: pixelated; animation: ad-slam 0.6s cubic-bezier(0.2, 1.5, 0.4, 1) both, ad-float 2s ease-in-out 0.6s infinite; filter: drop-shadow(0 10px 0 rgba(0, 0, 0, 0.5)); }
+@keyframes ad-float { 50% { translate: 0 -8px; } }
+.ad-hook h1 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 40px; line-height: 1.1; text-transform: uppercase; -webkit-text-stroke: 1.5px #05070f; paint-order: stroke fill; text-shadow: 0 5px 0 rgba(0, 0, 0, 0.6); animation: ad-cap-in 0.45s cubic-bezier(0.2, 1.6, 0.4, 1) 0.1s both; }
+.ad-hook h1 b { color: #f5c451; font-weight: 400; }
+.ad-hook p { margin: 0; font-weight: 800; font-size: 18px; color: #c9d2ee; animation: ad-cap-in 0.4s ease-out 0.4s both; }
+.ad-hook p b { color: #f5c451; }
+
+/* End card. */
+.ad-end { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 24px; text-align: center; background: radial-gradient(120% 70% at 50% 35%, #1b2f66, #05070f 72%); }
+.ad-end img { width: 118px; height: 118px; border-radius: 26px; box-shadow: 0 10px 40px rgba(245, 196, 81, 0.35); animation: ad-slam 0.5s cubic-bezier(0.2, 1.5, 0.4, 1) both; }
+.ad-logo { font-family: var(--font-display); font-size: 48px; animation: ad-cap-in 0.4s ease-out 0.15s both; }
+.ad-logo b { color: #f5c451; font-weight: 400; }
+.ad-end p { margin: 0; font-size: 21px; font-weight: 800; color: #c9d2ee; animation: ad-cap-in 0.4s ease-out 0.3s both; }
+.ad-url { margin-top: 10px; font-family: var(--font-display); font-size: 32px; color: #1b1405; background: #f5c451; padding: 12px 26px; border-radius: 18px; box-shadow: 0 6px 0 #b98a1d; animation: ad-cap-in 0.4s ease-out 0.45s both, ad-pulse 1.1s ease-in-out 1s infinite; }
+@keyframes ad-pulse { 50% { scale: 1.06; } }
+.ad-end small { font-size: 15px; color: #95a2c8; font-weight: 700; }
+/* The big flip as a keyframe animation (same turn and timing as the game's transition),
+   which the frame-by-frame recorder can drive. */
+.ad-pack-shot .flip.spun .flip-inner { transition: none; animation: ad-flip540 0.9s cubic-bezier(0.6, 0, 0.15, 1) both; }
+@keyframes ad-flip540 { from { transform: rotateY(0deg); } to { transform: rotateY(540deg); } }
