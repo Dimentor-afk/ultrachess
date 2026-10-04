@@ -424,7 +424,7 @@ const MEMES: Shot[] = [
 const CB = 60_000 / 90;
 const MIRAGE_CENTER: Board = { kind: 'board', pos: { ...K, d4: 'w:knight-mirage', h7: 'b:pawn-classic' }, steps: ['d4>mirage'], focus: 'd4', zoom: 1.2 };
 const CARD_OF_DAY: Shot[] = [
-  { kind: 'card', id: 'knight-mirage', caption: 'Card of the day #1 🃏', ms: Math.round(4 * CB) },
+  { kind: 'card', id: 'knight-mirage', caption: 'Card of the day: #1', ms: Math.round(4 * CB) },
   onBeatAt({ ...MIRAGE, caption: 'Mirage jumps like a knight…', steps: ['e4>mirage|…but leaves FAKE copies of itself'], lead: 900, gap: 1700 }, 7, CB),
   onBeatAt({ ...MIRAGE_CENTER, caption: 'your opponent sees 6 knights.\nonly one is real 👀', steps: ['d4>mirage'], lead: 700, gap: 2400 }, 6, CB),
   { kind: 'card', id: 'knight-mirage', caption: 'hit an illusion and it just… vanishes', ms: Math.round(4 * CB) },
