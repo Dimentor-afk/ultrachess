@@ -36,6 +36,13 @@ const SCENES: Record<string, { white?: Partial<Deck>; black?: Partial<Deck>; ste
   illusion: { white: { knight2: 'knight-illusionist', knight1: 'knight-illusionist' }, steps: ['g1f3'], watch: 1 },
   // Затемнювач puts a barrier on one of its diagonals.
   eclipse: { white: { bishop1: 'bishop-eclipse' }, steps: ['d2d4', 'e7e6', '!bishop-eclipse:*'], watch: 1 },
+  // Левітаційний слон steps off the board; three opponent turns later the platform is gone.
+  levitate: { white: { bishop2: 'bishop-levitation' }, steps: ['e2e3', 'h7h6', 'f1>levitate'], watch: 1 },
+  fell: { white: { bishop2: 'bishop-levitation' }, steps: ['e2e3', 'h7h6', 'f1>levitate', 'h6h5', 'b1c3', 'g7g6', 'c3b5', 'a7a6', 'b5a3', 'b7b6', 'a3b1', 'c7c6'], watch: 7 },
+  // Міраж: ghost knights appear.
+  mirage: { white: { knight2: 'knight-mirage' }, steps: ['g1>mirage'], watch: 1 },
+  // Вершник picks up its own pawn.
+  rider: { white: { knight2: 'knight-rider' }, steps: ['g1>mount'], watch: 1 },
   berserk: { white: { knight2: 'knight-berserk' }, steps: ['g1f3', 'e7e6', 'f3g5', 'a7a6', 'g5e6~'], watch: 1 },
 };
 
@@ -54,6 +61,13 @@ function step(m: MatchState, s: Step): MatchState {
     const opts = abilityOptions(m, piece.id);
     const k = key === '*' ? (opts.find((o) => o.squares.filter((q) => m.board[q]).length > 2) ?? opts.sort((a, b) => b.squares.length - a.squares.length)[0]).key : key;
     return performAction(m, { type: 'ability', pieceId: piece.id, key: k } as Action);
+  }
+  // "f1>levitate": the first move of that kind from f1 (targets off the board).
+  if (s.includes('>')) {
+    const [sq, kind] = s.split('>');
+    const move = legalMoves(m).find((x) => x.from === parseSquare(sq) && x.kind === kind);
+    if (!move) throw new Error(`no ${kind} from ${sq}: ${[...new Set(legalMoves(m).filter((x) => x.from === parseSquare(sq)).map((x) => x.kind))].join(', ')}`);
+    return performAction(m, { type: 'move', move });
   }
   const [uci, label] = s.split('~');
   const from = parseSquare(uci.slice(0, 2));

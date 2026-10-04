@@ -142,6 +142,8 @@ export function computeFx(
     if (m.kind === 'dash' && m.to !== null) {
       sprites.push({ kind: 'dust', square: m.from }, { kind: 'sparkle', square: m.to });
     }
+    // Вершник picks up its own pawn: a sparkle as it lands on it.
+    if (m.kind === 'mount' && m.to !== null) sprites.push({ kind: 'twinkle', square: m.to, wait: -40 });
     if (m.kind === 'swap' && m.to !== null) {
       sprites.push({ kind: 'twinkle', square: m.from }, { kind: 'twinkle', square: m.to });
     }
@@ -178,6 +180,10 @@ export function computeFx(
         if (s !== undefined) sprites.push({ kind: 'twinkle', square: s, wait: 120 });
         break;
       }
+      case 'riderLanding':
+        // The passenger jumps off: a puff of dust where it lands.
+        sprites.push({ kind: 'puff', square: e.to, wait: 0 });
+        break;
       case 'fell': {
         // The platform is gone: the piece drops off the board in a puff of dust.
         const s = was.get(e.piece.id);
