@@ -961,10 +961,11 @@ export class GameService {
     actions: Action[],
     color: Color,
     outcome: 'win' | 'loss' | 'draw',
-    game: { pvp: boolean; friend?: boolean; reason: string },
+    game: { pvp: boolean; ranked?: boolean; friend?: boolean; reason: string },
   ): Promise<string[]> {
     const won = outcome === 'win';
-    const feats = gameFeats(decks, actions, color, won);
+    // The hardest feats count only against people found by the player ladder: a bot or a friend's second account would hand them out.
+    const feats = gameFeats(decks, actions, color, won).filter((f) => game.ranked || !ACHIEVEMENT_BY_ID[f]?.online);
     // What the record alone does not say: how the game ended and with whom.
     if (won && game.reason === 'Здача') feats.push('resign-win');
     if (outcome === 'draw') feats.push('draw');
@@ -2301,7 +2302,7 @@ export class GameService {
     const achievements: Partial<Record<Color, string[]>> = {};
     for (const [id, c] of [[row.whiteId, 'w'], [row.blackId, 'b']] as [string, Color][]) {
       const outcome = winner === null ? 'draw' : winner === c ? 'win' : 'loss';
-      achievements[c] = await this.gameAchievements(id, { w: row.whiteDeck, b: row.blackDeck }, actions, c, outcome, { pvp: true, friend: !row.ranked, reason: state.result!.reason });
+      achievements[c] = await this.gameAchievements(id, { w: row.whiteDeck, b: row.blackDeck }, actions, c, outcome, { pvp: true, ranked: !!row.ranked, friend: !row.ranked, reason: state.result!.reason });
     }
     out.achievements = achievements;
     return JSON.stringify(out);

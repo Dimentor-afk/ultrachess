@@ -1558,5 +1558,6 @@ const dict: Record<string, string> = {
   "Візьміть одним пішаком 3 фігури за партію.": "Capture 3 pieces with one pawn in a game.",
   "Термінатор": "Terminator",
   "Візьміть однією фігурою 6 фігур за партію.": "Capture 6 pieces with one piece in a game.",
+  "лише в лізі гравців": "player league only",
 };
 export default dict;

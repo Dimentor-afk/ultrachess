@@ -9600,3 +9600,7 @@ html.no-anim .cell.barrier.barrier-new::after { animation: none; }
     animation: none;
   }
 }
+
+.ach-online {
+  color: #7fd0ff;
+}

@@ -35,6 +35,22 @@ describe('achievements', () => {
     expect(gameFeats(decks, actions, 'b', false)).toEqual([]);
   });
 
+  it('fast mates and the other online feats count only in the player ladder', async () => {
+    const svc = new GameService(new MemoryStore(), hasher, () => 1_800_000_000_000, Math.random);
+    await svc.init();
+    const a = await svc.register('a@a.com', 'secret12', 'Анна');
+    const b = await svc.register('b@b.com', 'secret12', 'Богдан');
+    const decks = { w: classicDeck(), b: classicDeck() };
+    const actions = line(createMatch(decks.w, decks.b), SCHOLAR);
+    type Fn = (id: string, d: object, acts: Action[], c: 'w' | 'b', o: 'win', g: object) => Promise<string[]>;
+    const run = (svc as unknown as { gameAchievements: Fn }).gameAchievements.bind(svc);
+    const vsBot = await run((await svc.me(a.token)).id, decks, actions, 'w', 'win', { pvp: false, reason: 'Мат' });
+    expect(vsBot).not.toContain('mate-5');
+    expect(vsBot).not.toContain('flawless');
+    const ranked = await run((await svc.me(b.token)).id, decks, actions, 'w', 'win', { pvp: true, ranked: true, reason: 'Мат' });
+    expect(ranked).toEqual(expect.arrayContaining(['mate-5', 'mate-10', 'flawless']));
+  });
+
   it('castling is read from the record, for the side that castled', () => {
     const decks = { w: classicDeck(), b: classicDeck() };
     const castle = line(createMatch(decks.w, decks.b), [['e2', 'e4'], ['e7', 'e5'], ['g1', 'f3'], ['b8', 'c6'], ['f1', 'c4'], ['f8', 'c5'], ['e1', 'g1']]);

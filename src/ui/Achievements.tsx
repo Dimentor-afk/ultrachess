@@ -174,7 +174,10 @@ export function AchievementsPanel() {
                   </small>
                 </span>
               )}
-              <small className="ach-tier">{TIER_NAME[a.tier]}</small>
+              <small className="ach-tier">
+                {TIER_NAME[a.tier]}
+                {a.online && <span className="ach-online"> · 🌐 {t('лише в лізі гравців')}</span>}
+              </small>
             </span>
             {a.done && (
               <button className={`btn btn-sm ${s.profile.title === a.id ? 'btn-primary' : 'btn-ghost'}`} disabled={busy === a.id} onClick={() => void wear(a)}>

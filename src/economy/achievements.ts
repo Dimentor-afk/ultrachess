@@ -27,6 +27,8 @@ export interface AchievementDef {
   hue: number;
   /** 1 bronze … 4 legend: the medal's rim. */
   tier: 1 | 2 | 3 | 4;
+  /** Counts only in the player ladder: against the bot these are too easy to farm. */
+  online?: boolean;
   /** Counted achievements: reached when `stat` >= `target`. Feats have no stat (target 1). */
   stat?: AchStat;
   target: number;
@@ -253,3 +255,7 @@ export function featsFrom(first: MatchState, actions: Action[], me: Color, won: 
   }
   return [...out];
 }
+
+/** Feats that count only in player-ladder games (see AchievementDef.online). */
+const ONLINE_ONLY = new Set(['mate-20', 'mate-15', 'mate-10', 'mate-5', 'pacifist', 'flawless', 'comeback', 'lone-wolf', 'king-mate', 'pawn-mate', 'no-queen', 'berserk-rage', 'meat-grinder', 'terminator', 'hungry-pawn', 'woodpecker']);
+for (const a of ACHIEVEMENTS) if (ONLINE_ONLY.has(a.id)) a.online = true;
