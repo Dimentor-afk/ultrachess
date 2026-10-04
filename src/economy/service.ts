@@ -31,7 +31,7 @@ import type { BotOptions, BotTurn } from '../engine/bot/search';
 import { legalMoves } from '../engine/legal';
 import { type QuestEvent, type QuestView, addProgress, parseQuests, questViews } from './quests';
 import { type Hasher, type MatchRow, type PackRow, type PvpRow, type Role, type Store, type TokenRow, type UserRow, randomId } from './store';
-import { ACHIEVEMENT_BY_ID, type AchievementState, type AchievementView, type CountedStat, achievementViews, gameFeats, parseAchievements } from './achievements';
+import { CREATOR_TITLE, ACHIEVEMENT_BY_ID, type AchievementState, type AchievementView, type CountedStat, achievementViews, gameFeats, parseAchievements } from './achievements';
 import { NAME_CHANGE_MS, cleanName, nameProblem, passwordProblem, sha256 } from './account';
 import { type PaymentProvider, type ProviderState, type PurchaseRow, type PurchaseView, SHARD_PRODUCTS, type ShardOffer, formatPrice, productById } from './payments';
 
@@ -956,6 +956,8 @@ export class GameService {
 
   /** The plate shown under the name: an achievement the player has reached. */
   private titleOf(u: UserRow): string | null {
+    // The game's owner wears "Творець гри" unless they chose an achievement's plate.
+    if (this.isOwner(u) && (!u.title || u.title === CREATOR_TITLE)) return CREATOR_TITLE;
     return u.title && ACHIEVEMENT_BY_ID[u.title] ? u.title : null;
   }
 
@@ -1019,11 +1021,14 @@ export class GameService {
   /** Put an achievement's plate under the name (null: none). */
   async setTitle(token: string, id: string | null): Promise<Profile> {
     const u = await this.auth(token);
-    if (id) {
+    if (id === CREATOR_TITLE) {
+      if (!this.isOwner(u)) throw new ApiError(403, 'Ця плашка лише для творця гри.');
+    } else if (id) {
       const a = (await this.achievementList(u)).find((x) => x.id === id);
       if (!a?.done) throw new ApiError(400, 'Спершу здобудьте це досягнення.');
     }
-    await this.store.updateUser(u.id, { title: id ?? '' });
+    // The owner taking the plate off: '-' (an empty title would put "Творець гри" back).
+    await this.store.updateUser(u.id, { title: id ?? (this.isOwner(u) ? '-' : '') });
     return this.profileOf(u.id);
   }
 

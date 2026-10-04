@@ -84,6 +84,18 @@ describe('achievements', () => {
     expect(after.achievements).toContain('wins-10');
   });
 
+  it('the owner wears "Творець гри" by default and can take it off; nobody else can put it on', async () => {
+    const svc = new GameService(new MemoryStore(), hasher, () => 1_800_000_000_000, Math.random, undefined, ['boss@a.com']);
+    await svc.init();
+    const owner = await svc.register('boss@a.com', 'secret12', 'Бос');
+    const other = await svc.register('b@b.com', 'secret12', 'Богдан');
+    expect(owner.profile.title).toBe('creator');
+    expect((await svc.playerProfile(other.token, owner.profile.id)).title).toBe('creator');
+    expect((await svc.setTitle(owner.token, null)).title).toBeNull();
+    expect((await svc.setTitle(owner.token, 'creator')).title).toBe('creator');
+    await expect(svc.setTitle(other.token, 'creator')).rejects.toThrow(/творця/);
+  });
+
   it('castling is read from the record, for the side that castled', () => {
     const decks = { w: classicDeck(), b: classicDeck() };
     const castle = line(createMatch(decks.w, decks.b), [['e2', 'e4'], ['e7', 'e5'], ['g1', 'f3'], ['b8', 'c6'], ['f1', 'c4'], ['f8', 'c5'], ['e1', 'g1']]);

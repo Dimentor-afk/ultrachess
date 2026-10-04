@@ -9701,3 +9701,47 @@ html.no-anim .cell.barrier.barrier-new::after { animation: none; }
 .ach-grid + .ach-toggle {
   margin: 0.8rem 0 0;
 }
+
+/* The owner's plate: a rainbow that keeps flowing. */
+.title-plate.creator {
+  gap: 0.35em;
+  padding: 0.14em 0.75em 0.14em 0.5em;
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  background: linear-gradient(90deg, #ff4d6d, #ffb02e, #ffe66b, #43d19a, #4aa3ff, #b673ff, #ff4d6d);
+  background-size: 400% 100%;
+  animation: creator-flow 5s linear infinite;
+  box-shadow: 0 0 12px rgba(255, 176, 46, 0.55), 0 0 22px rgba(182, 115, 255, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+  letter-spacing: 0.04em;
+}
+.creator-crown {
+  display: inline-block;
+  animation: creator-crown 2.4s ease-in-out infinite;
+}
+@keyframes creator-flow {
+  to {
+    background-position: 400% 0;
+  }
+}
+@keyframes creator-crown {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-8deg);
+  }
+  50% {
+    transform: translateY(-2px) rotate(8deg);
+  }
+}
+.creator-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin: 0.2rem 0 0.7rem;
+}
+@media (prefers-reduced-motion: reduce) {
+  .title-plate.creator,
+  .creator-crown {
+    animation: none;
+  }
+}

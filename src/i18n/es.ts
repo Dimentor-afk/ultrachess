@@ -1567,5 +1567,7 @@ const dict: Record<string, string> = {
   "У {0}% гравців": "{0}% de los jugadores",
   "▲ Згорнути": "▲ Contraer",
   "▼ Показати всі ({0})": "▼ Ver todos ({0})",
+  "Творець гри": "Creador del juego",
+  "Ця плашка лише для творця гри.": "Esta placa es solo para el creador del juego.",
 };
 export default dict;

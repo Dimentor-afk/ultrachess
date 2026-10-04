@@ -1,6 +1,6 @@
 import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import type { AchievementView } from '../api/client';
-import { ACHIEVEMENT_BY_ID, type AchievementDef } from '../economy/achievements';
+import { ACHIEVEMENT_BY_ID, CREATOR_TITLE, type AchievementDef } from '../economy/achievements';
 import { t } from '../i18n';
 import { cardArt, packArt } from './cardArt';
 import type { PackType } from '../economy/packs';
@@ -31,6 +31,14 @@ export function rarityText(percent: number): string {
 
 /** The plate under a player's name: an achievement they chose to show. */
 export function TitlePlate({ id, small }: { id: string | null | undefined; small?: boolean }) {
+  if (id === CREATOR_TITLE) {
+    return (
+      <span className={`title-plate creator ${small ? 'small' : ''}`} title={t('Творець гри')}>
+        <span className="creator-crown">👑</span>
+        {t('Творець гри')}
+      </span>
+    );
+  }
   const a = id ? ACHIEVEMENT_BY_ID[id] : null;
   if (!a) return null;
   return (
@@ -176,6 +184,23 @@ export function AchievementsPanel() {
       <div className="bar ach-total" aria-hidden="true">
         <span style={{ width: `${(doneCount / list.length) * 100}%` }} />
       </div>
+      {s.profile.owner && (
+        <div className="creator-row">
+          <TitlePlate id={CREATOR_TITLE} />
+          <button
+            className={`btn btn-sm ${s.profile.title === CREATOR_TITLE ? 'btn-primary' : 'btn-ghost'}`}
+            onClick={async () => {
+              try {
+                s.setProfile(await s.api.setTitle(s.profile.title === CREATOR_TITLE ? null : CREATOR_TITLE));
+              } catch (e) {
+                s.toast(errorText(e), 'error');
+              }
+            }}
+          >
+            {s.profile.title === CREATOR_TITLE ? t('✓ Плашка') : t('Плашка')}
+          </button>
+        </div>
+      )}
       {!open && (
         <div className="ach-strip">
           {list

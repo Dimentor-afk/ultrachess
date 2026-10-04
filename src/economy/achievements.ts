@@ -124,6 +124,9 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   feat('comet-path', 4, { art: 'king-comet', hue: 265 }, 'Шлях Комети', 'Пройдіть випробування «Шлях Комети».'),
 ];
 
+/** The plate of the game's owner (not an achievement). */
+export const CREATOR_TITLE = 'creator';
+
 export const ACHIEVEMENT_BY_ID: Record<string, AchievementDef> = Object.fromEntries(ACHIEVEMENTS.map((a) => [a.id, a]));
 
 /** What the service stores for the player (users.achievements, JSON). */
