@@ -5,12 +5,12 @@
 // feats out from the game it kept, so a client cannot claim one it did not play.
 
 import { createMatch, performAction, type Action, type MatchState } from '../engine/match';
-import { opposite } from '../engine/coords';
+import { opposite, rankOf } from '../engine/coords';
 import { CARDS } from '../engine/cards';
 import type { Color, Deck, PieceType } from '../engine/types';
 
 /** Counters the service keeps for the player. */
-export type CountedStat = 'wins' | 'pvpWins' | 'games' | 'packs' | 'trials';
+export type CountedStat = 'wins' | 'losses' | 'pvpWins' | 'games' | 'packs' | 'trials';
 /** Worked out from the player's data when shown. */
 export type ComputedStat = 'cards' | 'botLeague' | 'pvpLeague';
 export type AchStat = CountedStat | ComputedStat;
@@ -73,6 +73,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   count('pvp-50', 'pvpWins', 50, 3, PVP, 'Гладіатор', 'Переможіть 50 живих гравців.'),
   count('games-10', 'games', 10, 1, GAMES, 'Новобранець', 'Зіграйте 10 партій.'),
   count('games-100', 'games', 100, 2, GAMES, 'Шахоголік', 'Зіграйте 100 партій.'),
+  count('losses-10', 'losses', 10, 1, { icon: '🩹', hue: 350 }, 'Падати — це нормально', 'Програйте 10 партій. Досвід — син помилок.'),
   count('packs-10', 'packs', 10, 1, { art: 'pack:rare', hue: 200 }, 'Розпаковка', 'Відкрийте 10 паків.'),
   count('packs-50', 'packs', 50, 2, { art: 'pack:legendary', hue: 35 }, 'Пакоголік', 'Відкрийте 50 паків.'),
   count('cards-20', 'cards', 20, 1, CARDS_LOOK, 'Збирач', 'Зберіть 20 різних карток.'),
@@ -85,12 +86,13 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   count('trials-1', 'trials', 1, 2, { art: 'king-hint', hue: 170 }, 'Випробуваний', 'Пройдіть будь-яке випробування.'),
 
   // ── Feats in a game ──
-  feat('double-strike', 1, { art: 'knight-classic', hue: 25 }, 'Два зайці', 'Візьміть 2 фігури одним ходом.'),
+  feat('double-strike', 2, { art: 'knight-berserk', hue: 25 }, 'Два зайці', 'Візьміть Берсерком 2 фігури одним ходом.'),
   feat('berserk-rage', 4, { art: 'knight-berserk', hue: 0 }, 'Лють Берсерка', 'Візьміть Берсерком по 2 фігури двома його ходами поспіль.'),
   feat('pawn-mate', 3, { art: 'pawn-stormer', hue: 100 }, 'Пішак-кат', 'Поставте мат ходом пішака.'),
   feat('mate-20', 1, { icon: '⏱️', hue: 180 }, 'Без зайвих розмов', 'Поставте мат до 20-го ходу.'),
-  feat('mate-15', 2, { icon: '⚡', hue: 55 }, 'Бліцкриг', 'Поставте мат до 15-го ходу.'),
-  feat('mate-10', 4, { icon: '🍼', hue: 330 }, 'Дитячий мат', 'Поставте мат до 10-го ходу.'),
+  feat('mate-15', 2, { icon: '☕', hue: 30 }, 'Чай не встиг охолонути', 'Поставте мат до 15-го ходу.'),
+  feat('mate-10', 3, { icon: '🍼', hue: 330 }, 'Дитячий мат', 'Поставте мат до 10-го ходу.'),
+  feat('mate-5', 4, { icon: '⚡', hue: 55 }, 'Бліцкриг', 'Поставте мат за 5 ходів або швидше.'),
   feat('flawless', 3, { art: 'rook-fortress', hue: 150 }, 'Без жодної подряпини', 'Поставте мат, не втративши жодної фігури.'),
   feat('comeback', 3, { icon: '🔥', hue: 20 }, 'Фенікс', 'Виграйте партію, в якій відставали на 10 очок матеріалу (пішак 1, кінь і слон 3, тура 5, ферзь 9).'),
   feat('coronation', 2, { art: 'queen-classic', hue: 48 }, 'Дві корони', 'Перетворіть двох пішаків за одну партію.'),
@@ -98,6 +100,18 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   feat('kamikaze', 2, { art: 'rook-kamikaze', hue: 5 }, 'Разом на дно', 'Смертник забирає з собою фігуру, що його взяла.'),
   feat('portal-strike', 1, { art: 'bishop-portal', hue: 235 }, 'Крізь портал', 'Візьміть фігуру через портал.'),
   feat('comet-strike', 3, { art: 'king-comet', hue: 30 }, 'Падіння Комети', 'Візьміть фігуру ривком Комети.'),
+  feat('resign-win', 1, { icon: '🏳️', hue: 0 }, 'Ну все, здаюсь', 'Суперник здається у вашій партії.'),
+  feat('draw', 1, { icon: '🤝', hue: 160 }, 'Ні вашим, ні нашим', 'Зіграйте внічию.'),
+  feat('friend-game', 1, { icon: '🍻', hue: 40 }, 'Свої люди', 'Зіграйте партію з другом.'),
+  feat('illusion-taken', 1, { art: 'bishop-illusionist', hue: 285 }, 'Обдурив!', 'Суперник б\'є вашу ілюзію.'),
+  feat('fortress-holds', 1, { art: 'rook-fortress', hue: 30 }, 'Не пройдеш!', 'Фортечна тура переживає удар.'),
+  feat('king-tourist', 2, { art: 'king-wanderer', hue: 195 }, 'Турист', 'Ваш король доходить до останнього ряду суперника.'),
+  feat('marathon', 2, { icon: '🏃', hue: 120 }, 'Марафонець', 'Зіграйте партію на 100 ходів і більше.'),
+  feat('meat-grinder', 2, { icon: '🥩', hue: 355 }, 'М\'ясорубка', 'Візьміть 12 фігур суперника за одну партію.'),
+  feat('no-queen', 2, { art: 'queen-classic', hue: 215 }, 'Без королеви', 'Поставте мат, коли вашого ферзя вже немає на дошці.'),
+  feat('lone-wolf', 3, { icon: '🐺', hue: 225 }, 'Самотній вовк', 'Поставте мат, коли у вас лишились лише король і ще одна фігура.'),
+  feat('pacifist', 3, { icon: '🕊️', hue: 185 }, 'Пацифіст', 'Поставте мат, не взявши жодної фігури.'),
+  feat('king-mate', 3, { art: 'king-classic', hue: 50 }, 'Сам собі армія', 'Поставте мат ходом короля.'),
   feat('comet-path', 4, { art: 'king-comet', hue: 265 }, 'Шлях Комети', 'Пройдіть випробування «Шлях Комети».'),
 ];
 
@@ -164,6 +178,9 @@ export function featsFrom(first: MatchState, actions: Action[], me: Color, won: 
     const start = pieces(st, me);
     // Берсерк sits out a turn after a chain: "in a row" counts that knight's own moves.
     const streak = new Map<string, number>();
+    let taken = 0;
+    const lastRank = me === 'w' ? 7 : 0;
+    const hadQueen = st.board.some((p) => p?.color === me && p.type === 'queen');
     let promotions = 0;
     let worst = 0;
     for (const a of actions) {
@@ -174,7 +191,9 @@ export function featsFrom(first: MatchState, actions: Action[], me: Color, won: 
         const mover = before.board[m.from];
         const takes = m.captures.filter((s) => before.board[s]?.color === (mover ? opposite(mover.color) : them)).length;
         if (mover?.color === me) {
+          taken += takes;
           if (takes >= 2) out.add('double-strike');
+          if (st.result?.winner === me && st.result.reason === 'Мат' && mover.type === 'king') out.add('king-mate');
           if (mover.cardId === 'knight-berserk') {
             const n = takes >= 2 ? (streak.get(mover.id) ?? 0) + 1 : 0;
             streak.set(mover.id, n);
@@ -185,19 +204,29 @@ export function featsFrom(first: MatchState, actions: Action[], me: Color, won: 
           if (m.promotion && ++promotions >= 2) out.add('coronation');
           if (st.result?.winner === me && st.result.reason === 'Мат' && mover.type === 'pawn') out.add('pawn-mate');
         } else if (mover) {
+          // The opponent struck one of our illusions.
+          const hit = new Set([m.target, ...m.captures, ...(m.touch !== undefined ? [m.touch] : [])]);
+          if (before.hiddenState[me].illusions.some((i) => hit.has(i.square))) out.add('illusion-taken');
           for (const s of m.captures) {
             const v = before.board[s];
             if (v?.color !== me) continue;
             const alive = (id: string) => st.board.some((p) => p?.id === id);
             if (v.cardId === 'queen-immortal' && alive(v.id)) out.add('immortal-return');
             if (v.cardId === 'rook-kamikaze' && !alive(mover.id)) out.add('kamikaze');
+            if (v.cardId === 'rook-fortress' && alive(v.id)) out.add('fortress-holds');
           }
         }
       }
       worst = Math.min(worst, material(st, me) - material(st, them));
+      if (st.board.some((p, s) => p?.color === me && p.type === 'king' && rankOf(s) === lastRank)) out.add('king-tourist');
     }
     const mate = won && st.result?.winner === me && st.result.reason === 'Мат';
-    for (const n of [20, 15, 10]) if (mate && st.result!.moves <= n) out.add(`mate-${n}`);
+    for (const n of [20, 15, 10, 5]) if (mate && st.result!.moves <= n) out.add(`mate-${n}`);
+    if (mate && taken === 0) out.add('pacifist');
+    if (mate && pieces(st, me) <= 2) out.add('lone-wolf');
+    if (mate && hadQueen && !st.board.some((p) => p?.color === me && p.type === 'queen')) out.add('no-queen');
+    if (taken >= 12) out.add('meat-grinder');
+    if (st.ply >= 200) out.add('marathon');
     if (mate && pieces(st, me) >= start) out.add('flawless');
     if (won && worst <= -10) out.add('comeback');
   } catch {

@@ -921,6 +921,7 @@ export class GameService {
     const a = parseAchievements(u.achievements);
     a.stats.wins ??= u.wins;
     a.stats.games ??= u.wins + u.losses + u.draws;
+    a.stats.losses ??= u.losses;
     return a;
   }
 
@@ -954,9 +955,21 @@ export class GameService {
   }
 
   /** A finished game for one player: counters and the feats found in its record. */
-  private async gameAchievements(userId: string, decks: Record<Color, Deck>, actions: Action[], color: Color, outcome: 'win' | 'loss' | 'draw', pvp: boolean): Promise<string[]> {
+  private async gameAchievements(
+    userId: string,
+    decks: Record<Color, Deck>,
+    actions: Action[],
+    color: Color,
+    outcome: 'win' | 'loss' | 'draw',
+    game: { pvp: boolean; friend?: boolean; reason: string },
+  ): Promise<string[]> {
     const won = outcome === 'win';
-    return this.achieve(userId, { games: 1, wins: won ? 1 : 0, pvpWins: won && pvp ? 1 : 0 }, gameFeats(decks, actions, color, won));
+    const feats = gameFeats(decks, actions, color, won);
+    // What the record alone does not say: how the game ended and with whom.
+    if (won && game.reason === 'Здача') feats.push('resign-win');
+    if (outcome === 'draw') feats.push('draw');
+    if (game.friend) feats.push('friend-game');
+    return this.achieve(userId, { games: 1, wins: won ? 1 : 0, losses: outcome === 'loss' ? 1 : 0, pvpWins: won && game.pvp ? 1 : 0 }, feats);
   }
 
   async achievements(token: string): Promise<AchievementView[]> {
@@ -1874,7 +1887,7 @@ export class GameService {
     if (outcome === 'win' && mode === 'bot') events.push('winRanked');
     await this.questEvent(u.id, events);
     const decks: Record<Color, Deck> = m.color === 'w' ? { w: m.playerDeck, b: m.botDeck } : { w: m.botDeck, b: m.playerDeck };
-    const achievements = await this.gameAchievements(u.id, decks, m.actions, m.color, outcome, false);
+    const achievements = await this.gameAchievements(u.id, decks, m.actions, m.color, outcome, { pvp: false, reason: state.result!.reason });
     await this.store.updateMatch(m.id, {
       status: 'finished',
       result: JSON.stringify({ outcome, reason: state.result!.reason, moves: state.result!.moves, trophiesDelta: ladder?.trophiesDelta ?? 0 }),
@@ -2288,7 +2301,7 @@ export class GameService {
     const achievements: Partial<Record<Color, string[]>> = {};
     for (const [id, c] of [[row.whiteId, 'w'], [row.blackId, 'b']] as [string, Color][]) {
       const outcome = winner === null ? 'draw' : winner === c ? 'win' : 'loss';
-      achievements[c] = await this.gameAchievements(id, { w: row.whiteDeck, b: row.blackDeck }, actions, c, outcome, true);
+      achievements[c] = await this.gameAchievements(id, { w: row.whiteDeck, b: row.blackDeck }, actions, c, outcome, { pvp: true, friend: !row.ranked, reason: state.result!.reason });
     }
     out.achievements = achievements;
     return JSON.stringify(out);

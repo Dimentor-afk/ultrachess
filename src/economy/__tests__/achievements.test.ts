@@ -31,7 +31,7 @@ describe('achievements', () => {
   it('a fast mate without losses: the mate-in-N feats and the flawless one, for the winner only', () => {
     const decks = { w: classicDeck(), b: classicDeck() };
     const actions = line(createMatch(decks.w, decks.b), SCHOLAR);
-    expect(gameFeats(decks, actions, 'w', true).sort()).toEqual(['flawless', 'mate-10', 'mate-15', 'mate-20']);
+    expect(gameFeats(decks, actions, 'w', true).sort()).toEqual(['flawless', 'mate-10', 'mate-15', 'mate-20', 'mate-5']);
     expect(gameFeats(decks, actions, 'b', false)).toEqual([]);
   });
 
