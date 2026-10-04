@@ -210,6 +210,8 @@ export interface Store {
   getPack(id: string): Promise<PackRow | null>;
   insertPack(p: PackRow): Promise<void>;
   updatePack(id: string, patch: Partial<PackRow>): Promise<void>;
+  /** How many packs the user has opened, ever. */
+  countOpenedPacks(userId: string): Promise<number>;
   /** Atomically mark a ready pack as opened; false if it was not ready. */
   claimPack(id: string, userId: string, openedAt: number): Promise<boolean>;
 

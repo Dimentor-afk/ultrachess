@@ -229,6 +229,9 @@ export class MemoryStore implements Store {
     if (p) Object.assign(p, clone(patch));
     this.save();
   }
+  async countOpenedPacks(userId: string) {
+    return this.data.packs.filter((p) => p.userId === userId && p.status === 'opened').length;
+  }
   async claimPack(id: string, userId: string, openedAt: number) {
     const p = this.data.packs.find((x) => x.id === id && x.userId === userId);
     if (!p || p.status !== 'ready') return false;

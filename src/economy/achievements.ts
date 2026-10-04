@@ -135,12 +135,14 @@ export interface AchievementState {
   feats: string[];
   /** Reached achievements whose pop-up the player has seen (the rest pop up on their next visit). */
   seen: string[];
+  /** 1 once the games played before achievements existed have been counted. */
+  v?: number;
 }
 
 export function parseAchievements(raw: string | null | undefined): AchievementState {
   try {
     const a = JSON.parse(raw || '{}') as Partial<AchievementState>;
-    return { stats: a.stats ?? {}, feats: a.feats ?? [], seen: a.seen ?? [] };
+    return { stats: a.stats ?? {}, feats: a.feats ?? [], seen: a.seen ?? [], v: a.v };
   } catch {
     return { stats: {}, feats: [], seen: [] };
   }

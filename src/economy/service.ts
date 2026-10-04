@@ -883,7 +883,7 @@ export class GameService {
   }
 
   private async profileOf(userId: string): Promise<Profile> {
-    const u = (await this.store.getUser(userId))!;
+    const u = await this.withHistory((await this.store.getUser(userId))!);
     return {
       id: u.id,
       email: u.email,
@@ -931,6 +931,66 @@ export class GameService {
     return a;
   }
 
+  /** Games replayed for their feats when an account's history is first counted: the newest ones, few enough not to stall the server (~25 ms a game). */
+  private static HISTORY_GAMES = 60;
+
+  /**
+   * Accounts from before achievements (or from before a counter existed) get
+   * their history counted once: games, wins, wins over people, packs, trials,
+   * and the feats found by replaying their finished games. Returns the row
+   * with the record updated.
+   */
+  private async withHistory(u: UserRow): Promise<UserRow> {
+    const st = this.achState(u);
+    if (st.v === 1) return u;
+    const n = { games: 0, wins: 0, losses: 0, pvpWins: 0 };
+    const feats = new Set(st.feats);
+    let replays = 0;
+    const count = (outcome: 'win' | 'loss' | 'draw', pvp: boolean) => {
+      n.games++;
+      if (outcome === 'win') n.wins++;
+      if (outcome === 'loss') n.losses++;
+      if (outcome === 'win' && pvp) n.pvpWins++;
+    };
+    const featsOf = (decks: Record<Color, Deck>, actions: Action[], color: Color, outcome: 'win' | 'loss' | 'draw', reason: string, ranked: boolean, friend: boolean) => {
+      if (outcome === 'win' && reason === 'Здача') feats.add('resign-win');
+      if (outcome === 'draw') feats.add('draw');
+      if (friend) feats.add('friend-game');
+      if (replays++ >= GameService.HISTORY_GAMES) return;
+      for (const f of gameFeats(decks, actions, color, outcome === 'win')) if (ranked || !ACHIEVEMENT_BY_ID[f]?.online) feats.add(f);
+    };
+    // Newest first, so the replay budget goes to the latest games.
+    const games: { at: number; run: () => void }[] = [];
+    for (const m of await this.store.listMatches(u.id, 100_000)) {
+      if (m.status !== 'finished' || !m.result) continue;
+      const r = JSON.parse(m.result) as { outcome: 'win' | 'loss' | 'draw'; reason: string };
+      const decks: Record<Color, Deck> = m.color === 'w' ? { w: m.playerDeck, b: m.botDeck } : { w: m.botDeck, b: m.playerDeck };
+      games.push({ at: m.createdAt, run: () => (count(r.outcome, false), featsOf(decks, m.actions, m.color, r.outcome, r.reason, false, false)) });
+    }
+    for (const p of await this.store.listPvp(u.id, 100_000)) {
+      if (p.status !== 'finished' || !p.result) continue;
+      const r = JSON.parse(p.result) as { winner: Color | null; reason: string };
+      const color: Color = p.whiteId === u.id ? 'w' : 'b';
+      const outcome = r.winner === null ? 'draw' : r.winner === color ? 'win' : 'loss';
+      games.push({ at: p.updatedAt, run: () => (count(outcome, true), featsOf({ w: p.whiteDeck, b: p.blackDeck }, JSON.parse(p.actions) as Action[], color, outcome, r.reason, !!p.ranked, !p.ranked)) });
+    }
+    games.sort((a, b) => b.at - a.at).forEach((g) => g.run());
+    const runs = Object.values(this.trialRuns(u));
+    const max = (k: CountedStat, v: number) => (st.stats[k] = Math.max(st.stats[k] ?? 0, v));
+    max('games', n.games);
+    max('wins', n.wins);
+    max('losses', n.losses);
+    max('pvpWins', n.pvpWins);
+    max('packs', await this.store.countOpenedPacks(u.id));
+    max('trials', runs.filter((r) => r.status === 'won').length);
+    if (this.trialRuns(u).comet?.status === 'won') feats.add('comet-path');
+    st.feats = [...feats].filter((f) => ACHIEVEMENT_BY_ID[f]);
+    st.v = 1;
+    const achievements = JSON.stringify(st);
+    await this.store.updateUser(u.id, { achievements });
+    return { ...u, achievements };
+  }
+
   private async achievementList(u: UserRow): Promise<AchievementView[]> {
     return achievementViews(this.achState(u), {
       cards: (await this.store.listCards(u.id)).filter((c) => CARD_BY_ID[c.cardId] && !CARD_BY_ID[c.cardId].trialOnly).length,
@@ -947,7 +1007,7 @@ export class GameService {
 
   /** The pop-ups of these achievements were shown. */
   async seeAchievements(token: string, ids: string[]): Promise<Profile> {
-    const u = await this.auth(token);
+    const u = await this.withHistory(await this.auth(token));
     const st = this.achState(u);
     for (const id of ids) if (ACHIEVEMENT_BY_ID[id] && !st.seen.includes(id)) st.seen.push(id);
     await this.store.updateUser(u.id, { achievements: JSON.stringify(st) });
@@ -966,8 +1026,10 @@ export class GameService {
    * this reached for the first time.
    */
   private async achieve(userId: string, add: Partial<Record<CountedStat, number>>, feats: string[] = []): Promise<string[]> {
-    const u = await this.store.getUser(userId);
-    if (!u || u.deleted) return [];
+    const row = await this.store.getUser(userId);
+    if (!row || row.deleted) return [];
+    // History first: otherwise this game would be counted once more by it.
+    const u = await this.withHistory(row);
     const before = new Set((await this.achievementList(u)).filter((a) => a.done).map((a) => a.id));
     const st = this.achState(u);
     for (const [k, n] of Object.entries(add) as [CountedStat, number][]) st.stats[k] = (st.stats[k] ?? 0) + n;
@@ -998,7 +1060,7 @@ export class GameService {
 
   async achievements(token: string): Promise<AchievementView[]> {
     const percent = await this.achievementRarity();
-    return (await this.achievementList(await this.auth(token))).map((a) => ({ ...a, percent: percent[a.id] ?? 0 }));
+    return (await this.achievementList(await this.withHistory(await this.auth(token)))).map((a) => ({ ...a, percent: percent[a.id] ?? 0 }));
   }
 
   private rarity: { at: number; percent: Record<string, number> } | null = null;
@@ -2032,7 +2094,7 @@ export class GameService {
       createdAt: u.createdAt,
       relation,
       deck: await this.lastDeck(u),
-      achievements: (await this.achievementList(u)).filter((a) => a.done).map((a) => a.id),
+      achievements: (await this.achievementList(await this.withHistory(u))).filter((a) => a.done).map((a) => a.id),
     };
   }
 

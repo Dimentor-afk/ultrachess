@@ -96,6 +96,31 @@ describe('achievements', () => {
     await expect(svc.setTitle(other.token, 'creator')).rejects.toThrow(/творця/);
   });
 
+  it('games won before achievements existed count: a past win over a player gives "Не бот"', async () => {
+    const store = new MemoryStore();
+    const svc = new GameService(store, hasher, () => 1_800_000_000_000, Math.random);
+    await svc.init();
+    const a = await svc.register('a@a.com', 'secret12', 'Анна');
+    const b = await svc.register('b@b.com', 'secret12', 'Богдан');
+    const decks = { w: classicDeck(), b: classicDeck() };
+    await store.insertPvp({
+      id: 'old1', whiteId: a.profile.id, blackId: b.profile.id, whiteDeck: decks.w, blackDeck: decks.b,
+      actions: JSON.stringify(line(createMatch(decks.w, decks.b), SCHOLAR)), status: 'finished',
+      result: JSON.stringify({ winner: 'w', reason: 'Мат', moves: 4 }), resignedBy: null, ranked: true, createdAt: 1, updatedAt: 1,
+    });
+    // Both accounts as they were before the update: no achievement record.
+    await store.updateUser(a.profile.id, { achievements: '{}' });
+    await store.updateUser(b.profile.id, { achievements: '{}' });
+    const me = await svc.me(a.token);
+    expect(me.achievements).toEqual(expect.arrayContaining(['pvp-1', 'wins-1', 'mate-5', 'flawless']));
+    expect(me.achievementsUnseen).toContain('pvp-1');
+    expect((await svc.me(b.token)).achievements).not.toContain('pvp-1');
+    // Counted once: the next game adds to it, not the history again.
+    const achieve = (svc as unknown as { achieve: (id: string, add: object) => Promise<string[]> }).achieve.bind(svc);
+    await achieve(a.profile.id, { pvpWins: 9 });
+    expect((await svc.me(a.token)).achievements).toContain('pvp-10');
+  });
+
   it('castling is read from the record, for the side that castled', () => {
     const decks = { w: classicDeck(), b: classicDeck() };
     const castle = line(createMatch(decks.w, decks.b), [['e2', 'e4'], ['e7', 'e5'], ['g1', 'f3'], ['b8', 'c6'], ['f1', 'c4'], ['f8', 'c5'], ['e1', 'g1']]);

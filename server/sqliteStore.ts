@@ -531,6 +531,10 @@ export class SqliteStore implements Store {
   async updatePack(id: string, patch: Partial<PackRow>) {
     update(this.db, 'packs', PACK_COLS, id, patch as Row);
   }
+  async countOpenedPacks(userId: string) {
+    const r = this.db.prepare("SELECT COUNT(*) AS n FROM packs WHERE user_id = ? AND status = 'opened'").get(userId) as Row;
+    return Number(r.n);
+  }
   async claimPack(id: string, userId: string, openedAt: number) {
     const res = this.db
       .prepare("UPDATE packs SET status = 'opened', opened_at = ? WHERE id = ? AND user_id = ? AND status = 'ready'")
