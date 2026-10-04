@@ -110,8 +110,15 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   feat('meat-grinder', 2, { icon: '🥩', hue: 355 }, 'М\'ясорубка', 'Візьміть 12 фігур суперника за одну партію.'),
   feat('no-queen', 2, { art: 'queen-classic', hue: 215 }, 'Без королеви', 'Поставте мат, коли вашого ферзя вже немає на дошці.'),
   feat('lone-wolf', 3, { icon: '🐺', hue: 225 }, 'Самотній вовк', 'Поставте мат, коли у вас лишились лише король і ще одна фігура.'),
-  feat('pacifist', 3, { icon: '🕊️', hue: 185 }, 'Пацифіст', 'Поставте мат, не взявши жодної фігури.'),
+  feat('pacifist', 4, { icon: '🕊️', hue: 185 }, 'Пацифіст', 'Поставте мат, не взявши жодної фігури.'),
   feat('king-mate', 3, { art: 'king-classic', hue: 50 }, 'Сам собі армія', 'Поставте мат ходом короля.'),
+  feat('castle', 1, { art: 'rook-castle', hue: 140 }, 'Сховався в замок', 'Зробіть рокіровку.'),
+  feat('quake', 1, { art: 'rook-earthquake', hue: 25 }, 'Земля тремтить', 'Зрушіть лінію Землетрусом.'),
+  feat('mirage-jump', 1, { art: 'knight-mirage', hue: 265 }, 'Ловіть, якщо зможете', 'Стрибніть конем-Міражем з ілюзіями.'),
+  feat('knight-promo', 2, { art: 'knight-classic', hue: 95 }, 'Несподіванка', 'Перетворіть пішака на коня.'),
+  feat('woodpecker', 2, { icon: '🐦', hue: 10 }, 'Дятел', 'Оголосіть шах п\'ятьма своїми ходами поспіль.'),
+  feat('hungry-pawn', 3, { art: 'pawn-classic', hue: 75 }, 'Голодний пішак', 'Візьміть одним пішаком 3 фігури за партію.'),
+  feat('terminator', 3, { icon: '🤖', hue: 0 }, 'Термінатор', 'Візьміть однією фігурою 6 фігур за партію.'),
   feat('comet-path', 4, { art: 'king-comet', hue: 265 }, 'Шлях Комети', 'Пройдіть випробування «Шлях Комети».'),
 ];
 
@@ -179,6 +186,8 @@ export function featsFrom(first: MatchState, actions: Action[], me: Color, won: 
     // Берсерк sits out a turn after a chain: "in a row" counts that knight's own moves.
     const streak = new Map<string, number>();
     let taken = 0;
+    let checks = 0;
+    const takenBy = new Map<string, number>();
     const lastRank = me === 'w' ? 7 : 0;
     const hadQueen = st.board.some((p) => p?.color === me && p.type === 'queen');
     let promotions = 0;
@@ -192,6 +201,15 @@ export function featsFrom(first: MatchState, actions: Action[], me: Color, won: 
         const takes = m.captures.filter((s) => before.board[s]?.color === (mover ? opposite(mover.color) : them)).length;
         if (mover?.color === me) {
           taken += takes;
+          const byThis = (takenBy.get(mover.id) ?? 0) + takes;
+          takenBy.set(mover.id, byThis);
+          if (byThis >= 3 && mover.type === 'pawn') out.add('hungry-pawn');
+          if (byThis >= 6) out.add('terminator');
+          if (m.kind === 'castle') out.add('castle');
+          if (m.kind === 'mirage') out.add('mirage-jump');
+          if (m.promotion === 'knight') out.add('knight-promo');
+          checks = st.status === 'check' || st.status === 'checkmate' ? checks + 1 : 0;
+          if (checks >= 5) out.add('woodpecker');
           if (takes >= 2) out.add('double-strike');
           if (st.result?.winner === me && st.result.reason === 'Мат' && mover.type === 'king') out.add('king-mate');
           if (mover.cardId === 'knight-berserk') {
@@ -217,6 +235,7 @@ export function featsFrom(first: MatchState, actions: Action[], me: Color, won: 
           }
         }
       }
+      if (a.type === 'ability' && before.board.find((p) => p?.id === a.pieceId)?.cardId === 'rook-earthquake' && before.turn === me) out.add('quake');
       worst = Math.min(worst, material(st, me) - material(st, them));
       if (st.board.some((p, s) => p?.color === me && p.type === 'king' && rankOf(s) === lastRank)) out.add('king-tourist');
     }

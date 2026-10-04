@@ -35,6 +35,13 @@ describe('achievements', () => {
     expect(gameFeats(decks, actions, 'b', false)).toEqual([]);
   });
 
+  it('castling is read from the record, for the side that castled', () => {
+    const decks = { w: classicDeck(), b: classicDeck() };
+    const castle = line(createMatch(decks.w, decks.b), [['e2', 'e4'], ['e7', 'e5'], ['g1', 'f3'], ['b8', 'c6'], ['f1', 'c4'], ['f8', 'c5'], ['e1', 'g1']]);
+    expect(gameFeats(decks, castle, 'w', false)).toContain('castle');
+    expect(gameFeats(decks, castle, 'b', false)).not.toContain('castle');
+  });
+
   it('Лють Берсерка: two pieces on two of the knight\'s own moves in a row', () => {
     const pos = build({
       a1: 'w:king-classic', h8: 'b:king-classic', a8: 'b:pawn-classic',
