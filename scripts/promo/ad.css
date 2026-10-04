@@ -3,11 +3,27 @@ html, body, #root { margin: 0; height: 100%; background: #05070f; overflow: hidd
 .ad, .ad-shot { position: relative; width: 100%; height: 100%; overflow: hidden; }
 .ad { background: radial-gradient(120% 70% at 50% 35%, #16234a, #05070f 72%); font-family: var(--font-body); color: #fff; }
 
-/* A hard cut: white flash and a small punch-in. */
-.ad-shot { animation: ad-punch 0.35s cubic-bezier(0.2, 1.2, 0.4, 1); }
-@keyframes ad-punch { from { transform: scale(1.06); } }
-.ad-flash { position: absolute; inset: 0; z-index: 50; background: #fff; pointer-events: none; animation: ad-flash 0.28s ease-out forwards; }
-@keyframes ad-flash { from { opacity: 0.8; } to { opacity: 0; } }
+/* Cuts on the beat. Each shot leaves in the last 200 ms (a zoom through the
+   frame, or a whip pan with motion blur) and the next one comes in the same
+   way, with a light flash: the two halves read as one move. --d: shot length. */
+.ad-shot.enter.t-zoom, .ad-shot.enter.t-whip-l, .ad-shot.enter.t-whip-r { animation-duration: 0.32s; animation-timing-function: cubic-bezier(0.15, 0.85, 0.3, 1); animation-fill-mode: both; }
+.ad-shot.enter.t-zoom { animation-name: ad-in-zoom; }
+.ad-shot.enter.t-whip-l { animation-name: ad-in-whip-l; }
+.ad-shot.enter.t-whip-r { animation-name: ad-in-whip-r; }
+.ad-shot.leave::after { content: ''; position: absolute; inset: 0; z-index: 60; pointer-events: none; opacity: 0; background: radial-gradient(circle at 50% 45%, rgba(255, 244, 214, 0.95), rgba(255, 196, 81, 0.5) 45%, rgba(255, 255, 255, 0) 75%); animation: ad-glow-out 0.2s ease-in forwards; animation-delay: calc(var(--d) - 200ms); }
+.ad-frame { position: absolute; inset: 0; }
+.ad-shot.leave > .ad-frame { animation: ad-out-zoom 0.2s cubic-bezier(0.6, 0, 0.9, 0.4) forwards; animation-delay: calc(var(--d) - 200ms); }
+.ad-shot.leave.t-whip-l > .ad-frame { animation-name: ad-out-whip-r; }
+.ad-shot.leave.t-whip-r > .ad-frame { animation-name: ad-out-whip-l; }
+@keyframes ad-in-zoom { from { transform: scale(1.3); filter: blur(10px) brightness(1.7); } }
+@keyframes ad-in-whip-l { from { transform: translateX(45%) skewX(-8deg); filter: blur(14px) brightness(1.4); } }
+@keyframes ad-in-whip-r { from { transform: translateX(-45%) skewX(8deg); filter: blur(14px) brightness(1.4); } }
+@keyframes ad-out-zoom { to { transform: scale(1.35); filter: blur(10px) brightness(1.8); } }
+@keyframes ad-out-whip-l { to { transform: translateX(-45%) skewX(8deg); filter: blur(14px) brightness(1.4); } }
+@keyframes ad-out-whip-r { to { transform: translateX(45%) skewX(-8deg); filter: blur(14px) brightness(1.4); } }
+@keyframes ad-glow-out { to { opacity: 0.85; } }
+.ad-flash { position: absolute; inset: 0; z-index: 50; pointer-events: none; background: radial-gradient(circle at 50% 45%, #fff6dc, rgba(255, 210, 120, 0.6) 50%, rgba(255, 255, 255, 0) 80%); animation: ad-flash 0.3s ease-out forwards; }
+@keyframes ad-flash { from { opacity: 0.85; } to { opacity: 0; } }
 
 /* Captions: big, bold, outlined, popping in. */
 .ad-cap { position: absolute; z-index: 400; left: 14px; right: 14px; display: flex; justify-content: center; pointer-events: none; }

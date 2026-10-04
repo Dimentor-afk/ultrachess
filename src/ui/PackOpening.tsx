@@ -54,10 +54,13 @@ export function PackOpening({
   pack,
   open,
   onClose,
+  pace = 1,
 }: {
   pack: PackView;
   open: () => Promise<OpenResult>;
   onClose: (result: OpenResult | null) => void;
+  /** Shake and tease steps take this share of their usual time (the promo video runs them faster). */
+  pace?: number;
 }) {
   const [phase, setPhase] = useState<Phase>('idle');
   const [result, setResult] = useState<OpenResult | null>(null);
@@ -75,7 +78,7 @@ export function PackOpening({
   const start = async () => {
     if (phase !== 'idle') return;
     setPhase('opening');
-    const minShake = new Promise((r) => setTimeout(r, 1100));
+    const minShake = new Promise((r) => setTimeout(r, 1100 * pace));
     try {
       const [res] = await Promise.all([open(), minShake]);
       setResult(res);
@@ -113,7 +116,7 @@ export function PackOpening({
           set('tease', i);
           play(`tease${i}` as Sound);
         });
-        t += STEP_MS;
+        t += STEP_MS * pace;
       }
       at(t, () => {
         set('charge');

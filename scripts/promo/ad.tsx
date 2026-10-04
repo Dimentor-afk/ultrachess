@@ -109,6 +109,7 @@ async function main() {
           pack={pack as never}
           open={async () => ({ pack: pack as never, cards: s.cards.map((cardId) => ({ cardId, isNew: true, shards: 0 })), gold: 0, shards: 0 })}
           onClose={() => {}}
+          pace={s.pace}
         />
         {s.caption && <Caption text={s.caption} pos="top" />}
       </div>
@@ -178,15 +179,26 @@ async function main() {
       const t = setTimeout(() => setN(n + 1), shotMs(ad[n]));
       return () => clearTimeout(t);
     }, [n, run]);
-    const s = ad[Math.min(Math.max(n, 0), ad.length - 1)];
+    const i = Math.min(Math.max(n, 0), ad.length - 1);
+    const s = ad[i];
+    // Cuts alternate: a zoom through the frame, then a whip pan one way or the other.
+    const trans = ['zoom', 'whip-l', 'zoom', 'whip-r'][i % 4];
+    const last = i === ad.length - 1;
     return (
       <div className="ad">
-        <div className="ad-shot" key={`${run}-${n}`}>
-          {s.kind === 'hook' && <Hook s={s} />}
-          {s.kind === 'board' && <BoardShot s={s} />}
-          {s.kind === 'pack' && <PackShot s={s} />}
-          {s.kind === 'card' && <CardShot s={s} />}
-          {s.kind === 'end' && <End s={s} />}
+        <div
+          className={`ad-shot t-${trans} ${i > 0 ? 'enter' : ''} ${last ? '' : 'leave'}`}
+          key={`${run}-${n}`}
+          data-n={i}
+          style={{ '--d': `${shotMs(s)}ms` } as CSSProperties}
+        >
+          <div className="ad-frame">
+            {s.kind === 'hook' && <Hook s={s} />}
+            {s.kind === 'board' && <BoardShot s={s} />}
+            {s.kind === 'pack' && <PackShot s={s} />}
+            {s.kind === 'card' && <CardShot s={s} />}
+            {s.kind === 'end' && <End s={s} />}
+          </div>
           {n > 0 && <div className="ad-flash" />}
         </div>
       </div>

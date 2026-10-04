@@ -20,7 +20,7 @@ export type Shot =
       /** Fireworks at the end (a won game). */
       win?: boolean;
     })
-  | { kind: 'pack'; pack: PackType; packName?: string; cards: string[]; caption?: string; hold?: number; ms: number }
+  | { kind: 'pack'; pack: PackType; packName?: string; cards: string[]; caption?: string; hold?: number; pace?: number; ms: number }
   | { kind: 'card'; id: string; caption?: string; ms: number }
   | { kind: 'end'; text?: string; ms: number };
 
@@ -235,7 +235,29 @@ const SWAP: Shot = {
   gap: 1300,
 };
 
+// ── The 30-second promo: cut to the beat of 128 BPM (one beat = 468.75 ms). ──
+const BEAT = 60_000 / 128;
+/** A board shot `beats` long: lead and gap as given, the tail fills the rest. */
+function onBeat(s: Extract<Shot, { kind: 'board' }>, beats: number): Shot {
+  const used = (s.lead ?? 600) + s.steps.length * (s.gap ?? 1500);
+  return { ...s, tail: Math.round(beats * BEAT - used) };
+}
+
+export const PROMO: Shot[] = [
+  // Hook: action from the first frame.
+  onBeat({ ...BERSERK, caption: 'Chess, but every piece has a *superpower*', lead: 250, gap: 1650 }, 5),
+  onBeat({ ...PORTAL, caption: 'Bishops that *teleport*', lead: 300, gap: 2050 }, 6),
+  onBeat({ ...QUAKE, caption: 'Rooks that *shake the board*', lead: 300, gap: 1500 }, 5),
+  onBeat({ ...IMMORTAL, lead: 250, gap: 950 }, 9),
+  { kind: 'pack', pack: 'mythic', packName: 'Mythic Pack', cards: ['knight-mirage'], caption: 'Open packs. Pull *legends*.', pace: 0.5, ms: Math.round(14 * BEAT) },
+  onBeat({ ...MIRAGE, caption: '…which one is *real*?', lead: 250, gap: 1400 }, 5),
+  onBeat({ ...KAMIKAZE, lead: 300, gap: 1250 }, 5),
+  onBeat({ ...MATE, lead: 300, gap: 1150 }, 6),
+  { kind: 'end', text: 'Every piece is unique', ms: Math.round(7 * BEAT) },
+];
+
 export const ADS: Record<string, Shot[]> = {
+  promo: PROMO,
   // Big ad 1: one mechanic after another, a pack, a blast.
   chaos: [
     { kind: 'hook', text: 'Chess, but every piece has a *superpower*', art: 'rook-earthquake', ms: 1700 },
