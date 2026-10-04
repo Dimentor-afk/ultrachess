@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { PackView } from '../api/client';
-import { PACKS, PACK_SHARD_PRICE, SHARDS_PER_DUPE, type PackType } from '../economy/packs';
+import { FREE_PACK, PACKS, PACK_SHARD_PRICE, SHARDS_PER_DUPE, type PackType } from '../economy/packs';
 import { type BoardTheme, themeById } from '../economy/themes';
 import { type CaptureFx, captureFxById } from '../economy/captureFx';
 import { RARITY_NAMES } from '../engine/cards';
@@ -70,6 +70,13 @@ export function ShopPage() {
   const buyPack = (type: ShopPack) =>
     run(type, async () => {
       const r = await s.api.buyPack(type);
+      s.setProfile(r.profile);
+      setOpening(r.pack);
+    });
+
+  const claimFree = () =>
+    run('free', async () => {
+      const r = await s.api.claimFreePack();
       s.setProfile(r.profile);
       setOpening(r.pack);
     });
@@ -183,6 +190,17 @@ export function ShopPage() {
         </span>
       </div>
       <div className="shop-packs">
+        <article className={`shop-pack pack-${FREE_PACK} free-pack ${profile.freePack ? 'can' : 'taken'}`}>
+          <span className="free-pack-tag">{t('Подарунок дня')}</span>
+          <img src={packArt(FREE_PACK)} alt="" />
+          <div className="shop-pack-info">
+            <b>{PACKS[FREE_PACK].name}</b>
+            <span className="muted tiny">{profile.freePack ? t('Безкоштовно, раз на день.') : t('Наступний — завтра.')}</span>
+          </div>
+          <button className="btn btn-primary btn-price" disabled={!profile.freePack || busy === 'free'} onClick={claimFree}>
+            {profile.freePack ? t('Забрати') : '✓'}
+          </button>
+        </article>
         {(Object.keys(PACK_SHARD_PRICE) as ShopPack[]).map((type) => {
           const price = PACK_SHARD_PRICE[type];
           const def = PACKS[type];

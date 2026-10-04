@@ -79,6 +79,9 @@ export const PACKS: Record<Exclude<PackType, 'starter'>, PackDef> = {
   },
 };
 
+/** The pack the shop gives away once a day. */
+export const FREE_PACK = 'common' satisfies PackType;
+
 export const STARTER_PACK = {
   type: 'starter' as const,
   name: 'Стартовий пак',
@@ -100,11 +103,11 @@ export function packGold(type: PackType): number {
  * rarity's pack but never the whole price.
  */
 export const SHARDS_PER_DUPE: Record<Rarity, number> = {
-  common: 3,
-  rare: 10,
-  epic: 40,
-  legendary: 120,
-  mythological: 350,
+  common: 4,
+  rare: 12,
+  epic: 50,
+  legendary: 160,
+  mythological: 500,
 };
 
 export const PACK_SHARD_PRICE: Record<Exclude<PackType, 'starter'>, number> = {
@@ -112,7 +115,7 @@ export const PACK_SHARD_PRICE: Record<Exclude<PackType, 'starter'>, number> = {
   rare: 150,
   epic: 400,
   legendary: 1000,
-  mythic: 2500,
+  mythic: 2000,
 };
 
 const pick = <T,>(xs: T[], rng: Rng): T => xs[Math.min(xs.length - 1, Math.floor(rng() * xs.length))];

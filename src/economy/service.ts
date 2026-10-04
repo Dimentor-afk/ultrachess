@@ -6,7 +6,7 @@ import { DECK_SLOTS, classicDeck, deckPositions, validateDeck } from '../engine/
 import { type Action, type MatchState, canonicalAction, createMatch, performAction, resign } from '../engine/match';
 import { secureState } from '../engine/secure';
 import type { Color, Deck, Move, PieceType, Rarity } from '../engine/types';
-import { PACK_SHARD_PRICE, type PackType, RARITIES, type Rng, SHARDS_PER_DUPE, packGold, packName, rollPack } from './packs';
+import { FREE_PACK, PACK_SHARD_PRICE, type PackType, RARITIES, type Rng, SHARDS_PER_DUPE, packGold, packName, rollPack } from './packs';
 import {
   BOT_LEAGUES,
   LADDER_PACK_LIMIT,
@@ -32,7 +32,7 @@ import { legalMoves } from '../engine/legal';
 import { type QuestEvent, type QuestView, addProgress, parseQuests, questViews } from './quests';
 import { type Hasher, type MatchRow, type PackRow, type PvpRow, type Role, type Store, type TokenRow, type UserRow, randomId } from './store';
 import { NAME_CHANGE_MS, cleanName, nameProblem, passwordProblem, sha256 } from './account';
-import { type PaymentProvider, type ProviderState, type PurchaseRow, type PurchaseView, SHARD_PRODUCTS, type ShardOffer, formatPrice, productById } from './payments';
+import { type PaymentProvider, type ProviderState, type PurchaseRow, type PurchaseView, FIRST_PURCHASE_MULTIPLIER, SHARD_PRODUCTS, type ShardOffer, formatPrice, productById } from './payments';
 
 /** Short public code for finding a player (first 6 hex digits of the id). */
 const tagOf = (u: UserRow) => u.id.slice(0, 6).toUpperCase();
@@ -107,6 +107,8 @@ export interface Profile {
   /** Capture effect in use and the ones owned (the free one included). */
   captureFx: string;
   ownedFx: string[];
+  /** The free pack of the day is waiting in the shop. */
+  freePack: boolean;
 }
 
 export interface LadderView {
@@ -569,6 +571,7 @@ export class GameService {
       botCycle: 0,
       botPacksToday: 0,
       botPacksDay: '',
+      freePackDay: '',
       leagueRewards: '{}',
       trials: '{}',
       emailVerified: false,
@@ -892,6 +895,7 @@ export class GameService {
       botOverride: u.role === 'admin' && u.botOverride >= 0 ? u.botOverride : null,
       captureFx: captureFxById(u.captureFx).id,
       ownedFx: this.fxOf(u),
+      freePack: u.freePackDay !== this.today(),
     };
   }
 
@@ -1215,6 +1219,16 @@ export class GameService {
     return { pack, profile: await this.profileOf(u.id) };
   }
 
+  /** The free common pack of the day (once per UTC day); it lands with the other ready packs. */
+  async claimFreePack(token: string): Promise<{ pack: PackView; profile: Profile }> {
+    const u = await this.auth(token);
+    const today = this.today();
+    if (u.freePackDay === today) throw new ApiError(400, 'Безкоштовний пак сьогодні вже забрано. Новий буде завтра.');
+    await this.store.updateUser(u.id, { freePackDay: today });
+    const pack = this.view(await this.createPack(u.id, FREE_PACK, 'Подарунок дня'));
+    return { pack, profile: await this.profileOf(u.id) };
+  }
+
   // ── Shards for real money ──
 
   /** The payment service (Paddle on the server, test payments in the demo); null: not on sale. */
@@ -1231,7 +1245,22 @@ export class GameService {
 
   async shardOffer(token?: string | null): Promise<ShardOffer> {
     if (!(await this.canBuy(token))) return { products: [], enabled: false, test: false, checkout: null, hidden: true };
-    return { products: SHARD_PRODUCTS, enabled: !!this.payments, test: this.payments?.id === 'test', checkout: this.payments?.client ?? null, hidden: false };
+    const u = await this.auth(token).catch(() => null);
+    const paid = u ? await this.paidProducts(u.id) : new Set<string>();
+    return {
+      products: SHARD_PRODUCTS.filter((p) => !p.once || !paid.has(p.id)),
+      enabled: !!this.payments,
+      test: this.payments?.id === 'test',
+      checkout: this.payments?.client ?? null,
+      hidden: false,
+      firstBonus: !!u && paid.size === 0,
+    };
+  }
+
+  /** Products this player has paid for (refunded ones count: the bonus and one-time offers are used up). */
+  private async paidProducts(userId: string): Promise<Set<string>> {
+    const list = await this.store.listPurchases(userId, 1000);
+    return new Set(list.filter((p) => p.status === 'paid' || p.status === 'refunded').map((p) => p.product));
   }
 
   private purchaseView(p: PurchaseRow): PurchaseView {
@@ -1248,13 +1277,17 @@ export class GameService {
     if (!this.payments || !(await this.canBuy(token))) throw new ApiError(503, 'Покупки за гроші поки недоступні.');
     const product = productById(productId);
     if (!product) throw new ApiError(404, 'Такого набору немає.');
+    const paid = await this.paidProducts(u.id);
+    if (product.once && paid.has(product.id)) throw new ApiError(400, 'Цю пропозицію вже куплено.');
+    // The very first purchase of a shard bundle brings twice the shards (one-time offers have their own deal).
+    const shards = !product.once && paid.size === 0 ? product.shards * FIRST_PURCHASE_MULTIPLIER : product.shards;
     const recent = (await this.store.listPurchases(u.id, 20)).filter((p) => p.status === 'pending' && this.now() - p.createdAt < 60 * 60_000);
     if (recent.length >= 5) throw new ApiError(429, 'Забагато незавершених оплат. Завершіть одну з них або спробуйте за годину.');
     const p: PurchaseRow = {
       id: randomId(10),
       userId: u.id,
       product: product.id,
-      shards: product.shards,
+      shards,
       amount: product.price,
       ccy: product.ccy,
       provider: this.payments.id,
@@ -1270,7 +1303,7 @@ export class GameService {
         base,
         amount: p.amount,
         ccy: p.ccy,
-        title: `Ultrachess: ${product.shards} shards`,
+        title: `Ultrachess: ${shards} shards${product.pack ? ` + ${product.pack} pack` : ''}`,
         redirectUrl: `${base}#/shop/paid/${p.id}`,
         webhookUrl: `${base}api/payments/${this.payments.id}/webhook`,
       });
@@ -1297,6 +1330,9 @@ export class GameService {
         done = await this.store.settlePurchase(p.id, 'pending', 'failed', 0, this.now());
       } else {
         done = await this.store.settlePurchase(p.id, 'pending', 'paid', p.shards, this.now());
+        // A pack in the offer comes once, with the shards (a refund later takes back the shards only).
+        const pack = productById(p.product)?.pack;
+        if (done && pack) await this.createPack(p.userId, pack, 'Спецпропозиція');
       }
     } else if ((st.status === 'failed' || st.status === 'expired') && p.status === 'pending') {
       done = await this.store.settlePurchase(p.id, 'pending', st.status, 0, this.now());

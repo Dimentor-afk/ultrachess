@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { PurchaseView, ShardOffer, ShardProduct } from '../api/client';
 import { PACKS, RARITIES, type PackType } from '../economy/packs';
-import { formatPrice, productById } from '../economy/payments';
+import { FIRST_PURCHASE_MULTIPLIER, formatPrice, productById } from '../economy/payments';
+import { packArt } from './cardArt';
 import { RARITY_NAMES } from '../engine/cards';
 import { getLang, locale } from '../i18n';
 import { navigate } from './router';
@@ -54,14 +55,36 @@ export function ShardStore() {
         <p className="muted small">{t('Покупка уламків за гроші скоро з’явиться. Поки уламки дають повторки карток.')}</p>
       ) : (
         <>
-          <div className="shard-bundles">
-            {offer.products.map((p) => (
-              <button key={p.id} className="shard-bundle" disabled={!!busy} onClick={() => buy(p)}>
-                <span className="shard-amount">💎 {p.shards}</span>
-                {p.bonus > 0 && <span className="shard-bonus">+{p.bonus}%</span>}
-                <span className="shard-price">{busy === p.id ? '…' : formatPrice(p.price)}</span>
+          {offer.products
+            .filter((p) => p.once)
+            .map((p) => (
+              <button key={p.id} className="shard-special" disabled={!!busy} onClick={() => buy(p)}>
+                <span className="shard-special-tag">{t('Спецпропозиція · лише раз')}</span>
+                {p.pack && <img src={packArt(p.pack)} alt="" />}
+                <span className="shard-special-what">
+                  <b>💎 {p.shards}</b>
+                  {p.pack && <span>+ {PACKS[p.pack].name}</span>}
+                </span>
+                <span className="btn btn-primary btn-price">{busy === p.id ? '…' : formatPrice(p.price)}</span>
               </button>
             ))}
+          {offer.firstBonus && <p className="first-bonus">{t('🎁 Перша покупка уламків — удвічі більше!')}</p>}
+          <div className="shard-bundles">
+            {offer.products
+              .filter((p) => !p.once)
+              .map((p) => (
+                <button key={p.id} className="shard-bundle" disabled={!!busy} onClick={() => buy(p)}>
+                  {offer.firstBonus ? (
+                    <span className="shard-amount">
+                      💎 {p.shards * FIRST_PURCHASE_MULTIPLIER} <s className="muted tiny">{p.shards}</s>
+                    </span>
+                  ) : (
+                    <span className="shard-amount">💎 {p.shards}</span>
+                  )}
+                  {offer.firstBonus ? <span className="shard-bonus">×{FIRST_PURCHASE_MULTIPLIER}</span> : p.bonus > 0 && <span className="shard-bonus">+{p.bonus}%</span>}
+                  <span className="shard-price">{busy === p.id ? '…' : formatPrice(p.price)}</span>
+                </button>
+              ))}
           </div>
           <p className="muted tiny">
             {offer.test && <>{t('Тестова оплата: гроші не списуються.')}{' '}</>}
@@ -74,7 +97,10 @@ export function ShardStore() {
           <summary>{t('Мої покупки ({0})', mine.length)}</summary>
           {mine.slice(0, 10).map((p) => (
             <div key={p.id} className={`purchase-row st-${p.status}`}>
-              <span>💎 {p.shards}</span>
+              <span>
+                💎 {p.shards}
+                {productById(p.product)?.pack && ` + ${PACKS[productById(p.product)!.pack!].name}`}
+              </span>
               <span>{formatPrice(p.amount)}</span>
               <span className="purchase-status">{STATUS[p.status]}</span>
               <span className="muted tiny">{new Date(p.createdAt).toLocaleString(locale(), { dateStyle: 'short', timeStyle: 'short' })}</span>
@@ -102,7 +128,10 @@ export function PaymentReturn({ id }: { id: string }) {
         setP(r.purchase);
         if (r.purchase.status !== 'pending') {
           s.setProfile(r.profile);
-          if (r.purchase.status === 'paid') s.toast(t('+{0} 💎 — дякуємо за покупку!', r.purchase.shards));
+          if (r.purchase.status === 'paid') {
+            const pack = productById(r.purchase.product)?.pack;
+            s.toast(pack ? t('+{0} 💎 і {1} — дякуємо за покупку! Пак чекає на головній.', r.purchase.shards, PACKS[pack].name) : t('+{0} 💎 — дякуємо за покупку!', r.purchase.shards));
+          }
           return;
         }
       } catch (e) {

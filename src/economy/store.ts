@@ -49,6 +49,8 @@ export interface UserRow {
   botCycle: number;
   botPacksToday: number;
   botPacksDay: string;
+  /** UTC day the free pack of the day was last taken ('' never). */
+  freePackDay: string;
   /** Highest league index already rewarded per ladder (JSON {bot, pvp}). */
   leagueRewards: string;
   /** Trial runs by trial id (JSON Record<string, TrialRun>). */

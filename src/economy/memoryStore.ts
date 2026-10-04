@@ -69,6 +69,7 @@ export function withUserDefaults(u: UserRow): UserRow {
     botCycle: u.botCycle ?? 0,
     botPacksToday: u.botPacksToday ?? 0,
     botPacksDay: u.botPacksDay ?? '',
+    freePackDay: u.freePackDay ?? '',
     leagueRewards: u.leagueRewards ?? '{}',
     trials: u.trials ?? '{}',
     emailVerified: u.emailVerified ?? false,

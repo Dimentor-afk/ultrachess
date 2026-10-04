@@ -106,6 +106,7 @@ export interface Api {
   packs(): Promise<PackView[]>;
   openPack(id: string): Promise<OpenResult>;
   buyPack(type: PackType): Promise<{ pack: PackView; profile: Profile }>;
+  claimFreePack(): Promise<{ pack: PackView; profile: Profile }>;
   /** Today's boards and capture effects. */
   shop(): Promise<ShopOffer>;
   buyTheme(id: string): Promise<Profile>;
@@ -229,6 +230,7 @@ class HttpApi implements Api {
   packs = () => this.call<PackView[]>('GET', 'packs');
   openPack = (id: string) => this.call<OpenResult>('POST', `packs/${id}/open`, {});
   buyPack = (type: PackType) => this.call<{ pack: PackView; profile: Profile }>('POST', 'shop/pack', { type });
+  claimFreePack = () => this.call<{ pack: PackView; profile: Profile }>('POST', 'shop/free-pack');
   shop = () => this.call<ShopOffer>('GET', 'shop');
   buyTheme = (id: string) => this.call<Profile>('POST', 'shop/theme', { id });
   setBoardTheme = (id: string) => this.call<Profile>('POST', 'profile/theme', { id });
@@ -421,6 +423,7 @@ class LocalApi implements Api {
   packs = async () => this.svc.packs(await this.t());
   openPack = async (id: string) => this.svc.openPack(await this.t(), id);
   buyPack = async (type: PackType) => this.svc.buyPack(await this.t(), type);
+  claimFreePack = async () => this.svc.claimFreePack(await this.t());
   shop = async () => this.svc.shop(await this.t());
   buyTheme = async (id: string) => this.svc.buyTheme(await this.t(), id);
   setBoardTheme = async (id: string) => this.svc.setBoardTheme(await this.t(), id);

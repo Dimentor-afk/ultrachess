@@ -3,6 +3,8 @@
 // The game service decides what a purchase is worth and credits it exactly
 // once; a provider only takes the money and reports what happened to it.
 
+import type { PackType } from './packs';
+
 /** A bundle of shards on sale. Prices are in US cents ($1 = 100). */
 export interface ShardProduct {
   id: string;
@@ -11,14 +13,23 @@ export interface ShardProduct {
   bonus: number;
   price: number;
   ccy: 'USD';
+  /** A pack that comes with the shards. */
+  pack?: Exclude<PackType, 'starter'>;
+  /** Sold once per player (a special offer). */
+  once?: boolean;
 }
 
 export const SHARD_PRODUCTS: ShardProduct[] = [
+  // Once per player: 800 shards and a legendary pack (1000 shards in the shop) for $2.99.
+  { id: 'offer-legendary', shards: 800, bonus: 0, price: 299, ccy: 'USD', pack: 'legendary', once: true },
   { id: 'shards-400', shards: 400, bonus: 0, price: 99, ccy: 'USD' },
   { id: 'shards-2220', shards: 2220, bonus: 10, price: 499, ccy: 'USD' },
   { id: 'shards-4850', shards: 4850, bonus: 20, price: 999, ccy: 'USD' },
   { id: 'shards-10500', shards: 10500, bonus: 30, price: 1999, ccy: 'USD' },
 ];
+
+/** The first shard bundle a player buys brings this many times its shards. */
+export const FIRST_PURCHASE_MULTIPLIER = 2;
 
 export const productById = (id: string) => SHARD_PRODUCTS.find((p) => p.id === id);
 
@@ -96,6 +107,8 @@ export interface ShardOffer {
   checkout: CheckoutClient | null;
   /** Not on show to this player (sales open to admins only while the payment service checks the site). */
   hidden: boolean;
+  /** This player has bought nothing yet: the first bundle brings FIRST_PURCHASE_MULTIPLIER times its shards. */
+  firstBonus?: boolean;
 }
 
 /** What the player sees about a purchase. */

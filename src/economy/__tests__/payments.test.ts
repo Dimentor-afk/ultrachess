@@ -2,7 +2,7 @@ import { createHmac } from 'node:crypto';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PaddlePayments } from '../../../server/paddle';
 import { MemoryStore } from '../memoryStore';
-import { type Invoice, type PaymentProvider, type ProviderState, SHARD_PRODUCTS, TestPayments } from '../payments';
+import { FIRST_PURCHASE_MULTIPLIER, type Invoice, type PaymentProvider, type ProviderState, TestPayments, productById } from '../payments';
 import { GameService } from '../service';
 import type { Hasher } from '../store';
 
@@ -34,7 +34,9 @@ async function setup() {
   return { svc, store, bank, a, shards };
 }
 
-const product = SHARD_PRODUCTS[1];
+const product = productById('shards-2220')!;
+/** Every test account buys for the first time: the first bundle brings double. */
+const FIRST = product.shards * FIRST_PURCHASE_MULTIPLIER;
 
 describe('buying shards', () => {
   it('a purchase is journaled first, credited once when the bank confirms, and never twice', async () => {
@@ -56,7 +58,7 @@ describe('buying shards', () => {
     await svc.paymentNotice('paddle', purchaseId, 'inv-1', paid); // the bank repeats notices
     bank.next = paid;
     await svc.purchase(a.token, purchaseId); // and the return page asks again
-    expect(await shards()).toBe(before + product.shards);
+    expect(await shards()).toBe(before + FIRST);
     expect((await svc.purchase(a.token, purchaseId)).purchase.status).toBe('paid');
   });
 
@@ -68,7 +70,7 @@ describe('buying shards', () => {
     bank.next = { status: 'paid', amount: product.price, ccy: 'USD' };
     const r = await svc.purchase(a.token, purchaseId);
     expect(r.purchase.status).toBe('paid');
-    expect(r.profile.shards).toBe(before + product.shards);
+    expect(r.profile.shards).toBe(before + FIRST);
   });
 
   it('a different sum is never credited; failures and expiry close the purchase', async () => {
@@ -91,7 +93,7 @@ describe('buying shards', () => {
     await svc.paymentNotice('paddle', purchaseId, 'inv-1', { status: 'paid', amount: product.price, ccy: 'USD' });
     await store.updateUser(a.profile.id, { shards: 10 }); // spent most of them
     await svc.paymentNotice('paddle', purchaseId, 'inv-1', { status: 'refunded', amount: product.price, ccy: 'USD' });
-    expect(await shards()).toBe(10 - product.shards);
+    expect(await shards()).toBe(10 - FIRST);
     expect((await svc.purchases(a.token))[0].status).toBe('refunded');
   });
 
@@ -157,7 +159,7 @@ describe('buying shards', () => {
     const { purchaseId, pageUrl } = await svc.buyShards(a.token, product.id, BASE);
     expect(pageUrl).toBe(`${BASE}#/pay/test/${purchaseId}`);
     const r = await svc.completeTestPayment(a.token, purchaseId, true);
-    expect(r.profile.shards).toBe(before + product.shards);
+    expect(r.profile.shards).toBe(before + FIRST);
     const b = await svc.register('bohdan@x.com', 'secret-pass-1', 'Богдан');
     await expect(svc.completeTestPayment(b.token, purchaseId, true)).rejects.toThrow(/не знайдено/);
   });
@@ -219,6 +221,56 @@ describe('Paddle', () => {
     const { purchaseId } = await svc.buyShards(a.token, product.id, BASE);
     expect((await svc.purchase(a.token, purchaseId)).purchase.status).toBe('paid');
     await svc.paymentNotice('paddle', purchaseId, 'txn_1', { status: 'paid', amount: null, ccy: 'USD' });
-    expect(await shards()).toBe(before + product.shards);
+    expect(await shards()).toBe(before + FIRST);
+  });
+});
+
+describe('first purchase, special offer, free pack', () => {
+  const pay = (svc: GameService, id: string, amount: number, inv: string) =>
+    svc.paymentNotice('paddle', id, inv, { status: 'paid', amount, ccy: 'USD' });
+
+  it('only the first paid bundle is doubled', async () => {
+    const { svc, a, shards } = await setup();
+    expect((await svc.shardOffer(a.token)).firstBonus).toBe(true);
+    const one = await svc.buyShards(a.token, product.id, BASE);
+    await pay(svc, one.purchaseId, product.price, 'inv-1');
+    expect(await shards()).toBe(FIRST);
+    expect((await svc.shardOffer(a.token)).firstBonus).toBe(false);
+    const two = await svc.buyShards(a.token, product.id, BASE);
+    await pay(svc, two.purchaseId, product.price, 'inv-2');
+    expect(await shards()).toBe(FIRST + product.shards);
+  });
+
+  it('the special offer brings its shards and a legendary pack, once per account', async () => {
+    const { svc, a, shards } = await setup();
+    const offer = productById('offer-legendary')!;
+    expect((await svc.shardOffer(a.token)).products.map((p) => p.id)).toContain(offer.id);
+    const packsBefore = (await svc.packs(a.token)).length;
+    const { purchaseId } = await svc.buyShards(a.token, offer.id, BASE);
+    await pay(svc, purchaseId, offer.price, 'inv-1');
+    await pay(svc, purchaseId, offer.price, 'inv-1'); // a repeated notice gives nothing more
+    expect(await shards()).toBe(offer.shards); // not doubled
+    const packs = await svc.packs(a.token);
+    expect(packs.length).toBe(packsBefore + 1);
+    expect(packs.at(-1)!.type).toBe('legendary');
+    expect((await svc.shardOffer(a.token)).products.map((p) => p.id)).not.toContain(offer.id);
+    await expect(svc.buyShards(a.token, offer.id, BASE)).rejects.toThrow(/вже куплено/);
+    // It used up the first-purchase bonus too.
+    expect((await svc.shardOffer(a.token)).firstBonus).toBe(false);
+  });
+
+  it('the free pack of the day is taken once a day', async () => {
+    let now = Date.UTC(2026, 9, 4, 12);
+    const svc = new GameService(new MemoryStore(), hasher, () => now, Math.random);
+    await svc.init();
+    const a = await svc.register('anna@x.com', 'secret-pass-1', 'Анна');
+    expect(a.profile.freePack).toBe(true);
+    const r = await svc.claimFreePack(a.token);
+    expect(r.pack.type).toBe('common');
+    expect(r.profile.freePack).toBe(false);
+    await expect(svc.claimFreePack(a.token)).rejects.toThrow(/завтра/);
+    now += 864e5;
+    expect((await svc.me(a.token)).freePack).toBe(true);
+    await svc.claimFreePack(a.token);
   });
 });

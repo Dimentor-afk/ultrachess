@@ -1425,5 +1425,16 @@ const dict: Record<string, string> = {
   "Переглянути партію": "Replay the game",
   "Хід {0}": "Move {0}",
   "Початкова позиція": "Starting position",
+  "Подарунок дня": "Daily gift",
+  "Спецпропозиція": "Special offer",
+  "Безкоштовно, раз на день.": "Free, once a day.",
+  "Наступний — завтра.": "Next one tomorrow.",
+  "Спецпропозиція · лише раз": "Special offer · one time only",
+  "🎁 Перша покупка уламків — удвічі більше!": "🎁 First shard purchase: double the shards!",
+  "+{0} 💎 і {1} — дякуємо за покупку! Пак чекає на головній.": "+{0} 💎 and {1}, thanks for your purchase! The pack is waiting on the home screen.",
+  "{0} уламків і {1} (спецпропозиція, один раз на акаунт) — {2}": "{0} shards and a {1} (special offer, once per account): {2}",
+  "Перша покупка набору уламків на акаунті дає вдвічі більше уламків (не стосується спецпропозиції).": "The first shard bundle bought on an account brings twice the shards (does not apply to the special offer).",
+  "Безкоштовний пак сьогодні вже забрано. Новий буде завтра.": "Today's free pack is already taken. A new one comes tomorrow.",
+  "Цю пропозицію вже куплено.": "You have already bought this offer.",
 };
 export default dict;

@@ -9205,3 +9205,76 @@ html.no-anim .cell.barrier.barrier-new::after { animation: none; }
   .rp-layout { grid-template-columns: minmax(0, 1fr); }
   .rp-moves { max-height: 240px; }
 }
+
+/* ── Free pack of the day, the one-time special offer, the first-purchase bonus ── */
+.shop-pack.free-pack {
+  position: relative;
+  background: linear-gradient(180deg, #24451f, #12261a);
+}
+.shop-pack.free-pack.can {
+  border-color: var(--ok);
+  box-shadow: 0 0 22px rgba(80, 220, 140, 0.25);
+}
+.shop-pack.free-pack.taken img {
+  opacity: 0.45;
+  filter: grayscale(0.6);
+}
+.free-pack-tag,
+.shard-special-tag {
+  position: absolute;
+  top: -0.6rem;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.12rem 0.55rem;
+  border-radius: 999px;
+  background: var(--ok);
+  color: #06261a;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.shard-special {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  width: 100%;
+  margin: 0.9rem 0 0.7rem;
+  padding: 1rem 1rem 0.8rem;
+  border: 1px solid var(--r-legendary, #f0b030);
+  border-radius: 14px;
+  background: linear-gradient(120deg, #3a2a0e, #1a1426);
+  box-shadow: 0 0 22px rgba(240, 176, 48, 0.2);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.shard-special:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.shard-special .shard-special-tag {
+  background: var(--r-legendary, #f0b030);
+  color: #2a1a00;
+}
+.shard-special img {
+  width: 44px;
+  height: 80px;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.5));
+}
+.shard-special-what {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  flex: 1;
+}
+.shard-special-what b {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+}
+.first-bonus {
+  margin: 0.4rem 0 0;
+  font-weight: 600;
+  color: var(--ok);
+}
