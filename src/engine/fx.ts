@@ -25,7 +25,11 @@ export type FxKind =
   | 'dust'
   | 'sparkle'
   | 'absorb'
-  | 'revive';
+  | 'revive'
+  | 'impact'
+  | 'twinkle'
+  | 'puff'
+  | 'fall';
 
 export interface FxSprite {
   kind: FxKind;
@@ -56,7 +60,8 @@ export function moveLegs(m: Move, type: PieceType | undefined): Leg[] {
   if (m.legs?.length) return m.legs;
   const to = m.to ?? m.target;
   if (m.kind === 'teleport' || /портал/i.test(m.label)) return [{ to, style: 'warp' }];
-  return [{ to, style: type === 'knight' && m.kind !== 'swap' ? 'hop' : 'slide' }];
+  // A swap: both pieces jump over each other.
+  return [{ to, style: type === 'knight' || m.kind === 'swap' ? 'hop' : 'slide' }];
 }
 
 export interface MatchFx {
@@ -114,6 +119,8 @@ export function computeFx(
       moves.push({ from, to, legs: [{ to, style: 'rise' }], after: true });
       continue;
     }
+    // The other piece of a swap jumps too, crossing the mover in the air.
+    if (m0?.kind === 'swap' && pushed.has(to)) style = 'hop';
     moves.push({ from, to, legs: [{ to, style }], after: m0?.kind === 'push' && pushed.has(to) ? true : undefined });
   }
 
@@ -135,6 +142,18 @@ export function computeFx(
     if (m.kind === 'dash' && m.to !== null) {
       sprites.push({ kind: 'dust', square: m.from }, { kind: 'sparkle', square: m.to });
     }
+    if (m.kind === 'swap' && m.to !== null) {
+      sprites.push({ kind: 'twinkle', square: m.from }, { kind: 'twinkle', square: m.to });
+    }
+    if (m.kind === 'push') {
+      // The blow where the pusher meets the pushed piece.
+      for (const d of m.displaced ?? []) sprites.push({ kind: 'impact', square: d.from, wait: -60 });
+    }
+    // An illusionist leaves a hidden copy behind: a puff of mist only its owner sees.
+    if (color && m.kind !== 'mirage') {
+      const had = new Set(before.hiddenState[color].illusions.map((x) => x.id));
+      for (const x of after.hiddenState[color].illusions) if (!had.has(x.id)) sprites.push({ kind: 'mirage', square: x.square, owner: color });
+    }
     if (m.kind === 'mirage' && color) {
       for (const s of m.mirage ?? []) sprites.push({ kind: 'mirage', square: s, owner: color });
     }
@@ -151,6 +170,18 @@ export function computeFx(
           leg: i >= 0 ? i : Math.max(0, moverLegs.length - 1),
           victim: { type: e.piece.type, color: e.piece.color, cardId: e.piece.cardId },
         });
+        break;
+      }
+      case 'martyr': {
+        // Мученик: whoever took it is frozen where it stands.
+        const s = now.get(e.attackerId);
+        if (s !== undefined) sprites.push({ kind: 'twinkle', square: s, wait: 120 });
+        break;
+      }
+      case 'fell': {
+        // The platform is gone: the piece drops off the board in a puff of dust.
+        const s = was.get(e.piece.id);
+        if (s !== undefined) sprites.push({ kind: 'fall', square: s, victim: { type: e.piece.type, color: e.piece.color, cardId: e.piece.cardId } }, { kind: 'puff', square: s });
         break;
       }
       case 'kamikaze':

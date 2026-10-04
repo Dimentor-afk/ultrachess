@@ -2,7 +2,7 @@ import { type CSSProperties, type ReactNode, memo, useLayoutEffect, useRef } fro
 import { getCard } from '../engine/cards';
 import { fileOf, isBoardSquare, rankOf, sq } from '../engine/coords';
 import type { FxMove } from '../engine/fx';
-import type { Color, Leg, Square } from '../engine/types';
+import type { Color, Leg, PieceType, Square } from '../engine/types';
 import type { PlayerView, ViewPiece } from '../engine/view';
 import { Emblem } from './art';
 import { pieceSprite } from './cardArt';
@@ -166,6 +166,11 @@ const FIREWORKS = [
   { x: 62, y: 80, c: 'var(--r-epic)', delay: 1560 },
 ];
 
+/** A piece drawn for a moment after it left the board (struck, or fallen off its platform). */
+function ghostPiece(v: { type: PieceType; color: Color; cardId: string }): ViewPiece {
+  return { ...v, id: '', illusion: false, frozen: false, onceUsed: false, cooldown: null, passenger: false, platformTurnsLeft: null };
+}
+
 /** Centre of a square in percent of the board, for overlays and animations. */
 export function squareCenter(s: Square, orientation: Color, ring = THIN_RING): { x: number; y: number } {
   const total = 8 + 2 * ring;
@@ -266,7 +271,7 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
   const cracks: { square: Square; delay: number }[] = [];
   const debris: { square: Square; delay: number }[] = [];
   // Captured pieces stay on their squares until the blow lands.
-  const ghosts = new Map<Square, { piece: ViewPiece; ms: number }>();
+  const ghosts = new Map<Square, { piece: ViewPiece; ms: number; fall?: boolean }>();
   if (live) {
     live.sprites.forEach((x, i) => {
       const name = x.kind === 'capture' && x.by && captureFx?.[x.by] ? captureFx[x.by]! : (x.kind as FxName);
@@ -281,13 +286,18 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
         const t = moverTimed[x.leg - moverSkip];
         delay = !t ? 0 : t.leg.style === 'warp' ? t.start + (t.end - t.start) * 0.15 : Math.max(0, t.end - 260);
       }
+      if (x.kind === 'fall') {
+        // Not a sprite: the piece itself drops away (its platform is gone).
+        if (x.victim) ghosts.set(x.square, { piece: ghostPiece(x.victim), ms: delay, fall: true });
+        return;
+      }
       if (x.kind === 'capture') {
         if (x.leg !== undefined && x.leg < moverSkip) return;
         const t = x.leg !== undefined ? moverTimed[x.leg - moverSkip] : undefined;
         delay = t ? Math.max(0, t.end - 60) : 180;
         if (x.victim && delay > 0) {
           ghosts.set(x.square, {
-            piece: { ...x.victim, id: '', illusion: false, frozen: false, onceUsed: false, cooldown: null, passenger: false, platformTurnsLeft: null },
+            piece: ghostPiece(x.victim),
             ms: delay + 60,
           });
         }
@@ -309,6 +319,11 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
     [27, 34, 64, 73, 45, 56].forEach((s, i) => sprites.push({ name: 'win', square: s, delay: i * 220 }));
   }
   const jolt = !live?.shake && debris.length > 0;
+  // Затемнювач: the barrier grows square by square behind the wave of light.
+  const barrierIn = new Map<Square, number>();
+  live?.sprites.forEach((x, i) => {
+    if (x.kind === 'eclipse') barrierIn.set(x.square, i * 45 + 120);
+  });
   // Cracks run along the shaken line: across for a rank, up and down for a file.
   const crackVertical = cracks.length > 1 && fileOf(cracks[0].square) === fileOf(cracks[1].square);
 
@@ -327,6 +342,7 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
       if (hint.has(s)) classes.push('hint');
       if (preview.has(s)) classes.push('preview');
       if (barrier.has(s)) classes.push('barrier');
+      if (barrierIn.has(s)) classes.push('barrier-new');
       if (s === checkSquare) classes.push('check');
       if (mark) classes.push('clickable');
       if (piece && piece.color === view.color && !piece.illusion) classes.push('own');
@@ -352,7 +368,7 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
               <PieceView piece={piece} />
             ))}
           {ghosts.has(s) && (
-            <span key={`ghost-${anim.current.n}`} className="ghost-victim" style={{ animationDelay: `${ghosts.get(s)!.ms}ms` }}>
+            <span key={`ghost-${anim.current.n}`} className={`ghost-victim ${ghosts.get(s)!.fall ? 'ghost-fall' : ''}`} style={{ animationDelay: `${ghosts.get(s)!.ms}ms` }}>
               <PieceView piece={ghosts.get(s)!.piece} />
             </span>
           )}
@@ -366,6 +382,7 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
           data-sq={s}
           type="button"
           className={classes.join(' ')}
+          style={barrierIn.has(s) ? ({ '--bd': `${barrierIn.get(s)}ms` } as CSSProperties) : undefined}
           onClick={() => onSquare(s)}
           disabled={!onBoard && !piece && !mark}
           aria-label={squareLabel(s, piece, !!mark)}
@@ -374,7 +391,7 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
           {onBoard ? (
             content
           ) : (
-            (piece || mark) && (
+            (piece || mark || ghosts.has(s)) && (
               // A platform outside the board is drawn full size, overhanging the frame.
               <span className={`platform-tile ${mark ? 'is-target' : ''} ${s === selected ? 'is-selected' : ''}`}>
                 {content}

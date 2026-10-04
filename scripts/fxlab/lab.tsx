@@ -26,6 +26,16 @@ const SCENES: Record<string, { white?: Partial<Deck>; black?: Partial<Deck>; ste
   kamikaze: { white: { rook1: 'rook-kamikaze' }, steps: ['a2a4', 'b7b5', 'a4b5', 'a7a6', 'a1a6', 'b8a6'], watch: 1 },
   // A won game: fireworks.
   win: { steps: ['e2e4'], watch: 0 },
+  // Ротатор swaps with its own pawn: both jump over each other.
+  swap: { white: { knight2: 'knight-rotator' }, steps: ['g1f3', 'a7a6', 'f3e2'], watch: 1 },
+  // Таран pushes the pawn in front of it back.
+  push: { white: { pawnVersions: ['pawn-ram'], pawnFormation: '11111111' }, steps: ['e2e4', 'e7e5', 'e4e5'], watch: 1 },
+  // Мученик is taken: the queen that took it freezes.
+  martyr: { white: { bishop1: 'bishop-martyr', bishop2: 'bishop-martyr' }, steps: ['d2d4', 'e7e5', 'c1g5', 'd8g5'], watch: 1 },
+  // A knight that leaves a hidden copy behind (only its owner sees the mist).
+  illusion: { white: { knight2: 'knight-illusionist', knight1: 'knight-illusionist' }, steps: ['g1f3'], watch: 1 },
+  // Затемнювач puts a barrier on one of its diagonals.
+  eclipse: { white: { bishop1: 'bishop-eclipse' }, steps: ['d2d4', 'e7e6', '!bishop-eclipse:*'], watch: 1 },
   berserk: { white: { knight2: 'knight-berserk' }, steps: ['g1f3', 'e7e6', 'f3g5', 'a7a6', 'g5e6~'], watch: 1 },
 };
 
@@ -41,7 +51,8 @@ function step(m: MatchState, s: Step): MatchState {
     const [card, key] = s.slice(1).split(':');
     const piece = m.board.find((p) => p?.cardId === card && p.color === m.turn)!;
     // "*": the first option that moves some pieces (a line with pieces on it).
-    const k = key === '*' ? abilityOptions(m, piece.id).filter((o) => o.squares.filter((q) => m.board[q]).length > 2)[0].key : key;
+    const opts = abilityOptions(m, piece.id);
+    const k = key === '*' ? (opts.find((o) => o.squares.filter((q) => m.board[q]).length > 2) ?? opts.sort((a, b) => b.squares.length - a.squares.length)[0]).key : key;
     return performAction(m, { type: 'ability', pieceId: piece.id, key: k } as Action);
   }
   const [uci, label] = s.split('~');

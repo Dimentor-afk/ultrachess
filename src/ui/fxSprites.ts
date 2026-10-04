@@ -23,6 +23,9 @@ export type FxName =
   | 'sparkle'
   | 'absorb'
   | 'boom'
+  | 'impact'
+  | 'twinkle'
+  | 'puff'
   | 'revive'
   | 'cap_blast'
   | 'cap_plasma'
@@ -68,6 +71,9 @@ export const FX: Record<FxName, FxSpec> = {
   sparkle: { w: 48, h: 48, n: 24, ms: 1600, size: 2.4 },
   absorb: { w: 64, h: 64, n: 31, ms: 640, size: 2.4 },
   boom: { w: 64, h: 64, n: 13, ms: 1100, size: 2.8, dy: -0.45 },
+  impact: { w: 48, h: 48, n: 7, ms: 420, size: 1.6 },
+  twinkle: { w: 32, h: 32, n: 14, ms: 800, size: 1.5 },
+  puff: { w: 32, h: 32, n: 10, ms: 700, size: 1.7, dy: 0.15 },
   revive: { w: 128, h: 72, n: 9, ms: 620, size: 2.6, dy: 0.2 },
   // Capture effects from the shop.
   cap_blast: { w: 48, h: 48, n: 10, ms: 600, size: 1.7 },
