@@ -124,6 +124,9 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   feat('comet-path', 4, { art: 'king-comet', hue: 265 }, 'Шлях Комети', 'Пройдіть випробування «Шлях Комети».'),
 ];
 
+/** How many achievements a profile shows before it is unfolded. */
+export const SHOWCASE_SIZE = 3;
+
 /** The plate of the game's owner (not an achievement). */
 export const CREATOR_TITLE = 'creator';
 
@@ -137,12 +140,14 @@ export interface AchievementState {
   seen: string[];
   /** 1 once the games played before achievements existed have been counted. */
   v?: number;
+  /** Up to 3 achievements the player shows on their profile (empty: the rarest ones). */
+  showcase?: string[];
 }
 
 export function parseAchievements(raw: string | null | undefined): AchievementState {
   try {
     const a = JSON.parse(raw || '{}') as Partial<AchievementState>;
-    return { stats: a.stats ?? {}, feats: a.feats ?? [], seen: a.seen ?? [], v: a.v };
+    return { stats: a.stats ?? {}, feats: a.feats ?? [], seen: a.seen ?? [], v: a.v, showcase: a.showcase ?? [] };
   } catch {
     return { stats: {}, feats: [], seen: [] };
   }

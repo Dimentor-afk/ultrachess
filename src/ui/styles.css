@@ -9757,3 +9757,88 @@ html.no-anim .cell.barrier.barrier-new::after { animation: none; }
   padding: 0.35rem 0.8rem;
   font-size: 0.85rem;
 }
+
+/* Showcase: the achievements a profile shows first. */
+.ach-showcase-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  margin: 0.2rem 0 0.5rem;
+}
+.ach-showcase,
+.pm-ach {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem 0.4rem;
+  margin-bottom: 0.6rem;
+}
+.ach-show-item,
+.pm-ach-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.5rem 0.2rem;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: center;
+  font-size: 0.74rem;
+  line-height: 1.2;
+  cursor: pointer;
+}
+.ach-show-item:hover,
+.pm-ach-item:hover {
+  border-color: var(--line);
+  background: var(--bg-2);
+}
+.ach-show-item small:first-of-type,
+.pm-ach-item small:first-of-type {
+  font-weight: 700;
+}
+.pm-more {
+  width: 100%;
+}
+.ach .ach-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.ach-info-backdrop {
+  z-index: 400;
+}
+.ach-info {
+  --hue: 45;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: 320px;
+  text-align: center;
+  border: 1px solid hsl(var(--hue) 80% 60% / 0.6);
+  background: linear-gradient(160deg, hsl(var(--hue) 60% 30% / 0.9), var(--panel) 65%);
+}
+.ach-info h3 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+.ach-info p {
+  margin: 0;
+}
+.ach-info-tier {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: hsl(var(--hue) 85% 72%);
+}
+
+.leader-name-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.45rem;
+  min-width: 0;
+}

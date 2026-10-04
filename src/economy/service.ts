@@ -31,7 +31,7 @@ import type { BotOptions, BotTurn } from '../engine/bot/search';
 import { legalMoves } from '../engine/legal';
 import { type QuestEvent, type QuestView, addProgress, parseQuests, questViews } from './quests';
 import { type Hasher, type MatchRow, type PackRow, type PvpRow, type Role, type Store, type TokenRow, type UserRow, randomId } from './store';
-import { CREATOR_TITLE, ACHIEVEMENT_BY_ID, type AchievementState, type AchievementView, type CountedStat, achievementViews, gameFeats, parseAchievements } from './achievements';
+import { CREATOR_TITLE, SHOWCASE_SIZE, ACHIEVEMENT_BY_ID, type AchievementState, type AchievementView, type CountedStat, achievementViews, gameFeats, parseAchievements } from './achievements';
 import { NAME_CHANGE_MS, cleanName, nameProblem, passwordProblem, sha256 } from './account';
 import { type PaymentProvider, type ProviderState, type PurchaseRow, type PurchaseView, SHARD_PRODUCTS, type ShardOffer, formatPrice, productById } from './payments';
 
@@ -114,6 +114,8 @@ export interface Profile {
   achievements: string[];
   /** Reached but not yet shown: they pop up on the screen, then the client marks them seen. */
   achievementsUnseen: string[];
+  /** Achievements picked for the profile showcase (empty: the rarest are shown). */
+  showcase: string[];
   /** Achievement shown as the plate under the name (null: none). */
   title: string | null;
 }
@@ -252,6 +254,8 @@ export interface LeaderRow {
   arena: string;
   botTrophies: number;
   botLeague: string;
+  /** The plate under the name. */
+  title: string | null;
 }
 
 /** A player as others see them (friends list, search, leaderboard). */
@@ -288,6 +292,8 @@ export interface PublicProfile extends PlayerCard {
   deck: Deck | null;
   /** Achievements they have reached (ids). */
   achievements: string[];
+  /** The ones on show: picked by the player, or their rarest. */
+  showcase: string[];
 }
 
 export interface HistoryRow {
@@ -916,6 +922,7 @@ export class GameService {
       ownedFx: this.fxOf(u),
       freePack: u.freePackDay !== this.today(),
       ...(await this.achievementsOf(u)),
+      showcase: this.achState(u).showcase ?? [],
       title: this.titleOf(u),
     };
   }
@@ -2030,6 +2037,7 @@ export class GameService {
         arena: PVP_LEAGUES[leagueIndex('pvp', u.trophies)].name,
         botTrophies: u.botTrophies,
         botLeague: BOT_LEAGUES[leagueIndex('bot', u.botTrophies)].name,
+        title: this.titleOf(u),
       }));
   }
 
@@ -2094,8 +2102,30 @@ export class GameService {
       createdAt: u.createdAt,
       relation,
       deck: await this.lastDeck(u),
-      achievements: (await this.achievementList(await this.withHistory(u))).filter((a) => a.done).map((a) => a.id),
+      ...(await this.showcaseOf(await this.withHistory(u))),
     };
+  }
+
+  /** A player's achievements and the ones on show: those they picked (still reached), else the rarest. */
+  private async showcaseOf(u: UserRow): Promise<{ achievements: string[]; showcase: string[] }> {
+    const done = (await this.achievementList(u)).filter((a) => a.done).map((a) => a.id);
+    const picked = (this.achState(u).showcase ?? []).filter((id) => done.includes(id));
+    if (picked.length) return { achievements: done, showcase: picked.slice(0, SHOWCASE_SIZE) };
+    const percent = await this.achievementRarity();
+    const rarest = [...done].sort((a, b) => (percent[a] ?? 100) - (percent[b] ?? 100) || ACHIEVEMENT_BY_ID[b].tier - ACHIEVEMENT_BY_ID[a].tier);
+    return { achievements: done, showcase: rarest.slice(0, SHOWCASE_SIZE) };
+  }
+
+  /** Pick the achievements shown on the profile (up to 3, reached ones; empty: the rarest). */
+  async setShowcase(token: string, ids: string[]): Promise<Profile> {
+    const u = await this.withHistory(await this.auth(token));
+    const done = new Set((await this.achievementList(u)).filter((a) => a.done).map((a) => a.id));
+    const pick = [...new Set(ids)].filter((id) => done.has(id));
+    if (pick.length > SHOWCASE_SIZE) throw new ApiError(400, 'На вітрину можна поставити до 3 досягнень.');
+    const st = this.achState(u);
+    st.showcase = pick;
+    await this.store.updateUser(u.id, { achievements: JSON.stringify(st) });
+    return this.profileOf(u.id);
   }
 
   /** The deck a player brought to their latest game (bot or people); else their active deck. */

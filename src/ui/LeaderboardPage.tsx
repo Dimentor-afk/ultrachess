@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { TitlePlate } from './Achievements';
 import type { LeaderRow } from '../api/client';
 import { LADDER_NAMES, LADDER_TROPHIES, type Ladder } from '../economy/leagues';
 import { PlayerModal } from './PlayerModal';
@@ -59,7 +60,10 @@ export function LeaderboardPage() {
                       <span className="leader-who">
                         <Avatar card={r.avatar} size="sm" />
                         <span className="leader-name">
-                          <b>{r.name}</b>
+                          <span className="leader-name-line">
+                            <b>{r.name}</b>
+                            <TitlePlate id={r.title} small />
+                          </span>
                           {/* On a phone the league sits under the name instead of in its own column. */}
                           <small className="muted leader-league-sm">{tr(ladder === 'bot' ? r.botLeague : r.arena)}</small>
                         </span>

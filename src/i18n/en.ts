@@ -1569,5 +1569,13 @@ const dict: Record<string, string> = {
   "▼ Показати всі ({0})": "▼ Show all ({0})",
   "Творець гри": "Game Creator",
   "Ця плашка лише для творця гри.": "This plate is for the game's creator only.",
+  "Вітрина": "Showcase",
+  "Ці досягнення бачать інші гравці у вашому профілі.": "Other players see these achievements on your profile.",
+  "Поки показуються найрідкісніші. Оберіть свої кнопкою ★ у списку.": "Your rarest are shown for now. Pick your own with ★ in the list.",
+  "На вітрині вже 3 досягнення: спершу зніміть одне.": "The showcase already has 3 achievements: remove one first.",
+  "На вітрину профілю": "To the profile showcase",
+  "★ Вітрина": "★ Showcase",
+  "☆ Вітрина": "☆ Showcase",
+  "На вітрину можна поставити до 3 досягнень.": "You can put up to 3 achievements in the showcase.",
 };
 export default dict;

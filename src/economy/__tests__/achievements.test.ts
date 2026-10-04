@@ -121,6 +121,23 @@ describe('achievements', () => {
     expect((await svc.me(a.token)).achievements).toContain('pvp-10');
   });
 
+  it('the showcase: up to 3 picked achievements, the rarest by default', async () => {
+    const svc = new GameService(new MemoryStore(), hasher, () => 1_800_000_000_000, Math.random);
+    await svc.init();
+    const a = await svc.register('a@a.com', 'secret12', 'Анна');
+    const b = await svc.register('b@b.com', 'secret12', 'Богдан');
+    const achieve = (svc as unknown as { achieve: (id: string, add: object, feats?: string[]) => Promise<string[]> }).achieve.bind(svc);
+    await achieve(a.profile.id, { wins: 10, games: 10 }, ['castle', 'draw', 'quake']);
+    await achieve(b.profile.id, { wins: 1 }, ['castle']);
+    const seen = await svc.playerProfile(b.token, a.profile.id);
+    expect(seen.showcase).toHaveLength(3);
+    // wins-1 and castle are shared with Богдан: less rare than the others.
+    expect(seen.showcase).not.toContain('wins-1');
+    await expect(svc.setShowcase(a.token, ['wins-1', 'castle', 'draw', 'quake'])).rejects.toThrow(/до 3/);
+    expect((await svc.setShowcase(a.token, ['wins-1', 'pvp-50'])).showcase).toEqual(['wins-1']);
+    expect((await svc.playerProfile(b.token, a.profile.id)).showcase).toEqual(['wins-1']);
+  });
+
   it('castling is read from the record, for the side that castled', () => {
     const decks = { w: classicDeck(), b: classicDeck() };
     const castle = line(createMatch(decks.w, decks.b), [['e2', 'e4'], ['e7', 'e5'], ['g1', 'f3'], ['b8', 'c6'], ['f1', 'c4'], ['f8', 'c5'], ['e1', 'g1']]);

@@ -1,6 +1,6 @@
 import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import type { AchievementView } from '../api/client';
-import { ACHIEVEMENT_BY_ID, CREATOR_TITLE, type AchievementDef } from '../economy/achievements';
+import { ACHIEVEMENT_BY_ID, CREATOR_TITLE, SHOWCASE_SIZE, type AchievementDef } from '../economy/achievements';
 import { t } from '../i18n';
 import { cardArt, packArt } from './cardArt';
 import type { PackType } from '../economy/packs';
@@ -20,6 +20,38 @@ export function Medal({ a, locked, size = 'md' }: { a: AchievementDef; locked?: 
       <span className="medal-face">{art ? <img className="pixel" src={art} alt="" /> : <span className="medal-emoji">{a.icon}</span>}</span>
       {locked && <span className="medal-lock">🔒</span>}
     </span>
+  );
+}
+
+/** One achievement up close (a medal tapped on a profile): what it is given for. */
+export function AchievementInfo({ id, percent, onClose }: { id: string; percent?: number; onClose: () => void }) {
+  const a = ACHIEVEMENT_BY_ID[id];
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  if (!a) return null;
+  return (
+    <div
+      className="modal-backdrop ach-info-backdrop"
+      onClick={(e) => {
+        e.stopPropagation();
+        onClose();
+      }}
+    >
+      <div className={`modal ach-info tier-${TIER[a.tier]}`} style={{ '--hue': a.hue } as CSSProperties} role="dialog" aria-label={a.name} onClick={(e) => e.stopPropagation()}>
+        <Medal a={a} size="lg" />
+        <span className="ach-info-tier">{TIER_NAME[a.tier]}</span>
+        <h3>{a.name}</h3>
+        <p>{a.text}</p>
+        {a.online && <p className="ach-online small">🌐 {t('лише в лізі гравців')}</p>}
+        {percent !== undefined && <p className="muted small">🌍 {rarityText(percent)}</p>}
+        <button className="btn btn-sm" onClick={onClose}>
+          {t('Закрити')}
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -116,6 +148,7 @@ export function AchievementsPanel() {
   const [list, setList] = useState<AchievementView[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'done' | 'open'>('all');
+  const [info, setInfo] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   // Folded by default (the list is long); opened from a pop-up or the game summary.
   const [open, setOpen] = useState(() => {
@@ -149,6 +182,19 @@ export function AchievementsPanel() {
   }, [path]);
 
   if (!list) return null;
+  const showcase = s.profile.showcase;
+  const pin = async (a: AchievementView) => {
+    const on = showcase.includes(a.id);
+    if (!on && showcase.length >= SHOWCASE_SIZE) return s.toast(t('На вітрині вже 3 досягнення: спершу зніміть одне.'), 'error');
+    setBusy(a.id);
+    try {
+      s.setProfile(await s.api.setShowcase(on ? showcase.filter((x) => x !== a.id) : [...showcase, a.id]));
+    } catch (e) {
+      s.toast(errorText(e), 'error');
+    } finally {
+      setBusy(null);
+    }
+  };
   const wear = async (a: AchievementView) => {
     setBusy(a.id);
     try {
@@ -201,19 +247,23 @@ export function AchievementsPanel() {
           </button>
         </div>
       )}
-      {!open && (
-        <div className="ach-strip">
-          {list
-            .filter((a) => a.done)
-            .sort((a, b) => (a.percent ?? 100) - (b.percent ?? 100) || b.tier - a.tier)
-            .slice(0, 8)
-            .map((a) => (
-              <span key={a.id} title={a.name}>
-                <Medal a={a} />
-              </span>
-            ))}
-        </div>
-      )}
+      <div className="ach-showcase-head">
+        <b>{t('Вітрина')}</b>
+        <small className="muted">{showcase.length ? t('Ці досягнення бачать інші гравці у вашому профілі.') : t('Поки показуються найрідкісніші. Оберіть свої кнопкою ★ у списку.')}</small>
+      </div>
+      <div className="ach-showcase">
+        {(showcase.length
+          ? showcase.map((id) => list.find((a) => a.id === id)).filter((a): a is AchievementView => !!a)
+          : list.filter((a) => a.done).sort((a, b) => (a.percent ?? 100) - (b.percent ?? 100) || b.tier - a.tier).slice(0, SHOWCASE_SIZE)
+        ).map((a) => (
+          <button key={a.id} className="ach-show-item" onClick={() => setInfo(a.id)}>
+            <Medal a={a} />
+            <small>{a.name}</small>
+          </button>
+        ))}
+        {list.every((a) => !a.done) && <p className="muted small">{t('Ще жодного.')}</p>}
+      </div>
+      {info && <AchievementInfo id={info} percent={list.find((a) => a.id === info)?.percent} onClose={() => setInfo(null)} />}
       <button className="btn btn-sm ach-toggle" onClick={toggle} aria-expanded={open}>
         {open ? t('▲ Згорнути') : t('▼ Показати всі ({0})', list.length)}
       </button>
@@ -257,9 +307,19 @@ export function AchievementsPanel() {
               </small>
             </span>
             {a.done && (
-              <button className={`btn btn-sm ${s.profile.title === a.id ? 'btn-primary' : 'btn-ghost'}`} disabled={busy === a.id} onClick={() => void wear(a)}>
-                {s.profile.title === a.id ? t('✓ Плашка') : t('Плашка')}
-              </button>
+              <span className="ach-actions">
+                <button className={`btn btn-sm ${s.profile.title === a.id ? 'btn-primary' : 'btn-ghost'}`} disabled={busy === a.id} onClick={() => void wear(a)}>
+                  {s.profile.title === a.id ? t('✓ Плашка') : t('Плашка')}
+                </button>
+                <button
+                  className={`btn btn-sm ${showcase.includes(a.id) ? 'btn-primary' : 'btn-ghost'}`}
+                  disabled={busy === a.id}
+                  onClick={() => void pin(a)}
+                  title={t('На вітрину профілю')}
+                >
+                  {showcase.includes(a.id) ? t('★ Вітрина') : t('☆ Вітрина')}
+                </button>
+              </span>
             )}
           </div>
         ))}

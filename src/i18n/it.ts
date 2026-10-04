@@ -1569,5 +1569,13 @@ const dict: Record<string, string> = {
   "▼ Показати всі ({0})": "▼ Mostra tutti ({0})",
   "Творець гри": "Creatore del gioco",
   "Ця плашка лише для творця гри.": "Questa targhetta è solo per il creatore del gioco.",
+  "Вітрина": "Vetrina",
+  "Ці досягнення бачать інші гравці у вашому профілі.": "Gli altri giocatori vedono questi obiettivi nel tuo profilo.",
+  "Поки показуються найрідкісніші. Оберіть свої кнопкою ★ у списку.": "Per ora si vedono i più rari. Scegli i tuoi con ★ nell'elenco.",
+  "На вітрині вже 3 досягнення: спершу зніміть одне.": "La vetrina ha già 3 obiettivi: togline prima uno.",
+  "На вітрину профілю": "Nella vetrina del profilo",
+  "★ Вітрина": "★ Vetrina",
+  "☆ Вітрина": "☆ Vetrina",
+  "На вітрину можна поставити до 3 досягнень.": "In vetrina puoi mettere fino a 3 obiettivi.",
 };
 export default dict;

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Medal, TitlePlate, rarityText } from './Achievements';
+import { AchievementInfo, Medal, TitlePlate, rarityText } from './Achievements';
 import { ACHIEVEMENT_BY_ID, ACHIEVEMENTS } from '../economy/achievements';
 import { DECK_SLOTS } from '../engine/deck';
 import { getCard } from '../engine/cards';
@@ -28,6 +28,7 @@ export function PlayerModal({
   const [percent, setPercent] = useState<Record<string, number>>({});
   const [card, setCard] = useState<string | null>(null);
   const [allAch, setAllAch] = useState(false);
+  const [info, setInfo] = useState<string | null>(null);
   useEffect(() => {
     // How rare each achievement is (the same list as on your own profile).
     s.api.achievements().then((l) => setPercent(Object.fromEntries(l.map((a) => [a.id, a.percent ?? 0]))), () => undefined);
@@ -117,25 +118,25 @@ export function PlayerModal({
               {p.achievements.length === 0 ? (
                 <p className="muted small">{t('Ще жодного.')}</p>
               ) : (
-                <div className={`pm-ach ${allAch ? 'all' : ''}`}>
-                  {p.achievements
+                <div className="pm-ach">
+                  {(allAch
+                    ? [...p.showcase, ...p.achievements.filter((id) => !p.showcase.includes(id)).sort((x, y) => (percent[x] ?? 100) - (percent[y] ?? 100))]
+                    : p.showcase
+                  )
                     .map((id) => ACHIEVEMENT_BY_ID[id])
                     .filter(Boolean)
-                    // The rarest first: those are the ones to show off.
-                    .sort((a, b) => (percent[a.id] ?? 100) - (percent[b.id] ?? 100) || b.tier - a.tier)
-                    .slice(0, allAch ? undefined : 8)
                     .map((a) => (
-                      <span key={a.id} className="pm-ach-item" title={`${a.name}: ${a.text}`}>
+                      <button key={a.id} className="pm-ach-item" onClick={() => setInfo(a.id)}>
                         <Medal a={a} />
                         <small>{a.name}</small>
                         {percent[a.id] !== undefined && <small className="muted">{rarityText(percent[a.id])}</small>}
-                      </span>
+                      </button>
                     ))}
                 </div>
               )}
-              {p.achievements.length > 8 && (
-                <button className="btn btn-sm btn-ghost" onClick={() => setAllAch(!allAch)}>
-                  {allAch ? t('Згорнути') : t('Усі ({0})', p.achievements.length)}
+              {p.achievements.length > p.showcase.length && (
+                <button className="btn btn-sm btn-ghost pm-more" onClick={() => setAllAch(!allAch)}>
+                  {allAch ? t('▲ Згорнути') : t('▼ Показати всі ({0})', p.achievements.length)}
                 </button>
               )}
             </div>
@@ -164,6 +165,7 @@ export function PlayerModal({
           </>
         )}
       </div>
+      {info && <AchievementInfo id={info} percent={percent[info]} onClose={() => setInfo(null)} />}
       {card && (
         <div onClick={(e) => e.stopPropagation()}>
           <CardModal card={getCard(card)} onClose={() => setCard(null)} />
