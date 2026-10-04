@@ -843,8 +843,8 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
               )}
               {/* The record is finished on the server once the verdict is in (games with people: at once). */}
               {!spectator && (remote || verdict) && (
-                <a className="btn btn-review" href={`#/review/${remote ? 'p' : 'm'}/${start.matchId}`}>
-                  📊 {t('Аналіз партії')}
+                <a className="btn btn-replay" href={`#/replay/${remote ? 'p' : 'm'}/${start.matchId}`}>
+                  {t('Переглянути партію')}
                 </a>
               )}
               <button className="btn" onClick={onExit}>

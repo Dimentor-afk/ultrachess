@@ -37,11 +37,10 @@ the fallback), per-viewer views so hidden information reaches only its owner
 (`src/engine/secure.ts`), **rooms** `#/game/<id>` with **spectators**, **reconnection**, and the
 **README in the lab's format** (plus `docs/networking.md` for the Reflection questions and
 `docs/two-players.gif`).
-Game archive and review (`#/review/<m|p>/<id>`, from the profile history and the post-game summary):
-the server hands a finished game's decks and actions to its players (`GameService.gameRecord`); the
-analysis runs in the player's browser (`src/engine/bot/analysis.ts` in a worker: the bot's search per
-position, moves graded !!/!/best…/?!/?/??, lichess's win-chance and accuracy formulas). 3 free a day,
-then 100 shards each (`unlockAnalysis`; an opened game stays open).
+Game archive (`#/replay/<m|p>/<id>`, from the profile history and the post-game summary): the server
+hands a finished game's decks and actions to its players (`GameService.gameRecord`), the page replays
+them with the engine. An engine game review (move grades, accuracy, 3 free a day) was built and shelved
+by the author (the bot's evaluation judges card strength more than play): it is in commit `a203aa2`.
 
 Still to do:
 

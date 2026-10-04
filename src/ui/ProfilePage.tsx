@@ -200,7 +200,7 @@ export function ProfilePage() {
       ) : (
         <div className="history-list">
           {history.map((h) => (
-            <a key={h.id} className={`history-row out-${h.outcome}`} href={`#/review/${h.kind === 'ranked' || h.kind === 'friend' ? 'p' : 'm'}/${h.id}`} title={t('Переглянути й проаналізувати')}>
+            <a key={h.id} className={`history-row out-${h.outcome}`} href={`#/replay/${h.kind === 'ranked' || h.kind === 'friend' ? 'p' : 'm'}/${h.id}`} title={t('Переглянути партію')}>
               <span className="history-outcome">{OUTCOME[h.outcome]}</span>
               <span className="history-main">
                 <b>{tr(h.opponent)}</b>
@@ -215,7 +215,7 @@ export function ProfilePage() {
                 </span>
               )}
               <span className="muted tiny history-date">{new Date(h.at).toLocaleString(locale(), { dateStyle: 'short', timeStyle: 'short' })}</span>
-              <span className="history-open" aria-hidden="true">📊</span>
+              <span className="history-open" aria-hidden="true">▶</span>
             </a>
           ))}
         </div>
