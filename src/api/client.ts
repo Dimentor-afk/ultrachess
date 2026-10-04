@@ -14,6 +14,8 @@ import {
   type GameView,
   type LiveGame as LiveGameRow,
   type HistoryRow,
+  type AnalysisAccess,
+  type GameRecord,
   type Inbox,
   type PlayerCard,
   type PublicProfile,
@@ -49,6 +51,8 @@ export type {
   Collection,
   FriendsView,
   HistoryRow,
+  AnalysisAccess,
+  GameRecord,
   Inbox,
   LadderResult,
   LadderView,
@@ -140,6 +144,10 @@ export interface Api {
   updateProfile(patch: { name?: string; avatar?: string }): Promise<Profile>;
   playerProfile(userId: string): Promise<PublicProfile>;
   history(): Promise<HistoryRow[]>;
+  /** A finished game of mine ('m': with the bot, 'p': with a player), to replay. */
+  gameRecord(kind: 'm' | 'p', id: string): Promise<GameRecord>;
+  /** Open its analysis (free a few times a day, then for shards). */
+  unlockAnalysis(kind: 'm' | 'p', id: string): Promise<{ analysis: AnalysisAccess; profile: Profile }>;
   inbox(): Promise<Inbox>;
   claimQuest(id: string): Promise<Profile>;
   setBotOverride(level: number | null): Promise<Profile>;
@@ -255,6 +263,8 @@ class HttpApi implements Api {
   updateProfile = (patch: { name?: string; avatar?: string }) => this.call<Profile>('POST', 'profile', patch);
   playerProfile = (userId: string) => this.call<PublicProfile>('GET', `players/${userId}`);
   history = () => this.call<HistoryRow[]>('GET', 'history');
+  gameRecord = (kind: 'm' | 'p', id: string) => this.call<GameRecord>('GET', `games/${kind}/${id}`);
+  unlockAnalysis = (kind: 'm' | 'p', id: string) => this.call<{ analysis: AnalysisAccess; profile: Profile }>('POST', `games/${kind}/${id}/analysis`, {});
   inbox = () => this.call<Inbox>('GET', 'inbox');
   claimQuest = (id: string) => this.call<Profile>('POST', `quests/${id}/claim`, {});
   setBotOverride = (level: number | null) => this.call<Profile>('POST', 'admin/bot', { level });
@@ -448,6 +458,8 @@ class LocalApi implements Api {
   updateProfile = async (patch: { name?: string; avatar?: string }) => this.svc.updateProfile(await this.t(), patch);
   playerProfile = async (userId: string) => this.svc.playerProfile(await this.t(), userId);
   history = async () => this.svc.history(await this.t());
+  gameRecord = async (kind: 'm' | 'p', id: string) => this.svc.gameRecord(await this.t(), kind, id);
+  unlockAnalysis = async (kind: 'm' | 'p', id: string) => this.svc.unlockAnalysis(await this.t(), kind, id);
   inbox = async () => this.svc.inbox(await this.t());
   claimQuest = async (id: string) => this.svc.claimQuest(await this.t(), id);
   setBotOverride = async (level: number | null) => this.svc.setBotOverride(await this.t(), level);

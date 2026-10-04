@@ -284,6 +284,43 @@ export interface HistoryRow {
   at: number;
 }
 
+/** A finished game, whole, for its replay and analysis (only its players get it). */
+export interface GameRecord {
+  /** 'm': a game with the bot, 'p': with a player. */
+  kind: 'm' | 'p';
+  id: string;
+  /** Who is who; the bot has no avatar. */
+  players: Record<Color, { name: string; avatar: string | null }>;
+  myColor: Color;
+  decks: Record<Color, Deck>;
+  /** Every action of the game, both sides, in order. */
+  actions: Action[];
+  result: { winner: Color | null; reason: string; moves: number };
+  at: number;
+  analysis: AnalysisAccess;
+}
+
+/** Whether a game's analysis is open and what opening it costs. */
+export interface AnalysisAccess {
+  unlocked: boolean;
+  /** Free analyses left today. */
+  freeLeft: number;
+  /** Shards for one more once the free ones are used. */
+  price: number;
+}
+
+/** Free game analyses a day, then each costs ANALYSIS_PRICE shards. */
+export const FREE_ANALYSES = 3;
+export const ANALYSIS_PRICE = 100;
+/** How many unlocked games are remembered per player (older ones are paid again). */
+const ANALYSES_KEPT = 300;
+
+interface AnalysisState {
+  day: string;
+  used: number;
+  games: string[];
+}
+
 export interface ChallengeView {
   id: string;
   from: PlayerCard;
@@ -562,6 +599,7 @@ export class GameService {
       bannedUntil: 0,
       banReason: '',
       notice: '',
+      analyses: '{}',
     };
   }
 
@@ -1881,6 +1919,89 @@ export class GameService {
       });
     }
     return out.sort((a, b) => b.at - a.at).slice(0, 50);
+  }
+
+  // ── Archive and analysis ──
+
+  private analysisState(u: UserRow): AnalysisState {
+    const st = JSON.parse(u.analyses || '{}') as Partial<AnalysisState>;
+    return { day: st.day ?? '', used: st.day === this.today() ? (st.used ?? 0) : 0, games: st.games ?? [] };
+  }
+
+  private analysisAccess(u: UserRow, key: string): AnalysisAccess {
+    const st = this.analysisState(u);
+    return { unlocked: st.games.includes(key), freeLeft: Math.max(0, FREE_ANALYSES - st.used), price: ANALYSIS_PRICE };
+  }
+
+  /** A finished game of mine, whole: decks and every action, to replay and analyse. */
+  async gameRecord(token: string, kind: string, id: string): Promise<GameRecord> {
+    const u = await this.auth(token);
+    const key = `${kind}:${id}`;
+    if (kind === 'm') {
+      const m = await this.store.getMatch(id);
+      if (!m || m.userId !== u.id) throw new ApiError(404, 'Партію не знайдено.');
+      if (m.status !== 'finished' || !m.result) throw new ApiError(409, 'Партія ще триває.');
+      const r = JSON.parse(m.result) as { outcome: 'win' | 'loss' | 'draw'; reason: string; moves: number };
+      const bot = m.color === 'w' ? 'b' : 'w';
+      const me = { name: u.name, avatar: u.avatar };
+      const them = { name: `Бот · ${botLevel(m.botLevel).name}`, avatar: null };
+      return {
+        kind: 'm',
+        id,
+        players: m.color === 'w' ? { w: me, b: them } : { w: them, b: me },
+        myColor: m.color,
+        decks: m.color === 'w' ? { w: m.playerDeck, b: m.botDeck } : { w: m.botDeck, b: m.playerDeck },
+        actions: m.actions,
+        result: { winner: r.outcome === 'draw' ? null : r.outcome === 'win' ? m.color : bot, reason: r.reason, moves: r.moves },
+        at: m.createdAt,
+        analysis: this.analysisAccess(u, key),
+      };
+    }
+    if (kind === 'p') {
+      const { row, color } = await this.pvpFor(u.id, id);
+      if (row.status !== 'finished' || !row.result) throw new ApiError(409, 'Партія ще триває.');
+      const r = JSON.parse(row.result) as GameRecord['result'];
+      const who = async (userId: string) => {
+        const p = await this.store.getUser(userId);
+        return { name: p?.name ?? 'Гравець', avatar: p?.avatar ?? null };
+      };
+      return {
+        kind: 'p',
+        id,
+        players: { w: await who(row.whiteId), b: await who(row.blackId) },
+        myColor: color,
+        decks: { w: row.whiteDeck, b: row.blackDeck },
+        actions: JSON.parse(row.actions) as Action[],
+        result: { winner: r.winner, reason: r.reason, moves: r.moves },
+        at: row.updatedAt,
+        analysis: this.analysisAccess(u, key),
+      };
+    }
+    throw new ApiError(404, 'Партію не знайдено.');
+  }
+
+  /**
+   * Open a game's analysis: free FREE_ANALYSES times a day, then for
+   * ANALYSIS_PRICE shards. A game once opened stays open (the analysis itself
+   * runs in the player's browser).
+   */
+  async unlockAnalysis(token: string, kind: string, id: string): Promise<{ analysis: AnalysisAccess; profile: Profile }> {
+    // Only a finished game of mine.
+    await this.gameRecord(token, kind, id);
+    const u = await this.auth(token);
+    const key = `${kind}:${id}`;
+    const st = this.analysisState(u);
+    if (!st.games.includes(key)) {
+      const patch: Partial<UserRow> = {};
+      if (st.used < FREE_ANALYSES) st.used++;
+      else if (u.shards < ANALYSIS_PRICE) throw new ApiError(400, `Потрібно ${ANALYSIS_PRICE} уламків, у вас ${u.shards}.`);
+      else patch.shards = u.shards - ANALYSIS_PRICE;
+      st.day = this.today();
+      st.games = [...st.games, key].slice(-ANALYSES_KEPT);
+      await this.store.updateUser(u.id, { ...patch, analyses: JSON.stringify(st) });
+    }
+    const fresh = (await this.store.getUser(u.id))!;
+    return { analysis: this.analysisAccess(fresh, key), profile: await this.profileOf(u.id) };
   }
 
   // ── Friends ──

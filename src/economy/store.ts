@@ -65,6 +65,8 @@ export interface UserRow {
   banReason: string;
   /** A message the player sees once on their next visit (JSON Notice, '' for none). */
   notice: string;
+  /** Game analyses: JSON {day, used, games} (free ones used on `day`, games already unlocked). */
+  analyses: string;
 }
 
 export interface SessionRow {

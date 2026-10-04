@@ -26,9 +26,10 @@ const ProfilePage = lazy(() => import('./ProfilePage').then((m) => ({ default: m
 const HelpPage = lazy(() => import('./HelpPage').then((m) => ({ default: m.HelpPage })));
 const GamePage = lazy(() => import('./GamePage').then((m) => ({ default: m.GamePage })));
 const TestPayPage = lazy(() => import('./Payments').then((m) => ({ default: m.TestPayPage })));
+const ReviewPage = lazy(() => import('./ReviewPage').then((m) => ({ default: m.ReviewPage })));
 const PaddlePayPage = lazy(() => import('./Payments').then((m) => ({ default: m.PaddlePayPage })));
 
-type Route = 'play' | 'leagues' | 'trials' | 'deck' | 'shop' | 'friends' | 'top' | 'admin' | 'profile' | 'help' | 'game' | 'pay';
+type Route = 'play' | 'leagues' | 'trials' | 'deck' | 'shop' | 'friends' | 'top' | 'admin' | 'profile' | 'help' | 'game' | 'pay' | 'review';
 
 const ROUTES: { id: Route; label: string; icon: string; admin?: boolean }[] = [
   { id: 'play', label: t('Грати'), icon: 'play' },
@@ -60,7 +61,7 @@ const ARENA: { id: Route; label: string }[] = [
 function readRoute(): Route {
   const h = currentPath().replace(/^\/?/, '').split('/')[0];
   if (h === 'cards') return 'deck'; // the old collection page lives on the deck page now
-  if (h === 'profile' || h === 'help' || h === 'game' || h === 'pay') return h;
+  if (h === 'profile' || h === 'help' || h === 'game' || h === 'pay' || h === 'review') return h;
   return ROUTES.find((r) => r.id === h)?.id ?? 'play';
 }
 
@@ -260,6 +261,7 @@ function Shell() {
           {route === 'profile' && <ProfilePage />}
           {route === 'help' && <HelpPage />}
           {route === 'game' && <GamePage />}
+          {route === 'review' && <ReviewRoute />}
           {route === 'pay' && currentPath().split('/')[2] === 'paddle' && (
             <PaddlePayPage purchaseId={currentPath().split('/')[3] ?? ''} transactionId={currentPath().split('/')[4] ?? ''} />
           )}
@@ -275,6 +277,13 @@ function Shell() {
 }
 
 /** What an admin did to the account (a rename), shown once until the player closes it. */
+/** #/review/<m|p>/<id>: a finished game and its analysis. */
+function ReviewRoute() {
+  const [, , kind, id] = useRoutePath().split('/');
+  if ((kind !== 'm' && kind !== 'p') || !id) return <p className="muted">{t('Партію не знайдено.')}</p>;
+  return <ReviewPage key={`${kind}:${id}`} kind={kind} id={id} />;
+}
+
 function NoticeSheet() {
   const s = useSession();
   const n = s.profile.notice!;

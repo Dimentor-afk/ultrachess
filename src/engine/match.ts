@@ -152,7 +152,7 @@ export function canonicalAction(state: MatchState, action: unknown): Action {
 
 const PLAIN_LABELS = new Set(['Хід', 'Взяти', 'Хід на 2']);
 
-function moveText(pos: Position, m: Move): string {
+export function moveText(pos: Position, m: Move): string {
   const p = pos.board[m.from]!;
   const name = PIECE_NAMES[p.type];
   const sep = m.captures.length ? '×' : '–';

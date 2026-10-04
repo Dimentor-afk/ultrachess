@@ -175,6 +175,66 @@ function iterative(pos: Position, maxDepth: number, deadline: number, style: Sty
   return result;
 }
 
+export interface RootReview {
+  /** Best move and its score for the side to move (centipawns, ±MATE for mate). */
+  best: Move | null;
+  bestScore: number;
+  /** Score of the second-best move (null with a single legal move). */
+  second: number | null;
+  /** Score of `played` searched with a full window (null when not given or not legal). */
+  playedScore: number | null;
+  moves: number;
+  depth: number;
+}
+
+/**
+ * For the game review: the best move, how far behind the second best is
+ * (an "only move"), and the exact score of the move actually played, all at
+ * the same depth so they compare fairly. Root moves are searched with the
+ * second-best score as the bound, so the top two are exact.
+ */
+export function reviewRoot(pos: Position, maxDepth: number, timeMs: number, played?: Move): RootReview {
+  const deadline = Date.now() + timeMs;
+  const moves = legalMoves(pos);
+  if (moves.length === 0) {
+    const score = inCheck(pos) ? -MATE : 0;
+    return { best: null, bestScore: score, second: null, playedScore: null, moves: 0, depth: 0 };
+  }
+  const isPlayed = (m: Move) => !!played && sameMove(m, played);
+  let out = null as RootReview | null;
+  for (let d = 1; d <= maxDepth; d++) {
+    const sc: SearchState = { deadline: d === 1 ? Infinity : deadline, nodes: 0, qDepth: QUIESCENCE_DEPTH, noise: 0 };
+    try {
+      let best: Move | null = null;
+      let bestScore = -Infinity;
+      let second = -Infinity;
+      let playedScore: number | null = null;
+      for (const m of ordered(pos, moves, out?.best)) {
+        const exact = isPlayed(m);
+        const v = -negamax(applyMove(pos, m), d - 1, -Infinity, exact ? Infinity : -second, sc, 1);
+        if (exact) playedScore = v;
+        if (v > bestScore) {
+          second = bestScore;
+          bestScore = v;
+          best = m;
+        } else if (v > second) second = v;
+      }
+      out = { best, bestScore, second: moves.length > 1 ? second : null, playedScore, moves: moves.length, depth: d };
+    } catch (e) {
+      if (e instanceof Timeout) break;
+      throw e;
+    }
+    if (Math.abs(out.bestScore) > MATE / 2) break;
+  }
+  return out!;
+}
+
+/** Score of a position for the side to move (pending choices included), for the review. */
+export function reviewScore(pos: Position, depth: number): number {
+  const sc: SearchState = { deadline: Infinity, nodes: 0, qDepth: QUIESCENCE_DEPTH, noise: 0 };
+  return negamax(pos, depth, -Infinity, Infinity, sc, 0);
+}
+
 /** Map a move found on the believed position to the real legal move. */
 function toRealMove(pos: Position, m: Move): Move {
   const legal = legalMoves(pos);
