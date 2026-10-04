@@ -1023,9 +1023,8 @@ export class GameService {
 
   /** The plate shown under the name: an achievement the player has reached. */
   private titleOf(u: UserRow): string | null {
-    // The game's owner wears "Творець гри" unless they chose an achievement's plate.
-    if (this.isOwner(u) && (!u.title || u.title === CREATOR_TITLE)) return CREATOR_TITLE;
-    return u.title && ACHIEVEMENT_BY_ID[u.title] ? u.title : null;
+    // Plates are exclusive: only the game's owner has one, "Творець гри" (unless taken off).
+    return this.isOwner(u) && u.title !== '-' ? CREATOR_TITLE : null;
   }
 
   /**
@@ -1087,19 +1086,16 @@ export class GameService {
     return percent;
   }
 
-  /** Put an achievement's plate under the name (null: none). */
+  /** The owner puts their "Творець гри" plate on or takes it off (null). Nobody else has a plate. */
   async setTitle(token: string, id: string | null): Promise<Profile> {
     const u = await this.auth(token);
-    if (id === CREATOR_TITLE) {
-      if (!this.isOwner(u)) throw new ApiError(403, 'Ця плашка лише для творця гри.');
-    } else if (id) {
-      const a = (await this.achievementList(u)).find((x) => x.id === id);
-      if (!a?.done) throw new ApiError(400, 'Спершу здобудьте це досягнення.');
-    }
-    // The owner taking the plate off: '-' (an empty title would put "Творець гри" back).
+    if (id !== null && id !== CREATOR_TITLE) throw new ApiError(400, 'Такої плашки немає.');
+    if (id === CREATOR_TITLE && !this.isOwner(u)) throw new ApiError(403, 'Ця плашка лише для творця гри.');
+    // The owner taking the plate off: '-' (an empty title would put it back).
     await this.store.updateUser(u.id, { title: id ?? (this.isOwner(u) ? '-' : '') });
     return this.profileOf(u.id);
   }
+
 
   private fxOf(u: UserRow): string[] {
     let bought: string[] = [];

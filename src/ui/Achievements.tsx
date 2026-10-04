@@ -195,16 +195,7 @@ export function AchievementsPanel() {
       setBusy(null);
     }
   };
-  const wear = async (a: AchievementView) => {
-    setBusy(a.id);
-    try {
-      s.setProfile(await s.api.setTitle(s.profile.title === a.id ? null : a.id));
-    } catch (e) {
-      s.toast(errorText(e), 'error');
-    } finally {
-      setBusy(null);
-    }
-  };
+
 
   const toggle = () => {
     setOpen(!open);
@@ -269,7 +260,6 @@ export function AchievementsPanel() {
       </button>
       {open && (
         <>
-      <p className="muted small">{t('Будь-яке здобуте досягнення можна поставити плашкою під свій нік: її бачать суперники.')}</p>
       <div className="ach-filter" role="tablist">
         {(
           [
@@ -308,9 +298,6 @@ export function AchievementsPanel() {
             </span>
             {a.done && (
               <span className="ach-actions">
-                <button className={`btn btn-sm ${s.profile.title === a.id ? 'btn-primary' : 'btn-ghost'}`} disabled={busy === a.id} onClick={() => void wear(a)}>
-                  {s.profile.title === a.id ? t('✓ Плашка') : t('Плашка')}
-                </button>
                 <button
                   className={`btn btn-sm ${showcase.includes(a.id) ? 'btn-primary' : 'btn-ghost'}`}
                   disabled={busy === a.id}

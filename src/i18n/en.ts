@@ -1577,5 +1577,6 @@ const dict: Record<string, string> = {
   "★ Вітрина": "★ Showcase",
   "☆ Вітрина": "☆ Showcase",
   "На вітрину можна поставити до 3 досягнень.": "You can put up to 3 achievements in the showcase.",
+  "Такої плашки немає.": "There is no such plate.",
 };
 export default dict;

@@ -177,7 +177,8 @@ describe('achievements', () => {
     const { token } = await svc.register('a@a.com', 'secret12', 'Анна');
     const [starter] = await svc.packs(token);
     await svc.openPack(token, starter.id);
-    await expect(svc.setTitle(token, 'wins-1')).rejects.toThrow(/здобудьте/);
+    // Achievements give no plates: only the game's owner has one.
+    await expect(svc.setTitle(token, 'wins-1')).rejects.toThrow(/немає/);
     const svcAny = svc as unknown as { achieve: (id: string, add: object, feats?: string[]) => Promise<string[]> };
     const me = await svc.me(token);
     expect(me.achievements).not.toContain('wins-1');
@@ -185,7 +186,6 @@ describe('achievements', () => {
     // Already reached: not reported again.
     expect(await svcAny.achieve(me.id, { games: 1 })).toEqual([]);
     expect((await svc.me(token)).achievements).toContain('wins-1');
-    expect((await svc.setTitle(token, 'wins-1')).title).toBe('wins-1');
     expect((await svc.setTitle(token, null)).title).toBeNull();
     for (const a of ACHIEVEMENTS) expect(a.art ? a.art.startsWith('pack:') || CARD_BY_ID[a.art] : a.icon, a.id).toBeTruthy();
   });
