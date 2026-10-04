@@ -9745,3 +9745,15 @@ html.no-anim .cell.barrier.barrier-new::after { animation: none; }
     animation: none;
   }
 }
+
+/* Player profile: the friend status sits in line with the buttons, not stretched to their height. */
+.player-modal .editor-actions {
+  align-items: center;
+}
+.player-modal .editor-actions .pill {
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
+  padding: 0.35rem 0.8rem;
+  font-size: 0.85rem;
+}
