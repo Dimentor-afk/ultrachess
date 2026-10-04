@@ -20,7 +20,7 @@ import { DeckIntro, introSteps } from './DeckIntro';
 import type { FxName } from './fxSprites';
 import { requestHint } from './botClient';
 import { Avatar, CardView, Glyph } from './common';
-import { TitlePlate } from './Achievements';
+import { Medal, TitlePlate } from './Achievements';
 import { ACHIEVEMENT_BY_ID } from '../economy/achievements';
 import { t, tr } from '../i18n';
 
@@ -847,12 +847,12 @@ export function Game({ start, playerName, playerAvatar, playerTitle, trophies, o
                 <span className="eyebrow">{t('Нові досягнення')}</span>
                 {verdict.achievements.map((id) => ACHIEVEMENT_BY_ID[id] && (
                   <span key={id} className="ach-won-row">
-                    <span className="ach-icon">{ACHIEVEMENT_BY_ID[id].icon}</span>
+                    <Medal a={ACHIEVEMENT_BY_ID[id]} />
                     <b>{ACHIEVEMENT_BY_ID[id].name}</b>
                     <small className="muted">{ACHIEVEMENT_BY_ID[id].text}</small>
                   </span>
                 ))}
-                <a className="small" href="#/profile/achievements">{t('Забрати нагороду в профілі →')}</a>
+                <a className="small" href="#/profile/achievements">{t('Усі досягнення →')}</a>
               </div>
             )}
             {verdict && !verdict.ladder && !verdict.trial && <p className="muted">{t('Тренування: кубки й паки не нараховуються.')}</p>}

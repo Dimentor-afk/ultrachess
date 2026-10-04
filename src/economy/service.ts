@@ -110,8 +110,8 @@ export interface Profile {
   ownedFx: string[];
   /** The free pack of the day is waiting in the shop. */
   freePack: boolean;
-  /** Achievements reached whose reward is waiting. */
-  achievementsReady: number;
+  /** Achievements reached (ids): a new one pops up on the screen. */
+  achievements: string[];
   /** Achievement shown as the plate under the name (null: none). */
   title: string | null;
 }
@@ -909,7 +909,7 @@ export class GameService {
       captureFx: captureFxById(u.captureFx).id,
       ownedFx: this.fxOf(u),
       freePack: u.freePackDay !== this.today(),
-      achievementsReady: (await this.achievementList(u)).filter((a) => a.done && !a.claimed).length,
+      achievements: (await this.achievementList(u)).filter((a) => a.done).map((a) => a.id),
       title: this.titleOf(u),
     };
   }
@@ -961,23 +961,6 @@ export class GameService {
 
   async achievements(token: string): Promise<AchievementView[]> {
     return this.achievementList(await this.auth(token));
-  }
-
-  async claimAchievement(token: string, id: string): Promise<{ profile: Profile; list: AchievementView[] }> {
-    const u = await this.auth(token);
-    const a = (await this.achievementList(u)).find((x) => x.id === id);
-    if (!a) throw new ApiError(404, 'Такого досягнення немає.');
-    if (!a.done) throw new ApiError(400, 'Досягнення ще не здобуто.');
-    if (a.claimed) throw new ApiError(409, 'Нагороду вже отримано.');
-    const st = this.achState(u);
-    st.claimed.push(id);
-    await this.store.updateUser(u.id, {
-      achievements: JSON.stringify(st),
-      gold: u.gold + (a.reward.gold ?? 0),
-      shards: u.shards + (a.reward.shards ?? 0),
-    });
-    const fresh = (await this.store.getUser(u.id))!;
-    return { profile: await this.profileOf(u.id), list: await this.achievementList(fresh) };
   }
 
   /** Put an achievement's plate under the name (null: none). */

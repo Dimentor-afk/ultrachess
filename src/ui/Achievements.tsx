@@ -1,81 +1,149 @@
-import { useEffect, useRef, useState } from 'react';
-import { currentPath } from './router';
+import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import type { AchievementView } from '../api/client';
-import { ACHIEVEMENT_BY_ID } from '../economy/achievements';
+import { ACHIEVEMENT_BY_ID, type AchievementDef } from '../economy/achievements';
 import { t } from '../i18n';
+import { cardArt, packArt } from './cardArt';
+import type { PackType } from '../economy/packs';
+import { currentPath } from './router';
+import { play } from './settings';
 import { errorText, useSession } from './state';
 
 const TIER = ['', 'bronze', 'silver', 'gold', 'legend'] as const;
+const TIER_NAME = ['', t('Бронза'), t('Срібло'), t('Золото'), t('Легенда')];
+
+/** A round medal in the achievement's colour: its piece sprite (or emoji) inside a rim of its tier. */
+export function Medal({ a, locked, size = 'md' }: { a: AchievementDef; locked?: boolean; size?: 'sm' | 'md' | 'lg' }) {
+  const art = !a.art ? null : a.art.startsWith('pack:') ? packArt(a.art.slice(5) as PackType) : cardArt(a.art);
+  return (
+    <span className={`medal medal-${size} tier-${TIER[a.tier]} ${locked ? 'locked' : ''}`} style={{ '--hue': a.hue } as CSSProperties} aria-hidden="true">
+      <span className="medal-face">{art ? <img className="pixel" src={art} alt="" /> : <span className="medal-emoji">{a.icon}</span>}</span>
+      {locked && <span className="medal-lock">🔒</span>}
+    </span>
+  );
+}
 
 /** The plate under a player's name: an achievement they chose to show. */
 export function TitlePlate({ id, small }: { id: string | null | undefined; small?: boolean }) {
   const a = id ? ACHIEVEMENT_BY_ID[id] : null;
   if (!a) return null;
   return (
-    <span className={`title-plate tier-${TIER[a.tier]} ${small ? 'small' : ''}`} title={a.text}>
-      <span className="title-plate-icon">{a.icon}</span>
+    <span className={`title-plate tier-${TIER[a.tier]} ${small ? 'small' : ''}`} style={{ '--hue': a.hue } as CSSProperties} title={a.text}>
+      <Medal a={a} size="sm" />
       {a.name}
     </span>
   );
 }
 
-function reward(a: AchievementView): string {
-  return [a.reward.gold ? `🪙 ${a.reward.gold}` : '', a.reward.shards ? `💎 ${a.reward.shards}` : ''].filter(Boolean).join(' · ');
+/**
+ * Achievements as they unlock: a card slides in from the side, like a
+ * console trophy. Watches the profile, so whatever unlocked one (a game, a
+ * pack, a league) shows it the moment the profile is refreshed.
+ */
+export function AchievementPopups() {
+  const s = useSession();
+  const seen = useRef<Set<string> | null>(null);
+  const [queue, setQueue] = useState<string[]>([]);
+  const [leaving, setLeaving] = useState(false);
+
+  useEffect(() => {
+    const now = s.profile.achievements;
+    if (!seen.current) {
+      // What was reached before this visit is old news.
+      seen.current = new Set(now);
+      return;
+    }
+    const fresh = now.filter((id) => !seen.current!.has(id));
+    for (const id of fresh) seen.current.add(id);
+    if (fresh.length) setQueue((q) => [...q, ...fresh]);
+  }, [s.profile.achievements]);
+
+  const current = queue[0];
+  useEffect(() => {
+    if (!current) return;
+    play('trophy');
+    setLeaving(false);
+    const out = setTimeout(() => setLeaving(true), 4200);
+    const next = setTimeout(() => setQueue((q) => q.slice(1)), 4700);
+    return () => {
+      clearTimeout(out);
+      clearTimeout(next);
+    };
+  }, [current]);
+
+  const a = current ? ACHIEVEMENT_BY_ID[current] : null;
+  if (!a) return null;
+  return (
+    <a
+      key={current}
+      href="#/profile/achievements"
+      className={`ach-pop tier-${TIER[a.tier]} ${leaving ? 'leaving' : ''}`}
+      style={{ '--hue': a.hue } as CSSProperties}
+      role="status"
+      onClick={() => setQueue((q) => q.slice(1))}
+    >
+      <Medal a={a} size="lg" />
+      <span className="ach-pop-text">
+        <small>
+          🏆 {t('Досягнення відкрито')} · {TIER_NAME[a.tier]}
+        </small>
+        <b>{a.name}</b>
+        <span>{a.text}</span>
+      </span>
+      {queue.length > 1 && <span className="ach-pop-more">+{queue.length - 1}</span>}
+    </a>
+  );
 }
 
-/** Every achievement: rewards to take, progress, and the plate to show under the name. */
+/** Every achievement: what is reached, the progress to the rest, and the plate to show under the name. */
 export function AchievementsPanel() {
   const s = useSession();
   const [list, setList] = useState<AchievementView[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'done' | 'open'>('all');
-
   const ref = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
-    s.api.achievements().then((l) => {
-      // Names and texts in the chosen language (the server sends Ukrainian).
-      setList(l.map((a) => ({ ...a, name: ACHIEVEMENT_BY_ID[a.id]?.name ?? a.name, text: ACHIEVEMENT_BY_ID[a.id]?.text ?? a.text })));
-      // From the game summary: straight to the achievements.
-      if (currentPath() === '/profile/achievements') setTimeout(() => ref.current?.scrollIntoView({ block: 'start' }), 50);
-    }, (e) => s.toast(errorText(e), 'error'));
+    s.api.achievements().then(
+      (l) => {
+        // Names and texts in the chosen language (the server sends Ukrainian).
+        setList(l.map((a) => ({ ...a, name: ACHIEVEMENT_BY_ID[a.id]?.name ?? a.name, text: ACHIEVEMENT_BY_ID[a.id]?.text ?? a.text })));
+        // From the game summary or a pop-up: straight to the achievements.
+        if (currentPath() === '/profile/achievements') setTimeout(() => ref.current?.scrollIntoView({ block: 'start' }), 50);
+      },
+      (e) => s.toast(errorText(e), 'error'),
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [s.profile.achievementsReady]);
+  }, [s.profile.achievements.length]);
 
   if (!list) return null;
-  const run = async (id: string, fn: () => Promise<void>) => {
-    setBusy(id);
+  const wear = async (a: AchievementView) => {
+    setBusy(a.id);
     try {
-      await fn();
+      s.setProfile(await s.api.setTitle(s.profile.title === a.id ? null : a.id));
     } catch (e) {
       s.toast(errorText(e), 'error');
     } finally {
       setBusy(null);
     }
   };
-  const claim = (a: AchievementView) =>
-    run(a.id, async () => {
-      const r = await s.api.claimAchievement(a.id);
-      s.setProfile(r.profile);
-      setList(r.list.map((x) => ({ ...x, name: ACHIEVEMENT_BY_ID[x.id]?.name ?? x.name, text: ACHIEVEMENT_BY_ID[x.id]?.text ?? x.text })));
-      s.toast(t('🏅 {0}: {1}', a.name, reward(a)));
-    });
-  const wear = (a: AchievementView) => run(a.id, async () => s.setProfile(await s.api.setTitle(s.profile.title === a.id ? null : a.id)));
 
-  const rank = (a: AchievementView) => (a.done && !a.claimed ? 0 : !a.done ? 1 : 2);
   const shown = list
     .filter((a) => (filter === 'done' ? a.done : filter === 'open' ? !a.done : true))
-    .sort((a, b) => rank(a) - rank(b) || (b.progress / b.target) - (a.progress / a.target));
+    .sort((a, b) => Number(b.done) - Number(a.done) || b.tier - a.tier || b.progress / b.target - a.progress / a.target);
   const doneCount = list.filter((a) => a.done).length;
 
   return (
     <div className="panel achievements" ref={ref}>
       <div className="section-head">
         <h2>{t('Досягнення')}</h2>
-        <span className="muted small">
-          {doneCount}/{list.length}
+        <span className="ach-count">
+          🏆 {doneCount}/{list.length}
         </span>
       </div>
-      <p className="muted small">{t('Кожне здобуте досягнення дає нагороду й плашку: її бачитимуть під вашим ніком у партіях.')}</p>
+      <div className="bar ach-total" aria-hidden="true">
+        <span style={{ width: `${(doneCount / list.length) * 100}%` }} />
+      </div>
+      <p className="muted small">{t('Будь-яке здобуте досягнення можна поставити плашкою під свій нік: її бачать суперники.')}</p>
       <div className="ach-filter" role="tablist">
         {(
           [
@@ -91,8 +159,8 @@ export function AchievementsPanel() {
       </div>
       <div className="ach-grid">
         {shown.map((a) => (
-          <div key={a.id} className={`ach tier-${TIER[a.tier]} ${a.done ? 'done' : 'locked'} ${a.done && !a.claimed ? 'ready' : ''}`}>
-            <span className="ach-icon">{a.icon}</span>
+          <div key={a.id} className={`ach tier-${TIER[a.tier]} ${a.done ? 'done' : 'locked'}`} style={{ '--hue': a.hue } as CSSProperties}>
+            <Medal a={a} locked={!a.done} />
             <span className="ach-body">
               <b>{a.name}</b>
               <small>{a.text}</small>
@@ -106,21 +174,13 @@ export function AchievementsPanel() {
                   </small>
                 </span>
               )}
-              <small className="ach-reward">{reward(a)}</small>
+              <small className="ach-tier">{TIER_NAME[a.tier]}</small>
             </span>
-            <span className="ach-actions">
-              {a.done && !a.claimed && (
-                <button className="btn btn-primary btn-sm" disabled={busy === a.id} onClick={() => void claim(a)}>
-                  {t('Забрати')}
-                </button>
-              )}
-              {a.done && (
-                <button className={`btn btn-sm ${s.profile.title === a.id ? 'btn-primary' : 'btn-ghost'}`} disabled={busy === a.id} onClick={() => void wear(a)}>
-                  {s.profile.title === a.id ? t('✓ Плашка') : t('Плашка')}
-                </button>
-              )}
-              {!a.done && <span className="ach-lock">🔒</span>}
-            </span>
+            {a.done && (
+              <button className={`btn btn-sm ${s.profile.title === a.id ? 'btn-primary' : 'btn-ghost'}`} disabled={busy === a.id} onClick={() => void wear(a)}>
+                {s.profile.title === a.id ? t('✓ Плашка') : t('Плашка')}
+              </button>
+            )}
           </div>
         ))}
       </div>

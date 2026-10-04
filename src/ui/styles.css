@@ -9289,47 +9289,125 @@ html.no-anim .cell.barrier.barrier-new::after { animation: none; }
   font-size: 1.2rem;
 }
 
-/* ── Achievements and plates ── */
+/* ── Achievements: medals, plates, pop-ups ── */
+.medal {
+  --hue: 45;
+  --rim: #c98a4f;
+  --rim-2: #6e4220;
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 3.1rem;
+  height: 3.1rem;
+  border-radius: 50%;
+  padding: 3px;
+  background: linear-gradient(145deg, var(--rim), var(--rim-2) 55%, var(--rim));
+  box-shadow: 0 0 12px hsl(var(--hue) 90% 55% / 0.45), 0 2px 0 rgba(0, 0, 0, 0.4);
+}
+.medal-face {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 32% 26%, hsl(var(--hue) 100% 82% / 0.95), transparent 38%),
+    radial-gradient(circle at 50% 60%, hsl(var(--hue) 85% 52%), hsl(calc(var(--hue) + 25) 80% 28%) 75%);
+  box-shadow: inset 0 -4px 8px rgba(0, 0, 0, 0.35), inset 0 2px 3px rgba(255, 255, 255, 0.35);
+}
+.medal-face img {
+  width: 78%;
+  height: 78%;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.45));
+}
+.medal-emoji {
+  font-size: 1.45rem;
+  filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.35));
+}
+.medal.tier-silver {
+  --rim: #eef3ff;
+  --rim-2: #7c88a6;
+}
+.medal.tier-gold {
+  --rim: #ffe08a;
+  --rim-2: #a8740f;
+}
+.medal.tier-legend {
+  --rim: #ff8ae3;
+  background: conic-gradient(from 0deg, #ff5fd2, #ffd36b, #6bf0ff, #a77bff, #ff5fd2);
+  animation: medal-spin 5s linear infinite;
+}
+.medal.tier-legend .medal-face {
+  animation: medal-spin 5s linear infinite reverse;
+}
+@keyframes medal-spin {
+  to {
+    rotate: 360deg;
+  }
+}
+.medal.locked {
+  filter: grayscale(1) brightness(0.55);
+  box-shadow: none;
+  animation: none;
+}
+.medal.locked .medal-face {
+  animation: none;
+}
+.medal-lock {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  font-size: 0.85rem;
+  filter: none;
+}
+.medal-sm {
+  width: 1.35em;
+  height: 1.35em;
+  padding: 1.5px;
+  box-shadow: none;
+}
+.medal-sm .medal-face img {
+  width: 90%;
+  height: 90%;
+}
+.medal-sm .medal-emoji {
+  font-size: 0.75em;
+}
+.medal-lg {
+  width: 3.8rem;
+  height: 3.8rem;
+  padding: 4px;
+}
+.medal-lg .medal-emoji {
+  font-size: 1.8rem;
+}
+
 .title-plate {
-  --plate: #cd8a4e;
-  --plate-2: #7a4a22;
+  --hue: 45;
   display: inline-flex;
   align-items: center;
-  gap: 0.3em;
+  gap: 0.35em;
   width: fit-content;
   max-width: 100%;
-  padding: 0.12em 0.6em 0.12em 0.45em;
-  border-radius: 6px;
-  border: 1px solid var(--plate);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--plate) 32%, transparent), color-mix(in srgb, var(--plate-2) 40%, transparent));
+  padding: 0.12em 0.65em 0.12em 0.2em;
+  border-radius: 999px;
+  border: 1px solid hsl(var(--hue) 90% 65% / 0.8);
+  background: linear-gradient(90deg, hsl(var(--hue) 80% 42% / 0.75), hsl(calc(var(--hue) + 30) 70% 25% / 0.55));
   color: #fff;
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.02em;
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 0 8px color-mix(in srgb, var(--plate) 35%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 0 10px hsl(var(--hue) 90% 55% / 0.35);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .title-plate.small {
-  font-size: 0.66rem;
-  padding: 0.05em 0.45em 0.05em 0.35em;
-}
-.title-plate-icon {
-  font-size: 1.05em;
-}
-.tier-silver {
-  --plate: #c8d2e6;
-  --plate-2: #5d6a86;
-}
-.tier-gold {
-  --plate: #f5c451;
-  --plate-2: #8a6412;
-}
-.tier-legend {
-  --plate: #ff5fd2;
-  --plate-2: #5b2bc4;
+  font-size: 0.68rem;
 }
 .title-plate.tier-legend {
   background: linear-gradient(110deg, #5b2bc4, #c43bb0, #ff8a3d, #c43bb0, #5b2bc4);
@@ -9347,12 +9425,19 @@ html.no-anim .cell.barrier.barrier-new::after { animation: none; }
   margin: 0.1rem 0;
 }
 .profile-main .title-plate {
-  margin: 0.15rem 0 0.35rem;
+  margin: 0.15rem auto 0.35rem;
 }
 .player-modal-head .title-plate {
   margin: 0.2rem 0;
 }
 
+.achievements .ach-count {
+  font-weight: 800;
+  color: var(--gold);
+}
+.ach-total {
+  margin: 0.4rem 0 0.6rem;
+}
 .achievements .ach-filter {
   display: flex;
   gap: 0.4rem;
@@ -9365,36 +9450,22 @@ html.no-anim .cell.barrier.barrier-new::after { animation: none; }
   gap: 0.6rem;
 }
 .ach {
-  --plate: #cd8a4e;
+  --hue: 45;
   display: grid;
   grid-template-columns: auto 1fr auto;
-  gap: 0.7rem;
+  gap: 0.8rem;
   align-items: center;
-  padding: 0.7rem;
-  border-radius: 12px;
+  padding: 0.75rem;
+  border-radius: 14px;
   border: 1px solid var(--line);
   background: var(--bg-2);
 }
 .ach.done {
-  border-color: color-mix(in srgb, var(--plate) 60%, transparent);
-  background: linear-gradient(135deg, color-mix(in srgb, var(--plate) 16%, var(--bg-2)), var(--bg-2));
+  border-color: hsl(var(--hue) 80% 60% / 0.55);
+  background: linear-gradient(120deg, hsl(var(--hue) 70% 40% / 0.28), var(--bg-2) 70%);
 }
-.ach.ready {
-  box-shadow: 0 0 0 1px var(--plate), 0 0 14px color-mix(in srgb, var(--plate) 45%, transparent);
-}
-.ach.locked .ach-icon {
-  filter: grayscale(1);
-  opacity: 0.45;
-}
-.ach-icon {
-  display: grid;
-  place-items: center;
-  width: 2.6rem;
-  height: 2.6rem;
-  font-size: 1.5rem;
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--plate) 18%, var(--panel));
-  border: 1px solid color-mix(in srgb, var(--plate) 50%, transparent);
+.ach.locked b {
+  color: var(--muted);
 }
 .ach-body {
   display: flex;
@@ -9406,9 +9477,15 @@ html.no-anim .cell.barrier.barrier-new::after { animation: none; }
   color: var(--muted);
   line-height: 1.3;
 }
-.ach-body .ach-reward {
-  color: var(--gold);
-  font-weight: 600;
+.ach-body .ach-tier {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: hsl(var(--hue) 85% 70%);
+}
+.ach.locked .ach-tier {
+  color: var(--muted);
 }
 .ach-progress {
   display: flex;
@@ -9418,51 +9495,108 @@ html.no-anim .cell.barrier.barrier-new::after { animation: none; }
 .ach-progress .bar {
   flex: 1;
 }
-.ach-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  align-items: stretch;
-}
-.ach-lock {
-  opacity: 0.5;
-}
 .ach-won {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.5rem;
 }
 .ach-won-row {
   display: grid;
   grid-template-columns: auto 1fr;
-  column-gap: 0.6rem;
+  column-gap: 0.7rem;
   align-items: center;
   text-align: left;
 }
-.ach-won-row .ach-icon {
-  --plate: var(--gold);
+.ach-won-row .medal {
   grid-row: span 2;
-  width: 2.2rem;
-  height: 2.2rem;
-  font-size: 1.2rem;
 }
-.me .nav-badge,
-.m-me .nav-badge {
-  margin-left: 0;
+
+/* The pop-up: slides in from the right edge, like a console trophy. */
+.ach-pop {
+  --hue: 45;
+  position: fixed;
+  z-index: 300;
+  top: max(16px, env(safe-area-inset-top));
+  right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  width: min(360px, calc(100vw - 32px));
+  padding: 0.7rem 0.9rem 0.7rem 0.7rem;
+  border-radius: 16px;
+  border: 1px solid hsl(var(--hue) 85% 62% / 0.75);
+  background: linear-gradient(110deg, hsl(var(--hue) 65% 30% / 0.97), #121a33 70%);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55), 0 0 22px hsl(var(--hue) 90% 55% / 0.35);
+  color: var(--text);
+  text-decoration: none;
+  animation: ach-in 0.55s cubic-bezier(0.2, 1.3, 0.4, 1) both;
+  overflow: hidden;
 }
-.m-me {
-  position: relative;
-}
-.m-header .m-me .nav-badge {
+.ach-pop::after {
+  content: '';
   position: absolute;
-  top: -4px;
-  left: 28px;
-  right: auto;
-  flex: none;
-  width: 1.15rem;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.22) 45%, transparent 60%);
+  transform: translateX(-120%);
+  animation: ach-shine 1.2s 0.45s ease-out;
+  pointer-events: none;
+}
+.ach-pop.leaving {
+  animation: ach-out 0.45s ease-in both;
+}
+.ach-pop-text {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
-  height: 1.15rem;
-  padding: 0;
-  font-size: 0.65rem;
-  line-height: 1;
+}
+.ach-pop-text small {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: hsl(var(--hue) 90% 75%);
+}
+.ach-pop-text b {
+  font-size: 1.05rem;
+}
+.ach-pop-text span {
+  font-size: 0.78rem;
+  color: var(--muted);
+  line-height: 1.3;
+}
+.ach-pop-more {
+  margin-left: auto;
+  align-self: flex-start;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--gold);
+}
+@keyframes ach-in {
+  from {
+    transform: translateX(calc(100% + 24px));
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+@keyframes ach-out {
+  to {
+    transform: translateX(calc(100% + 24px));
+    opacity: 0;
+  }
+}
+@keyframes ach-shine {
+  to {
+    transform: translateX(120%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ach-pop,
+  .ach-pop.leaving,
+  .medal.tier-legend,
+  .medal.tier-legend .medal-face {
+    animation: none;
+  }
 }

@@ -62,6 +62,7 @@ export function applySettings(): void {
 // ── Sound ──
 
 export type Sound =
+  | 'trophy'
   | 'move'
   | 'capture'
   | 'check'
@@ -150,6 +151,13 @@ const NOTES: Record<Sound, [number, number, number, OscillatorType, number][]> =
     [900, 0.3, 0.3, 'sawtooth', 0.03],
   ],
   click: [[700, 0, 0.04, 'sine', 0.05]],
+  // An achievement pops up: a soft two-note chime with a sparkle on top.
+  trophy: [
+    [784, 0, 0.16, 'sine', 0.16],
+    [1175, 0.11, 0.32, 'sine', 0.16],
+    [2349, 0.13, 0.25, 'triangle', 0.04],
+    [1568, 0.24, 0.4, 'sine', 0.08],
+  ],
 };
 
 export function play(sound: Sound): void {

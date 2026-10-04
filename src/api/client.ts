@@ -149,7 +149,6 @@ export interface Api {
   inbox(): Promise<Inbox>;
   claimQuest(id: string): Promise<Profile>;
   achievements(): Promise<AchievementView[]>;
-  claimAchievement(id: string): Promise<{ profile: Profile; list: AchievementView[] }>;
   setTitle(id: string | null): Promise<Profile>;
   setBotOverride(level: number | null): Promise<Profile>;
   friends(): Promise<FriendsView>;
@@ -269,7 +268,6 @@ class HttpApi implements Api {
   inbox = () => this.call<Inbox>('GET', 'inbox');
   claimQuest = (id: string) => this.call<Profile>('POST', `quests/${id}/claim`, {});
   achievements = () => this.call<AchievementView[]>('GET', 'achievements');
-  claimAchievement = (id: string) => this.call<{ profile: Profile; list: AchievementView[] }>('POST', `achievements/${id}/claim`, {});
   setTitle = (id: string | null) => this.call<Profile>('POST', 'profile/title', { id });
   setBotOverride = (level: number | null) => this.call<Profile>('POST', 'admin/bot', { level });
   friends = () => this.call<FriendsView>('GET', 'friends');
@@ -467,7 +465,6 @@ class LocalApi implements Api {
   inbox = async () => this.svc.inbox(await this.t());
   claimQuest = async (id: string) => this.svc.claimQuest(await this.t(), id);
   achievements = async () => this.svc.achievements(await this.t());
-  claimAchievement = async (id: string) => this.svc.claimAchievement(await this.t(), id);
   setTitle = async (id: string | null) => this.svc.setTitle(await this.t(), id);
   setBotOverride = async (level: number | null) => this.svc.setBotOverride(await this.t(), level);
   friends = async () => this.svc.friends(await this.t());

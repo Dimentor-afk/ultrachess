@@ -12,6 +12,7 @@ import { cardArt } from './cardArt';
 import { ErrorBoundary } from './ErrorBoundary';
 import { Icon } from './icons';
 import { Sheet } from './Sheet';
+import { AchievementPopups } from './Achievements';
 import { currentPath, navigate, onNavigate, useRoutePath } from './router';
 import { LeaguesPage } from './LeaguesPage';
 import { TrialsPage } from './TrialsPage';
@@ -191,7 +192,6 @@ function Shell() {
             <b>{s.profile.name}</b>
             <small>🏆 {s.profile.trophies}</small>
           </span>
-          {s.profile.achievementsReady > 0 && <span className="nav-badge">{s.profile.achievementsReady}</span>}
           <span className="me-chev" aria-hidden="true">
             ›
           </span>
@@ -202,7 +202,6 @@ function Shell() {
       <header className="m-header">
         <a className={`m-me ${route === 'profile' ? 'active' : ''}`} href="#/profile" aria-label={t('Профіль')}>
           <Avatar card={s.profile.avatar} size="sm" />
-          {s.profile.achievementsReady > 0 && <span className="nav-badge">{s.profile.achievementsReady}</span>}
           <span className="m-me-info">
             <b>{s.profile.name}</b>
             <small>🏆 {s.profile.trophies}</small>
@@ -274,6 +273,7 @@ function Shell() {
         </ErrorBoundary>
       </main>
       {s.profile.notice && <NoticeSheet />}
+      <AchievementPopups />
     </div>
   );
 }

@@ -1,4 +1,5 @@
-// Achievements: tiers that grow with play (wins, packs, the collection,
+// Achievements (no rewards: trophies to collect, as on PlayStation or Steam):
+// tiers that grow with play (wins, packs, the collection,
 // leagues) and feats found in the record of a finished game (Берсерк taking
 // two pieces twice in a row, mate with a pawn, …). The server works the
 // feats out from the game it kept, so a client cannot claim one it did not play.
@@ -18,73 +19,86 @@ export interface AchievementDef {
   id: string;
   name: string;
   text: string;
+  /** Emoji on the medal when it has no piece art. */
   icon: string;
-  /** 1 bronze … 4 legend: the frame. */
+  /** Card whose pixel sprite sits on the medal ('pack:<type>': a pack's art). */
+  art?: string;
+  /** Medal colour (hue, 0–360). */
+  hue: number;
+  /** 1 bronze … 4 legend: the medal's rim. */
   tier: 1 | 2 | 3 | 4;
   /** Counted achievements: reached when `stat` >= `target`. Feats have no stat (target 1). */
   stat?: AchStat;
   target: number;
-  reward: { gold?: number; shards?: number };
 }
 
-const count = (id: string, stat: AchStat, target: number, tier: AchievementDef['tier'], icon: string, name: string, text: string, reward: AchievementDef['reward']): AchievementDef => ({
+type Look = { icon?: string; art?: string; hue: number };
+
+const count = (id: string, stat: AchStat, target: number, tier: AchievementDef['tier'], look: Look, name: string, text: string): AchievementDef => ({
   id,
   stat,
   target,
   tier,
-  icon,
+  icon: look.icon ?? '',
+  art: look.art,
+  hue: look.hue,
   name,
   text,
-  reward,
 });
-const feat = (id: string, tier: AchievementDef['tier'], icon: string, name: string, text: string, shards: number): AchievementDef => ({
+const feat = (id: string, tier: AchievementDef['tier'], look: Look, name: string, text: string): AchievementDef => ({
   id,
   tier,
-  icon,
+  icon: look.icon ?? '',
+  art: look.art,
+  hue: look.hue,
   name,
   text,
   target: 1,
-  reward: { shards },
 });
+
+const WIN: Look = { art: 'king-classic', hue: 45 };
+const PVP: Look = { art: 'knight-galloper', hue: 15 };
+const GAMES: Look = { art: 'pawn-classic', hue: 200 };
+const CARDS_LOOK: Look = { art: 'bishop-illusionist', hue: 260 };
 
 export const ACHIEVEMENTS: AchievementDef[] = [
   // ── Progress ──
-  count('wins-1', 'wins', 1, 1, '⚔️', 'Перша кров', 'Виграйте першу партію.', { gold: 50 }),
-  count('wins-10', 'wins', 10, 1, '⚔️', 'Розігрівся', 'Виграйте 10 партій.', { gold: 150 }),
-  count('wins-50', 'wins', 50, 2, '⚔️', 'Ветеран', 'Виграйте 50 партій.', { shards: 100 }),
-  count('wins-100', 'wins', 100, 3, '⚔️', 'Чемпіон', 'Виграйте 100 партій.', { shards: 250 }),
-  count('wins-500', 'wins', 500, 4, '⚔️', 'Жива легенда', 'Виграйте 500 партій.', { shards: 600 }),
-  count('pvp-1', 'pvpWins', 1, 1, '🤝', 'Не бот', 'Переможіть живого гравця.', { shards: 50 }),
-  count('pvp-10', 'pvpWins', 10, 2, '🤝', 'Гроза арени', 'Переможіть 10 живих гравців.', { shards: 150 }),
-  count('pvp-50', 'pvpWins', 50, 3, '🤝', 'Гладіатор', 'Переможіть 50 живих гравців.', { shards: 400 }),
-  count('games-10', 'games', 10, 1, '♟️', 'Новобранець', 'Зіграйте 10 партій.', { gold: 50 }),
-  count('games-100', 'games', 100, 2, '♟️', 'Шахоголік', 'Зіграйте 100 партій.', { gold: 300 }),
-  count('packs-10', 'packs', 10, 1, '🎁', 'Розпаковка', 'Відкрийте 10 паків.', { gold: 100 }),
-  count('packs-50', 'packs', 50, 2, '🎁', 'Пакоголік', 'Відкрийте 50 паків.', { shards: 150 }),
-  count('cards-20', 'cards', 20, 1, '🃏', 'Збирач', 'Зберіть 20 різних карток.', { gold: 100 }),
-  count('cards-40', 'cards', 40, 2, '🃏', 'Знавець', 'Зберіть 40 різних карток.', { shards: 200 }),
-  count('cards-all', 'cards', CARDS.filter((c) => !c.trialOnly).length, 4, '🃏', 'Ходяча енциклопедія', 'Зберіть усі картки з паків.', { shards: 1000 }),
-  count('bot-league-4', 'botLeague', 4, 2, '🤖', 'Срібло ботів', 'Дійдіть до Срібної ліги ботів.', { shards: 100 }),
-  count('bot-league-7', 'botLeague', 7, 3, '🤖', 'Перемагач машин', 'Дійдіть до Міфічної ліги ботів.', { shards: 300 }),
-  count('pvp-league-2', 'pvpLeague', 2, 2, '🏟️', 'Срібна арена', 'Дійдіть до Срібної арени в лізі гравців.', { shards: 150 }),
-  count('pvp-league-4', 'pvpLeague', 4, 4, '🏟️', 'Бог арени', 'Дійдіть до Міфічної арени в лізі гравців.', { shards: 500 }),
-  count('trials-1', 'trials', 1, 2, '🏅', 'Випробуваний', 'Пройдіть будь-яке випробування.', { shards: 100 }),
+  count('wins-1', 'wins', 1, 1, WIN, 'Перша кров', 'Виграйте першу партію.'),
+  count('wins-10', 'wins', 10, 1, WIN, 'Розігрівся', 'Виграйте 10 партій.'),
+  count('wins-50', 'wins', 50, 2, WIN, 'Ветеран', 'Виграйте 50 партій.'),
+  count('wins-100', 'wins', 100, 3, WIN, 'Чемпіон', 'Виграйте 100 партій.'),
+  count('wins-500', 'wins', 500, 4, WIN, 'Жива легенда', 'Виграйте 500 партій.'),
+  count('pvp-1', 'pvpWins', 1, 1, PVP, 'Не бот', 'Переможіть живого гравця.'),
+  count('pvp-10', 'pvpWins', 10, 2, PVP, 'Гроза арени', 'Переможіть 10 живих гравців.'),
+  count('pvp-50', 'pvpWins', 50, 3, PVP, 'Гладіатор', 'Переможіть 50 живих гравців.'),
+  count('games-10', 'games', 10, 1, GAMES, 'Новобранець', 'Зіграйте 10 партій.'),
+  count('games-100', 'games', 100, 2, GAMES, 'Шахоголік', 'Зіграйте 100 партій.'),
+  count('packs-10', 'packs', 10, 1, { art: 'pack:rare', hue: 200 }, 'Розпаковка', 'Відкрийте 10 паків.'),
+  count('packs-50', 'packs', 50, 2, { art: 'pack:legendary', hue: 35 }, 'Пакоголік', 'Відкрийте 50 паків.'),
+  count('cards-20', 'cards', 20, 1, CARDS_LOOK, 'Збирач', 'Зберіть 20 різних карток.'),
+  count('cards-40', 'cards', 40, 2, CARDS_LOOK, 'Знавець', 'Зберіть 40 різних карток.'),
+  count('cards-all', 'cards', CARDS.filter((c) => !c.trialOnly).length, 4, CARDS_LOOK, 'Ходяча енциклопедія', 'Зберіть усі картки з паків.'),
+  count('bot-league-4', 'botLeague', 4, 2, { icon: '🤖', hue: 190 }, 'Срібло ботів', 'Дійдіть до Срібної ліги ботів.'),
+  count('bot-league-7', 'botLeague', 7, 3, { icon: '🤖', hue: 320 }, 'Перемагач машин', 'Дійдіть до Міфічної ліги ботів.'),
+  count('pvp-league-2', 'pvpLeague', 2, 2, { art: 'rook-castle', hue: 210 }, 'Срібна арена', 'Дійдіть до Срібної арени в лізі гравців.'),
+  count('pvp-league-4', 'pvpLeague', 4, 4, { art: 'rook-castle', hue: 340 }, 'Бог арени', 'Дійдіть до Міфічної арени в лізі гравців.'),
+  count('trials-1', 'trials', 1, 2, { art: 'king-hint', hue: 170 }, 'Випробуваний', 'Пройдіть будь-яке випробування.'),
 
   // ── Feats in a game ──
-  feat('double-strike', 1, '💥', 'Два зайці', 'Візьміть 2 фігури одним ходом.', 50),
-  feat('berserk-rage', 4, '🐺', 'Лють Берсерка', 'Візьміть Берсерком по 2 фігури двома його ходами поспіль.', 200),
-  feat('pawn-mate', 3, '♙', 'Пішак-кат', 'Поставте мат ходом пішака.', 150),
-  feat('mate-20', 1, '⏱️', 'Без зайвих розмов', 'Поставте мат до 20-го ходу.', 60),
-  feat('mate-15', 2, '⚡', 'Бліцкриг', 'Поставте мат до 15-го ходу.', 100),
-  feat('mate-10', 4, '🍼', 'Дитячий мат', 'Поставте мат до 10-го ходу.', 250),
-  feat('flawless', 3, '🛡️', 'Без жодної подряпини', 'Поставте мат, не втративши жодної фігури.', 150),
-  feat('comeback', 3, '🔥', 'Фенікс', 'Виграйте партію, в якій відставали на 10 очок матеріалу (пішак 1, кінь і слон 3, тура 5, ферзь 9).', 150),
-  feat('coronation', 2, '👑', 'Дві корони', 'Перетворіть двох пішаків за одну партію.', 80),
-  feat('immortal-return', 2, '♾️', 'З того світу', 'Безсмертна воскресає після удару.', 80),
-  feat('kamikaze', 2, '💣', 'Разом на дно', 'Смертник забирає з собою фігуру, що його взяла.', 80),
-  feat('portal-strike', 1, '🌀', 'Крізь портал', 'Візьміть фігуру через портал.', 60),
-  feat('comet-strike', 3, '☄️', 'Падіння Комети', 'Візьміть фігуру ривком Комети.', 100),
-  feat('comet-path', 4, '🌠', 'Шлях Комети', 'Пройдіть випробування «Шлях Комети».', 300),
+  feat('double-strike', 1, { art: 'knight-classic', hue: 25 }, 'Два зайці', 'Візьміть 2 фігури одним ходом.'),
+  feat('berserk-rage', 4, { art: 'knight-berserk', hue: 0 }, 'Лють Берсерка', 'Візьміть Берсерком по 2 фігури двома його ходами поспіль.'),
+  feat('pawn-mate', 3, { art: 'pawn-stormer', hue: 100 }, 'Пішак-кат', 'Поставте мат ходом пішака.'),
+  feat('mate-20', 1, { icon: '⏱️', hue: 180 }, 'Без зайвих розмов', 'Поставте мат до 20-го ходу.'),
+  feat('mate-15', 2, { icon: '⚡', hue: 55 }, 'Бліцкриг', 'Поставте мат до 15-го ходу.'),
+  feat('mate-10', 4, { icon: '🍼', hue: 330 }, 'Дитячий мат', 'Поставте мат до 10-го ходу.'),
+  feat('flawless', 3, { art: 'rook-fortress', hue: 150 }, 'Без жодної подряпини', 'Поставте мат, не втративши жодної фігури.'),
+  feat('comeback', 3, { icon: '🔥', hue: 20 }, 'Фенікс', 'Виграйте партію, в якій відставали на 10 очок матеріалу (пішак 1, кінь і слон 3, тура 5, ферзь 9).'),
+  feat('coronation', 2, { art: 'queen-classic', hue: 48 }, 'Дві корони', 'Перетворіть двох пішаків за одну партію.'),
+  feat('immortal-return', 2, { art: 'queen-immortal', hue: 275 }, 'З того світу', 'Безсмертна воскресає після удару.'),
+  feat('kamikaze', 2, { art: 'rook-kamikaze', hue: 5 }, 'Разом на дно', 'Смертник забирає з собою фігуру, що його взяла.'),
+  feat('portal-strike', 1, { art: 'bishop-portal', hue: 235 }, 'Крізь портал', 'Візьміть фігуру через портал.'),
+  feat('comet-strike', 3, { art: 'king-comet', hue: 30 }, 'Падіння Комети', 'Візьміть фігуру ривком Комети.'),
+  feat('comet-path', 4, { art: 'king-comet', hue: 265 }, 'Шлях Комети', 'Пройдіть випробування «Шлях Комети».'),
 ];
 
 export const ACHIEVEMENT_BY_ID: Record<string, AchievementDef> = Object.fromEntries(ACHIEVEMENTS.map((a) => [a.id, a]));
@@ -93,29 +107,27 @@ export const ACHIEVEMENT_BY_ID: Record<string, AchievementDef> = Object.fromEntr
 export interface AchievementState {
   stats: Partial<Record<CountedStat, number>>;
   feats: string[];
-  claimed: string[];
 }
 
 export function parseAchievements(raw: string | null | undefined): AchievementState {
   try {
     const a = JSON.parse(raw || '{}') as Partial<AchievementState>;
-    return { stats: a.stats ?? {}, feats: a.feats ?? [], claimed: a.claimed ?? [] };
+    return { stats: a.stats ?? {}, feats: a.feats ?? [] };
   } catch {
-    return { stats: {}, feats: [], claimed: [] };
+    return { stats: {}, feats: [] };
   }
 }
 
 export interface AchievementView extends AchievementDef {
   progress: number;
   done: boolean;
-  claimed: boolean;
 }
 
 export function achievementViews(state: AchievementState, computed: Record<ComputedStat, number>): AchievementView[] {
   return ACHIEVEMENTS.map((a) => {
     const value = !a.stat ? (state.feats.includes(a.id) ? 1 : 0) : a.stat in computed ? computed[a.stat as ComputedStat] : (state.stats[a.stat as CountedStat] ?? 0);
     const done = value >= a.target;
-    return { ...a, progress: Math.min(value, a.target), done, claimed: state.claimed.includes(a.id) };
+    return { ...a, progress: Math.min(value, a.target), done };
   });
 }
 

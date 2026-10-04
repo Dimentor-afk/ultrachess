@@ -3,7 +3,8 @@ import { build, findMove } from '../../engine/__tests__/helpers';
 import { classicDeck } from '../../engine/deck';
 import { legalMoves } from '../../engine/legal';
 import { type Action, type MatchState, createMatch, performAction } from '../../engine/match';
-import { featsFrom, gameFeats } from '../achievements';
+import { ACHIEVEMENTS, featsFrom, gameFeats } from '../achievements';
+import { CARD_BY_ID } from '../../engine/cards';
 import { MemoryStore } from '../memoryStore';
 import { GameService } from '../service';
 import type { Hasher } from '../store';
@@ -60,26 +61,23 @@ describe('achievements', () => {
     expect(featsFrom(start, acts.slice(0, 1), 'w', false)).toEqual(['double-strike']);
   });
 
-  it('counters, a reward claimed once, and a plate only from a reached achievement', async () => {
+  it('counters unlock achievements once; a plate only from a reached one; every medal has its art', async () => {
     const svc = new GameService(new MemoryStore(), hasher, () => 1_800_000_000_000, Math.random);
     await svc.init();
     const { token } = await svc.register('a@a.com', 'secret12', 'Анна');
     const [starter] = await svc.packs(token);
     await svc.openPack(token, starter.id);
     await expect(svc.setTitle(token, 'wins-1')).rejects.toThrow(/здобудьте/);
-    await expect(svc.claimAchievement(token, 'wins-1')).rejects.toThrow(/ще не здобуто/);
-
-    // The first win (counted the way a finished game counts it).
     const svcAny = svc as unknown as { achieve: (id: string, add: object, feats?: string[]) => Promise<string[]> };
     const me = await svc.me(token);
-    expect(await svcAny.achieve(me.id, { wins: 1, games: 1 })).toContain('wins-1');
-    expect((await svc.me(token)).achievementsReady).toBeGreaterThan(0);
-    const gold = (await svc.me(token)).gold;
-    const r = await svc.claimAchievement(token, 'wins-1');
-    expect(r.profile.gold).toBe(gold + 50);
-    await expect(svc.claimAchievement(token, 'wins-1')).rejects.toThrow(/вже отримано/);
+    expect(me.achievements).not.toContain('wins-1');
+    expect(await svcAny.achieve(me.id, { wins: 1, games: 1 })).toEqual(['wins-1']);
+    // Already reached: not reported again.
+    expect(await svcAny.achieve(me.id, { games: 1 })).toEqual([]);
+    expect((await svc.me(token)).achievements).toContain('wins-1');
     expect((await svc.setTitle(token, 'wins-1')).title).toBe('wins-1');
     expect((await svc.setTitle(token, null)).title).toBeNull();
+    for (const a of ACHIEVEMENTS) expect(a.art ? a.art.startsWith('pack:') || CARD_BY_ID[a.art] : a.icon, a.id).toBeTruthy();
   });
 });
 
