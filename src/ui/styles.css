@@ -9262,7 +9262,7 @@ html.no-anim .cell.barrier.barrier-new::after { animation: none; }
 .rv-acc-big.side-b { background: #22202c; color: #f2efe6 !important; }
 .rv-mark-sm { font-style: normal; font-weight: 800; color: var(--c); display: inline-block; min-width: 1.6em; }
 
-.rv-moves { max-height: 300px; overflow-y: auto; padding: 0.5rem; }
+.rv-moves { position: relative; max-height: 300px; overflow-y: auto; padding: 0.5rem; }
 .rv-move-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.15rem 0.3rem; }
 .rv-move {
   display: flex;

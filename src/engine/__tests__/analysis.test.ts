@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { reviewGame, splitTurns, winChance } from '../bot/analysis';
+import { gameAccuracy, moveLoss, reviewGame, splitTurns, winChance } from '../bot/analysis';
 import { parseSquare } from '../coords';
 import { classicDeck } from '../deck';
 import { legalMoves } from '../legal';
@@ -25,6 +25,18 @@ describe('game review', () => {
     expect(winChance(0)).toBe(50);
     expect(winChance(10_000)).toBeGreaterThan(99.9);
     expect(winChance(-10_000)).toBeLessThan(0.1);
+  });
+
+  it('a hung piece costs accuracy even in a won position; one blunder pulls the game down', () => {
+    expect(moveLoss(1500, 1500).loss).toBe(0);
+    expect(moveLoss(1500, 600).loss).toBeGreaterThanOrEqual(22);
+    const even = Array.from({ length: 20 }, () => 50);
+    const clean = Array.from({ length: 20 }, (_, i) => ({ color: (i % 2 ? 'b' : 'w') as 'w' | 'b', acc: 95 }));
+    const acc = gameAccuracy(even, clean);
+    expect(acc.w).toBeGreaterThan(90);
+    const oneBlunder = clean.map((m, i) => (i === 10 ? { ...m, acc: 2 } : m));
+    expect(gameAccuracy(even, oneBlunder).w).toBeLessThan(acc.w - 15);
+    expect(gameAccuracy(even, oneBlunder).b).toBe(acc.b);
   });
 
   it("scholar's mate: the move allowing mate is a blunder, the mate is best", () => {

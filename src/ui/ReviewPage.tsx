@@ -110,9 +110,15 @@ export function ReviewPage({ kind, id }: { kind: 'm' | 'p'; id: string }) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   });
-  // The current move in the list stays in sight.
+  // The current move in the list stays in sight. Only the list scrolls:
+  // scrollIntoView would move the whole page down to it as well.
   useEffect(() => {
-    document.querySelector('.rv-move.on')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    const el = document.querySelector<HTMLElement>('.rv-move.on');
+    const list = el?.closest<HTMLElement>('.rv-moves');
+    if (!el || !list) return;
+    const top = el.offsetTop;
+    if (top < list.scrollTop) list.scrollTop = top - 8;
+    else if (top + el.offsetHeight > list.scrollTop + list.clientHeight) list.scrollTop = top + el.offsetHeight - list.clientHeight + 8;
   }, [at]);
 
   if (error) {

@@ -71,9 +71,49 @@ export function winChance(cp: number): number {
   return 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * cp)) - 1);
 }
 
-/** Accuracy of one move from the winning chance it lost, lichess's formula. */
+/** Accuracy of one move from the winning chance it lost, lichess's formula (with its +1 for uncertainty). */
 export function moveAccuracy(loss: number): number {
-  return Math.max(0, Math.min(100, 103.1668 * Math.exp(-0.04354 * loss) - 3.1669));
+  return Math.max(0, Math.min(100, 103.1668 * Math.exp(-0.04354 * loss) - 3.1669 + 1));
+}
+
+/**
+ * How bad a move was, on the winning-chance scale. In a decided position the
+ * chance hardly moves whatever is played, so material thrown away counts too:
+ * every 40 centipawns lost weigh like one point of winning chance (a hung
+ * knight 7.5, a queen 22: a blunder even when the game is already won).
+ */
+export function moveLoss(bestCp: number, playedCp: number): { loss: number; cp: number } {
+  const played = Math.min(bestCp, playedCp);
+  const cp = Math.min(1000, Math.max(0, bestCp - played));
+  return { loss: Math.max(winChance(bestCp) - winChance(played), cp / 40), cp };
+}
+
+/**
+ * Game accuracy as lichess computes it: the mean of a volatility-weighted
+ * mean (moves in sharp positions count more) and a harmonic mean (one big
+ * blunder pulls the whole game down, as it should).
+ */
+export function gameAccuracy(whiteChances: number[], moves: { color: Color; acc: number }[]): Record<Color, number> {
+  const size = Math.max(2, Math.min(8, Math.floor(moves.length / 10)));
+  const windows: number[][] = [];
+  for (let i = 0; i < moves.length; i++) {
+    const start = Math.max(0, Math.min(i + 1 - size + 1, whiteChances.length - size));
+    windows.push(whiteChances.slice(Math.max(0, start), Math.max(0, start) + size));
+  }
+  const weight = (xs: number[]) => {
+    const mean = xs.reduce((a, b) => a + b, 0) / xs.length;
+    const sd = Math.sqrt(xs.reduce((a, b) => a + (b - mean) ** 2, 0) / xs.length);
+    return Math.max(0.5, Math.min(12, sd));
+  };
+  const out = { w: 100, b: 100 };
+  for (const c of ['w', 'b'] as Color[]) {
+    const mine = moves.map((m, i) => ({ ...m, w: weight(windows[i]) })).filter((m) => m.color === c);
+    if (!mine.length) continue;
+    const weighted = mine.reduce((a, m) => a + m.acc * m.w, 0) / mine.reduce((a, m) => a + m.w, 0);
+    const harmonic = mine.length / mine.reduce((a, m) => a + 1 / Math.max(1, m.acc), 0);
+    out[c] = Math.round(((weighted + harmonic) / 2) * 10) / 10;
+  }
+  return out;
 }
 
 /** Turns of the game: consecutive actions of the same side. */
@@ -115,8 +155,9 @@ function isSacrifice(before: MatchState, after: MatchState, move: Move): boolean
   return attackers.some((a) => cardValue(a.piece.cardId) + 50 < value);
 }
 
-function classify(loss: number): MoveClass {
-  if (loss < 1) return 'best';
+function classify(loss: number, cp: number): MoveClass {
+  if (loss < 1 && cp <= 10) return 'best';
+  if (loss < 1) return 'excellent';
   if (loss < 3) return 'excellent';
   if (loss < 6) return 'good';
   if (loss < 12) return 'inaccuracy';
@@ -149,7 +190,7 @@ export function reviewGame(
 
   const out: TurnReview[] = [];
   const counts = { w: emptyCounts(), b: emptyCounts() };
-  const acc: Record<Color, number[]> = { w: [], b: [] };
+  const accs: { color: Color; acc: number }[] = [];
   turns.forEach((t, i) => {
     const r = roots[i];
     const next = roots[i + 1];
@@ -157,8 +198,8 @@ export function reviewGame(
     const bestCp = toCp(r.score);
     // The played move scored at the same depth when it was a plain move; otherwise the next position's score.
     const playedCp = r.played !== null ? toCp(r.played) : -toCp(next.score);
-    const loss = Math.max(0, winChance(bestCp) - winChance(Math.min(bestCp, playedCp)));
-    let cls: MoveClass = classify(loss);
+    const { loss, cp } = moveLoss(bestCp, playedCp);
+    let cls: MoveClass = classify(loss, cp);
     const move = singleMove(actions, t);
     if (r.moves === 1 && t.to - t.from === 1) cls = 'forced';
     else if (cls === 'best' || cls === 'excellent') {
@@ -167,7 +208,7 @@ export function reviewGame(
       else if (cls === 'best' && r.second !== null && winChance(bestCp) - winChance(toCp(r.second)) >= 15 && winChance(bestCp) >= 25) cls = 'great';
     } else if (bestCp === MATE_CP && playedCp < MATE_CP && (cls === 'inaccuracy' || cls === 'mistake' || cls === 'good')) cls = 'miss';
     counts[t.color][cls]++;
-    if (cls !== 'forced') acc[t.color].push(moveAccuracy(loss));
+    accs.push({ color: t.color, acc: cls === 'forced' ? 100 : moveAccuracy(loss) });
     out.push({
       from: t.from,
       to: t.to,
@@ -179,8 +220,8 @@ export function reviewGame(
       best: r.best && (!move || !sameTarget(r.best, move)) && cls !== 'best' && cls !== 'brilliant' && cls !== 'great' && cls !== 'forced' ? r.best : null,
     });
   });
-  const mean = (xs: number[]) => (xs.length ? Math.round((xs.reduce((a, b) => a + b, 0) / xs.length) * 10) / 10 : 100);
-  return { turns: out, accuracy: { w: mean(acc.w), b: mean(acc.b) }, counts };
+  const chances = [winChance(out[0]?.before ?? 0), ...out.map((x) => winChance(x.after))];
+  return { turns: out, accuracy: gameAccuracy(chances, accs), counts };
 }
 
 function emptyCounts(): Record<MoveClass, number> {

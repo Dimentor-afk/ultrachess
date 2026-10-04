@@ -7,8 +7,8 @@ import type { Color, Deck } from '../engine/types';
 export type ReviewRequest = { decks: Record<Color, Deck>; actions: Action[] };
 export type ReviewResponse = { progress?: number; review?: GameReview; error?: string };
 
-const PREFIX = 'ultrachess.review.v1.';
-const INDEX = 'ultrachess.review.v1';
+const PREFIX = 'ultrachess.review.v2.';
+const INDEX = 'ultrachess.review.v2';
 /** Reviews kept in the browser (the oldest go first). */
 const KEEP = 30;
 
