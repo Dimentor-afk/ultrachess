@@ -55,8 +55,21 @@ async function main() {
     // The caption of the last step played so far ("move|caption").
     const caption = [s.caption, ...s.steps.map((x) => x.split('|')[1])].slice(0, i + 1).filter(Boolean).at(-1);
     const focus = s.focus ? engine.squareXY(s.focus) : { x: 50, y: 50 };
+    // Puzzle: 3, 2, 1 over the board, then the answer plays.
+    const [count, setCount] = useState(s.count ?? 0);
+    useEffect(() => {
+      if (count <= 0) return;
+      const t = setTimeout(() => setCount(count - 1), s.countMs ?? 1000);
+      return () => clearTimeout(t);
+    }, [count]);
     return (
       <div className="ad-board-shot">
+        {count > 0 && (
+          <div className="ad-count" key={count} style={{ '--ms': `${s.countMs ?? 1000}ms` } as CSSProperties}>
+            <span>{count}</span>
+          </div>
+        )}
+        {!!s.count && count === 0 && <i className="ad-reveal" />}
         <div
           className="ad-camera"
           style={{ '--fx': `${focus.x}%`, '--fy': `${focus.y}%`, '--z': s.zoom ?? 1.25, animationDuration: `${shotMs(s)}ms` } as CSSProperties}
@@ -143,9 +156,40 @@ async function main() {
     );
   }
 
+  const TIER_ORDER = ['S', 'A', 'B', 'C', 'D'] as const;
+
+  /** A tier list; the new card drops into its row with a thump. */
+  function TierShot({ s }: { s: Extract<Shot, { kind: 'tier' }> }) {
+    return (
+      <div className="ad-tier-shot">
+        <div className="ad-tiers">
+          {TIER_ORDER.map((tier) => (
+            <div key={tier} className={`ad-tier t-${tier}`}>
+              <b className="ad-tier-label">{tier}</b>
+              <div className="ad-tier-slots">
+                {(s.rows[tier] ?? []).map((id) => (
+                  <img key={id} className="ad-tier-card pixel" src={cardArt(id)!} alt="" />
+                ))}
+                {s.add?.tier === tier && <img className={`ad-tier-card pixel ad-slam ${tier === 'S' ? 'ad-drop' : ''}`} src={cardArt(s.add.id)!} alt="" />}
+              </div>
+            </div>
+          ))}
+        </div>
+        {s.add && (
+          <div className={`ad-tier-name t-${s.add.tier}`}>
+            <span>{RARITY_NAMES[CARD_BY_ID[s.add.id].rarity]}</span>
+            <b>{CARD_BY_ID[s.add.id].name}</b>
+          </div>
+        )}
+        {s.caption && <Caption text={s.caption} pos="top" />}
+      </div>
+    );
+  }
+
   function End({ s }: { s: Extract<Shot, { kind: 'end' }> }) {
     return (
       <div className="ad-end">
+        {s.caption && <Caption text={s.caption} pos="top" />}
         <img src="/icon-192.png" alt="" />
         <div className="ad-logo">
           Ultra<b>chess</b>
@@ -190,6 +234,7 @@ async function main() {
           className={`ad-shot t-${trans} ${i > 0 ? 'enter' : ''} ${last ? '' : 'leave'}`}
           key={`${run}-${n}`}
           data-n={i}
+          data-music={s.music ?? 'full'}
           style={{ '--d': `${shotMs(s)}ms` } as CSSProperties}
         >
           <div className="ad-frame">
@@ -198,6 +243,7 @@ async function main() {
             {s.kind === 'pack' && <PackShot s={s} />}
             {s.kind === 'card' && <CardShot s={s} />}
             {s.kind === 'end' && <End s={s} />}
+            {s.kind === 'tier' && <TierShot s={s} />}
           </div>
           {n > 0 && <div className="ad-flash" />}
         </div>

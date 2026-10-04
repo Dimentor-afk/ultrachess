@@ -1,7 +1,7 @@
 # Sound track for an ad rendered by render.mjs: a 128 BPM track cut to the
 # shots, and sound effects placed on the marks the renderer recorded.
 #   pip install numpy scipy
-#   python3 scripts/promo/sound.py scripts/promo/out/promo.marks.json <video seconds> out.wav [--no-music]
+#   python3 scripts/promo/sound.py scripts/promo/out/promo.marks.json <video seconds> out.wav [--bpm 128] [--key minor|pop|dark] [--no-music]
 #   ffmpeg -i scripts/promo/out/promo.mp4 -i out.wav -c:v copy -c:a aac -b:a 192k -shortest promo-sound.mp4
 import json
 import sys
@@ -11,7 +11,12 @@ import numpy as np
 from scipy.signal import lfilter
 
 SR = 48000
-BPM = 128
+
+def _arg(name, default):
+    return sys.argv[sys.argv.index(name) + 1] if name in sys.argv else default
+
+BPM = float(_arg('--bpm', 128))
+KEY = _arg('--key', 'minor')
 BEAT = 60 / BPM
 rng = np.random.default_rng(7)
 
@@ -263,20 +268,50 @@ def rattle(dur):
 
 
 # ── Arrangement ──
+# Every shot says what the music does under it (data-music on the shot, in the cut mark):
+#   full  — the whole beat;  tense — a soft pulse (a countdown);  build — no drums, a riser into
+#   the drop;  end — the last chord. A tense or build shot turns full at its drop (the S tier
+#   card, the puzzle answer, the pack's last card turning over).
 cuts = sorted([m for m in marks if m['k'] == 'cut'], key=lambda m: m['t'])
-starts = {m['n']: m['t'] / 1000 for m in cuts}
-order = [m['n'] for m in cuts]
-pack_shot = 4
-end_shot = max(order)
-pack_t = starts.get(pack_shot, 1e9)
-after_pack = starts.get(pack_shot + 1, 1e9)
-end_t = starts.get(end_shot, LENGTH)
+shots = [(m['t'] / 1000, m.get('m', 'full')) for m in cuts]
+if shots and all(m.get('m') is None for m in cuts) and len(shots) > 4:
+    shots[4] = (shots[4][0], 'build')  # marks from before the music modes: the promo's pack shot
+    shots[-1] = (shots[-1][0], 'end')
+bounds = [t for t, _ in shots] + [LENGTH]
+drops = sorted(
+    [m['t'] / 1000 for m in marks if m['k'] in ('drop', 'reveal')]
+    + [m['t'] / 1000 for m in marks if m['k'] == 'flip' and 'flipped' in m.get('c', '')]
+)
+# A build shot without a drop inside ends in one: on the next cut.
+for i, (t0, mode) in enumerate(shots):
+    if mode == 'build' and not any(t0 <= d < bounds[i + 1] for d in drops):
+        drops.append(bounds[i + 1])
+drops.sort()
 flips = [m for m in marks if m['k'] == 'flip']
-shown = next((m['t'] / 1000 for m in flips if 'flipped' in m['c']), None)
-drop = shown if shown is not None else after_pack
 
-CHORDS = [['A2', 'A3', 'C4', 'E4'], ['F2', 'F3', 'A3', 'C4'], ['C3', 'G3', 'C4', 'E4'], ['G2', 'G3', 'B3', 'D4']]
+
+def shot_at(t):
+    for i, (t0, mode) in enumerate(shots):
+        if t0 - 0.03 <= t < bounds[i + 1] - 0.03:
+            return i, t0, mode
+    return len(shots) - 1, shots[-1][0], shots[-1][1]
+
+
+def mode_at(t):
+    i, t0, mode = shot_at(t)
+    if mode in ('tense', 'build') and any(t0 <= d <= t + 0.03 for d in drops if d < bounds[i + 1]):
+        return 'full'
+    return mode
+
+
+KEYS = {
+    'minor': [['A2', 'A3', 'C4', 'E4'], ['F2', 'F3', 'A3', 'C4'], ['C3', 'G3', 'C4', 'E4'], ['G2', 'G3', 'B3', 'D4']],
+    'pop': [['C3', 'C4', 'E4', 'G4'], ['G2', 'G3', 'B3', 'D4'], ['A2', 'A3', 'C4', 'E4'], ['F2', 'F3', 'A3', 'C4']],
+    'dark': [['D3', 'D4', 'F4', 'A4'], ['A#2', 'A#3', 'D4', 'F4'], ['F2', 'F3', 'A3', 'C4'], ['C3', 'G3', 'C4', 'E4']],
+}
+CHORDS = KEYS[KEY]
 side = np.ones(N)  # sidechain gain from the kick
+first_drop = drops[0] if drops else 1e9
 
 if MUSIC:
     beats = int(LENGTH / BEAT) + 2
@@ -284,11 +319,9 @@ if MUSIC:
         tb = b * BEAT
         if tb >= LENGTH:
             break
-        bar = b // 4
-        ch = CHORDS[bar % 4]
-        breakdown = pack_t - 0.02 <= tb < drop - 0.01
-        outro = tb >= end_t + 3 * BEAT
-        if not breakdown and not outro:
+        ch = CHORDS[(b // 4) % 4]
+        mode = mode_at(tb)
+        if mode == 'full':
             put(music, tb, kick(), 0.95)
             i = int(tb * SR)
             m = min(int(0.28 * SR), N - i)
@@ -296,39 +329,47 @@ if MUSIC:
                 side[i : i + m] = np.minimum(side[i : i + m], 0.35 + 0.65 * (np.arange(m) / m) ** 0.7)
             if b % 2 == 1:
                 put(music, tb, clap(), 0.55)
-            # Hats: 8ths before the drop, 16ths after it.
-            sub = 4 if tb >= drop else 2
+            sub = 4 if tb >= first_drop else 2
             for h in range(sub):
                 put(music, tb + h * BEAT / sub, hat(), 0.32 if h % 2 else 0.45, pan=0.25)
             put(music, tb + BEAT / 2, hat(open_=True), 0.28, pan=-0.2)
-            # Off-beat bass.
             put(music, tb + BEAT / 2, bass_note(note(ch[0]), BEAT / 2 * 0.95), 0.9)
-            # Arpeggio in 16ths.
             arp = [ch[1], ch[2], ch[3], ch[2]]
             for k in range(4):
                 f = note(arp[k]) * 2
                 put(music, tb + k * BEAT / 4, pluck(f), 0.55, pan=(-0.35 if k % 2 else 0.35))
                 put(music, tb + k * BEAT / 4 + BEAT * 0.75, pluck(f) * 0.35, 0.5, pan=(0.5 if k % 2 else -0.5))
-        if b % 4 == 0 and not outro:
-            put(music, tb, pad([note(x) for x in ch[1:]], 4 * BEAT), 0.55 if breakdown else 0.32)
-    # Breakdown: a riser into the reveal, with a snare roll on the last two beats.
-    if shown is not None and pack_t < 1e8:
-        put(music, pack_t + 0.2, riser(drop - pack_t - 0.2), 0.75)
-        roll_from = drop - 2 * BEAT
+        elif mode == 'tense':
+            # A heartbeat and a low pulse: room for the countdown ticks.
+            if b % 2 == 0:
+                put(music, tb, kick() * 0.6, 0.7)
+                put(music, tb + BEAT * 0.28, kick() * 0.35, 0.5)
+            put(music, tb, bass_note(note(ch[0]) / 2 * 2, BEAT * 0.9), 0.55)
+            put(music, tb + BEAT / 2, hat(), 0.18, pan=0.3)
+        if b % 4 == 0 and mode != 'end':
+            put(music, tb, pad([note(x) for x in ch[1:]], 4 * BEAT), 0.5 if mode in ('build', 'tense') else 0.3)
+    # Builds: a riser from the shot's start into its drop, a snare roll on the last two beats.
+    for i, (t0, mode) in enumerate(shots):
+        if mode != 'build':
+            continue
+        d = next(x for x in drops if x >= t0)
+        put(music, t0 + 0.1, riser(max(0.3, d - t0 - 0.1)), 0.75)
         k = 0
-        while roll_from + k * BEAT / 8 < drop - 0.01:
-            put(music, roll_from + k * BEAT / 8, clap(), 0.18 + 0.4 * k / 16)
+        while d - 2 * BEAT + k * BEAT / 8 < d - 0.01:
+            put(music, d - 2 * BEAT + k * BEAT / 8, clap(), 0.18 + 0.4 * k / 16)
             k += 1
-        put(music, drop, crash(), 0.8)
-        put(music, drop, impact(), 1.0)
-    # Every shot after the first starts on a crash, softer than the drop.
-    for n_, t0 in starts.items():
-        if n_ not in (0, pack_shot) and t0 != drop:
+    for d in drops:
+        put(music, d, crash(), 0.8)
+        put(music, d, impact(), 1.0)
+    # Every other cut lands on a crash, softer than a drop.
+    for i, (t0, mode) in enumerate(shots):
+        if i and mode == 'full' and not any(abs(t0 - d) < 0.1 for d in drops):
             put(music, t0, crash(), 0.3)
-    # Last chord: one long stab on the end card.
-    put(music, end_t, pad([note(x) for x in ['A3', 'C4', 'E4', 'A4']], LENGTH - end_t), 0.7)
-    put(music, end_t, kick(), 1.0)
-    put(music, end_t, crash(), 0.6)
+        if mode == 'end':
+            put(music, t0, pad([note(x) for x in CHORDS[0][1:]] + [note(CHORDS[0][1]) * 2], LENGTH - t0), 0.7)
+            put(music, t0, kick(), 1.0)
+            put(music, t0, crash(), 0.6)
+            put(music, t0, bass_note(note(CHORDS[0][0]), 1.2), 0.9)
     music *= side[:, None]
 
 # ── Effects on the marks ──
@@ -371,6 +412,18 @@ for m in marks:
         continue
     if k == 'cut' and m['n'] > 0:
         put(sfx, t - 0.22, whoosh(0.45), 0.55)
+        continue
+    if k == 'count':
+        # A clock tick with a low hit under it: 3, 2, 1.
+        put(sfx, t, tick() * 2.2, 0.9)
+        put(sfx, t, ding(880, 0.3), 0.6)
+        put(sfx, t, kick() * 0.5, 0.5)
+        continue
+    if k == 'slam':
+        put(sfx, t, whoosh(0.3, up=False), 0.5)
+        put(sfx, t + 0.28, hit(), 0.9)
+        continue
+    if k in ('drop', 'reveal'):
         continue
     if k == 'cap':
         put(sfx, t, ding(2637, 0.25), 0.12)
@@ -415,4 +468,4 @@ with wave.open(OUT, 'wb') as w:
     w.setsampwidth(2)
     w.setframerate(SR)
     w.writeframes(pcm.tobytes())
-print(OUT, f'{LENGTH:.1f}s', 'drop at', drop)
+print(OUT, f'{LENGTH:.1f}s', 'drops at', [round(d, 2) for d in drops], 'shots', [m for _, m in shots])

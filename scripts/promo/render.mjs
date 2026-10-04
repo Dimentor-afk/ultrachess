@@ -63,8 +63,12 @@ await page.addInitScript(() => {
       add(k, t + delay);
     }
     for (const e of document.querySelectorAll('.glide:not([data-h])')) { e.dataset.h = '1'; add('move'); }
+    // Countdown numbers, a card landing in the tier list, the S tier drop, the puzzle answer.
+    for (const [sel, k] of [['.ad-count', 'count'], ['.ad-slam', 'slam'], ['.ad-drop', 'drop'], ['.ad-reveal', 'reveal']]) {
+      for (const e of document.querySelectorAll(`${sel}:not([data-h])`)) { e.dataset.h = '1'; add(k); }
+    }
     const shot = document.querySelector('.ad-shot');
-    if (shot && shot.dataset.n !== w.__seen.n) { w.__seen.n = shot.dataset.n; add('cut', t, { n: Number(shot.dataset.n) }); }
+    if (shot && shot.dataset.n !== w.__seen.n) { w.__seen.n = shot.dataset.n; add('cut', t, { n: Number(shot.dataset.n), m: shot.dataset.music || 'full' }); }
     const cap = document.querySelector('.ad-cap span');
     const ct = cap ? cap.textContent : '';
     if (ct && ct !== w.__seen.cap) add('cap');

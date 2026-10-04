@@ -91,3 +91,33 @@ html, body, #root { margin: 0; height: 100%; background: #05070f; overflow: hidd
    which the frame-by-frame recorder can drive. */
 .ad-pack-shot .flip.spun .flip-inner { transition: none; animation: ad-flip540 0.9s cubic-bezier(0.6, 0, 0.15, 1) both; }
 @keyframes ad-flip540 { from { transform: rotateY(0deg); } to { transform: rotateY(540deg); } }
+
+/* Puzzle countdown: a big number that punches in, with a ring running out. */
+.ad-count { position: absolute; z-index: 300; left: 50%; top: 52%; translate: -50% -50%; width: 150px; height: 150px; border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle, rgba(5, 7, 15, 0.82) 60%, rgba(5, 7, 15, 0)); pointer-events: none; }
+.ad-count::before { content: ''; position: absolute; inset: 6px; border-radius: 50%; border: 6px solid #f5c451; mask: conic-gradient(#000 var(--p, 100%), transparent 0); animation: ad-ring var(--ms) linear forwards; }
+@property --p { syntax: '<percentage>'; inherits: false; initial-value: 100%; }
+@keyframes ad-ring { to { --p: 0%; } }
+.ad-count span { font-family: var(--font-display); font-size: 86px; color: #fff; -webkit-text-stroke: 2px #05070f; paint-order: stroke fill; animation: ad-count-in 0.35s cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+@keyframes ad-count-in { from { transform: scale(2.2); opacity: 0; } }
+
+/* Tier list. */
+.ad-tier-shot { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; gap: 14px; padding: 120px 14px 60px; background: radial-gradient(110% 60% at 50% 45%, #1a2550, #05070f 72%); }
+.ad-tiers { display: flex; flex-direction: column; gap: 6px; }
+.ad-tier { --c: #8a93a8; display: flex; height: 76px; border-radius: 10px; overflow: hidden; background: rgba(255, 255, 255, 0.05); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.08); }
+.ad-tier.t-S { --c: #ff4d6d; }
+.ad-tier.t-A { --c: #ffb02e; }
+.ad-tier.t-B { --c: #b673ff; }
+.ad-tier.t-C { --c: #4aa3ff; }
+.ad-tier.t-D { --c: #8a93a8; }
+.ad-tier-label { width: 76px; flex: none; display: grid; place-items: center; background: var(--c); color: #05070f; font-family: var(--font-display); font-weight: 400; font-size: 40px; }
+.ad-tier-slots { display: flex; align-items: center; gap: 8px; padding: 0 10px; }
+.ad-tier-card { width: 62px; height: 62px; object-fit: contain; image-rendering: pixelated; filter: drop-shadow(0 4px 0 rgba(0, 0, 0, 0.5)); }
+.ad-tier-card.ad-slam { animation: ad-tier-drop 0.5s cubic-bezier(0.3, 1.5, 0.5, 1) both; }
+@keyframes ad-tier-drop { from { transform: translateY(-260px) scale(2.2) rotate(-14deg); opacity: 0; } 60% { opacity: 1; } }
+.ad-tier.t-S .ad-tier-card.ad-slam { animation-duration: 0.6s; filter: drop-shadow(0 0 16px #ff4d6d) drop-shadow(0 4px 0 rgba(0, 0, 0, 0.5)); }
+.ad-tier-name { --c: #8a93a8; display: flex; flex-direction: column; align-items: center; animation: ad-cap-in 0.4s ease-out 0.3s both; }
+.ad-tier-name.t-S { --c: #ff4d6d; } .ad-tier-name.t-A { --c: #ffb02e; } .ad-tier-name.t-B { --c: #b673ff; } .ad-tier-name.t-C { --c: #4aa3ff; }
+.ad-tier-name span { font-weight: 800; letter-spacing: 0.2em; text-transform: uppercase; font-size: 13px; color: var(--c); }
+.ad-tier-name b { font-family: var(--font-display); font-weight: 400; font-size: 28px; }
+.ad-shot[data-music='build'] .ad-tier.t-S { animation: ad-tier-pulse 0.47s ease-in-out infinite; }
+@keyframes ad-tier-pulse { 50% { box-shadow: inset 0 0 0 3px #ff4d6d, 0 0 24px rgba(255, 77, 109, 0.6); } }
