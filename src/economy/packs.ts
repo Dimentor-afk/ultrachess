@@ -115,7 +115,7 @@ export const PACK_SHARD_PRICE: Record<Exclude<PackType, 'starter'>, number> = {
   rare: 150,
   epic: 400,
   legendary: 1000,
-  mythic: 2000,
+  mythic: 2200,
 };
 
 const pick = <T,>(xs: T[], rng: Rng): T => xs[Math.min(xs.length - 1, Math.floor(rng() * xs.length))];
