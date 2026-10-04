@@ -1434,5 +1434,6 @@ const dict: Record<string, string> = {
   "{0} уламків і {1} (спецпропозиція, один раз на акаунт) — {2}": "{0} shards and a {1} (special offer, once per account): {2}",
   "Безкоштовний пак сьогодні вже забрано. Новий буде завтра.": "Today's free pack is already taken. A new one comes tomorrow.",
   "Цю пропозицію вже куплено.": "You have already bought this offer.",
+  "Натисніть фігуру, щоб побачити, як вона ходить.": "Tap a piece to see how it moves.",
 };
 export default dict;

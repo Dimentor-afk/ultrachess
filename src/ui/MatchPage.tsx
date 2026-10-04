@@ -658,12 +658,12 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
           </div>
         )}
         {shownHint && (
-          <p className="tip">
+          <p className="tip hint-tip">
             {t('Підказка:')} {PIECE_NAMES[view.cells[shownHint.from]?.type ?? 'pawn']} {squareName(shownHint.from)} → {squareName(shownHint.target)} ({tr(shownHint.label)})
           </p>
         )}
 
-        <div className="panel">
+        <div className="panel piece-panel">
           <h2>{t('Фігура')}</h2>
           {selectedPiece ? (
             <div>
@@ -680,7 +680,9 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
                 {selectedPiece.platformTurnsLeft !== null && <li>{t('На платформі: зникне через {0} ход. суперника', selectedPiece.platformTurnsLeft)}</li>}
               </ul>
             </div>
-          ) : null}
+          ) : (
+            <p className="muted small">{t('Натисніть фігуру, щоб побачити, як вона ходить.')}</p>
+          )}
         </div>
 
         <div className="panel history">

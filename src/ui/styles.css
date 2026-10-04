@@ -1674,6 +1674,21 @@ select optgroup {
     grid-template-columns: 1fr;
   }
 
+  /* One column under the board: what the tapped piece does and the ability buttons come first. */
+  .game-side > .piece-panel {
+    order: 1;
+  }
+  .game-side > .ability-dock {
+    order: 2;
+  }
+  .game-side > .ability-options,
+  .game-side > .hint-tip {
+    order: 3;
+  }
+  .game-side > * {
+    order: 4;
+  }
+
   .game-board-col {
     width: min(100%, 640px);
   }
