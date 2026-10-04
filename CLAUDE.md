@@ -53,7 +53,8 @@ Still to do:
    own name, no ФОП needed, pays out by bank transfer or Payoneer — Lemon Squeezy was dropped because it
    cannot pay out to Ukraine; `PADDLE_*` secrets, `server/paddle.ts`, checkout overlay via Paddle.js) and test
    payments (`PAYMENTS=test`, and in the demo). Prices in USD cents. Pack odds in the shop, `#/terms`,
-   `#/privacy`. Sandbox purchase tested end to end. Left for the author: live Paddle account + secrets, Payoneer, then `PAYMENTS_PUBLIC=1` (until then
+   `#/privacy`. Sandbox purchase tested end to end; live account approved and a real $0.99 purchase went through. Left for
+   the author: Payoneer approval (payouts only), then `PAYMENTS_PUBLIC=1` (until then
    only admins see and buy shards for money: `GameService.paymentsAdminOnly`).
    Support email support@ultrachess.app (Cloudflare Email Routing to the author's Gmail).
    (monobank provider for a ФОП exists in git history, commit `e93d7fd`.)
