@@ -431,13 +431,64 @@ const CARD_OF_DAY: Shot[] = [
   onBeatAt({ ...MIRAGE, caption: 'mythic rarity. would you play it?\nfollow for card #2 👀', steps: ['e4>mirage'], lead: 600, gap: 1500 }, 6, CB),
 ];
 
+/** A card of the day: the card, the move with a line about it, one fact, then the move again with the sign-off. */
+function cardOfDay(n: number, id: string, clip: Board, lines: { intro: string; punch: string; fact: string; outro: string }, punchStep = clip.steps.length - 1): Shot[] {
+  const steps = clip.steps.map((x, i) => (i === punchStep ? `${x.split('|')[0]}|${lines.punch}` : x.split('|')[0]));
+  const beats = Math.max(7, Math.ceil(((clip.lead ?? 900) + steps.length * (clip.gap ?? 1500) + 1400) / CB));
+  return [
+    { kind: 'card', id, caption: `Card of the day: #${n}`, ms: Math.round(4 * CB) },
+    onBeatAt({ ...clip, caption: lines.intro, steps }, beats, CB),
+    { kind: 'card', id, caption: lines.fact, ms: Math.round(4 * CB) },
+    onBeatAt({ ...clip, caption: lines.outro, steps: clip.steps.map((x) => x.split('|')[0]) }, beats, CB),
+  ];
+}
+const SERIES: Record<string, Shot[]> = {
+  cardofday2: cardOfDay(2, 'queen-immortal', { ...IMMORTAL, lead: 900, gap: 1000 }, {
+    intro: 'Immortal: press the button, play your move as usual…',
+    punch: '…they take her and she just RESPAWNS 😭',
+    fact: 'only once per game.\nand they can’t see if it’s switched on 👀',
+    outro: 'mythic rarity. would you play it?\nfollow for card #3 👀',
+  }),
+  cardofday3: cardOfDay(3, 'bishop-portal', { ...PORTAL, lead: 900, gap: 2200 }, {
+    intro: 'Portal bishop walks off the edge of the board…',
+    punch: '…and comes out on the other side 🌀',
+    fact: 'it can capture right after the portal.\nand use it as many times as it wants',
+    outro: 'legendary rarity. would you play it?\nfollow for card #4 👀',
+  }),
+  cardofday4: cardOfDay(4, 'rook-earthquake', { ...QUAKE, lead: 900, gap: 1800 }, {
+    intro: 'Earthquake rook has a button…',
+    punch: '…that shoves a whole row one square 🌋',
+    fact: 'the piece on the edge wraps around\nto the other side. and it doesn’t use your move',
+    outro: 'mythic rarity. would you play it?\nfollow for card #5 👀',
+  }),
+  cardofday5: cardOfDay(5, 'knight-berserk', { ...BERSERK, lead: 900, gap: 1900 }, {
+    intro: 'Berserk takes a piece…',
+    punch: '…and then jumps again and takes ANOTHER one 🔪',
+    fact: 'two captures in one move.\nthe price: it skips its next turn',
+    outro: 'legendary rarity. would you play it?\nfollow for card #6 👀',
+  }),
+  cardofday6: cardOfDay(6, 'rook-kamikaze', { ...KAMIKAZE, lead: 1000, gap: 1500 }, {
+    intro: 'Kamikaze looks like a normal rook…',
+    punch: '…until someone takes it 💥',
+    fact: 'whatever takes it dies too\n(unless it’s a rook or a queen)',
+    outro: 'epic rarity. would you play it?\nfollow for card #7 👀',
+  }),
+  cardofday7: cardOfDay(7, 'bishop-levitation', { ...LEVITATE, lead: 900, gap: 1300 }, {
+    intro: 'Levitation bishop floats OFF the board…',
+    punch: '…waits outside and strikes back ✨',
+    fact: 'the platform holds for 3 enemy turns.\nget back on the board in time or it falls',
+    outro: 'legendary rarity. would you play it?\nfollow for more 👀',
+  }),
+};
+
 /** Ads that should look like ordinary TikToks, not ads. */
-export const NATIVE = new Set(['satisfying', 'memes', 'cardofday']);
+export const NATIVE = new Set(['satisfying', 'memes', 'cardofday', ...Object.keys(SERIES)]);
 
 export const ADS: Record<string, Shot[]> = {
   satisfying: SATISFYING,
   memes: MEMES,
   cardofday: CARD_OF_DAY,
+  ...SERIES,
   versus: VERSUS,
   packs: PACKS,
   plot: PLOT,
