@@ -1559,5 +1559,11 @@ const dict: Record<string, string> = {
   "Термінатор": "Terminator",
   "Візьміть однією фігурою 6 фігур за партію.": "Schlage mit einer Figur 6 Figuren in einer Partie.",
   "лише в лізі гравців": "nur in der Spielerliga",
+  "Остання колода": "Letztes Deck",
+  "Ще жодного.": "Noch keine.",
+  "Згорнути": "Weniger",
+  "Усі ({0})": "Alle ({0})",
+  "Рідкісне: у {0}% гравців": "Selten: {0}% der Spieler",
+  "У {0}% гравців": "{0}% der Spieler",
 };
 export default dict;

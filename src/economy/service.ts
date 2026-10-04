@@ -282,6 +282,10 @@ export interface PublicProfile extends PlayerCard {
   cards: number;
   createdAt: number;
   relation: 'self' | 'friend' | 'incoming' | 'outgoing' | 'none';
+  /** The deck of their latest game (their active deck if they have not played). */
+  deck: Deck | null;
+  /** Achievements they have reached (ids). */
+  achievements: string[];
 }
 
 export interface HistoryRow {
@@ -974,7 +978,25 @@ export class GameService {
   }
 
   async achievements(token: string): Promise<AchievementView[]> {
-    return this.achievementList(await this.auth(token));
+    const percent = await this.achievementRarity();
+    return (await this.achievementList(await this.auth(token))).map((a) => ({ ...a, percent: percent[a.id] ?? 0 }));
+  }
+
+  private rarity: { at: number; percent: Record<string, number> } | null = null;
+
+  /**
+   * What share of players (accounts that signed up) has each achievement, in
+   * percent. Worked out over every player, so it is kept for ten minutes.
+   */
+  private async achievementRarity(): Promise<Record<string, number>> {
+    if (this.rarity && this.now() - this.rarity.at < 10 * 60_000) return this.rarity.percent;
+    const users = (await this.store.listUsers(100_000)).filter((u) => u.passHash && !u.deleted);
+    const done: Record<string, number> = {};
+    for (const u of users) for (const a of await this.achievementList(u)) if (a.done) done[a.id] = (done[a.id] ?? 0) + 1;
+    const percent: Record<string, number> = {};
+    for (const [id, n] of Object.entries(done)) percent[id] = Math.round((n / users.length) * 1000) / 10;
+    this.rarity = { at: this.now(), percent };
+    return percent;
   }
 
   /** Put an achievement's plate under the name (null: none). */
@@ -1984,10 +2006,25 @@ export class GameService {
       losses: u.losses,
       draws: u.draws,
       bestTrophies: Math.max(u.bestTrophies, u.trophies),
-      cards: (await this.store.listCards(u.id)).filter((c) => CARD_BY_ID[c.cardId] && !CARD_BY_ID[c.cardId].trialOnly).length,
+      cards: (await this.store.listCards(u.id)).length,
       createdAt: u.createdAt,
       relation,
+      deck: await this.lastDeck(u),
+      achievements: (await this.achievementList(u)).filter((a) => a.done).map((a) => a.id),
     };
+  }
+
+  /** The deck a player brought to their latest game (bot or people); else their active deck. */
+  private async lastDeck(u: UserRow): Promise<Deck | null> {
+    const [m] = await this.store.listMatches(u.id, 1);
+    const [p] = await this.store.listPvp(u.id, 1);
+    const fromPvp = p ? { at: p.updatedAt, deck: p.whiteId === u.id ? p.whiteDeck : p.blackDeck } : null;
+    // The classic trial plays a fixed deck: not "theirs".
+    const fromBot = m && this.modeOf(m) !== 'trial:classic' ? { at: m.createdAt, deck: m.playerDeck } : null;
+    const latest = [fromPvp, fromBot].filter((x) => x !== null).sort((a, b) => b.at - a.at)[0];
+    if (latest) return latest.deck;
+    const decks = await this.store.listDecks(u.id);
+    return (decks.find((d) => d.id === u.activeDeckId) ?? decks[0])?.deck ?? null;
   }
 
   async history(token: string): Promise<HistoryRow[]> {
@@ -2502,7 +2539,7 @@ export class GameService {
         botTrophies: u.botTrophies,
         wins: u.wins,
         losses: u.losses,
-        cards: (await this.store.listCards(u.id)).filter((c) => CARD_BY_ID[c.cardId] && !CARD_BY_ID[c.cardId].trialOnly).length,
+        cards: (await this.store.listCards(u.id)).length,
         gold: u.gold,
         shards: u.shards,
         claimed: !!u.passHash,

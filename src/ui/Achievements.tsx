@@ -22,6 +22,12 @@ export function Medal({ a, locked, size = 'md' }: { a: AchievementDef; locked?: 
   );
 }
 
+/** "У 12% гравців", "Рідкісне: 0.4% гравців". */
+export function rarityText(percent: number): string {
+  const n = percent < 1 ? percent.toFixed(1) : String(Math.round(percent));
+  return percent < 5 ? t('Рідкісне: у {0}% гравців', n) : t('У {0}% гравців', n);
+}
+
 /** The plate under a player's name: an achievement they chose to show. */
 export function TitlePlate({ id, small }: { id: string | null | undefined; small?: boolean }) {
   const a = id ? ACHIEVEMENT_BY_ID[id] : null;
@@ -174,6 +180,7 @@ export function AchievementsPanel() {
                   </small>
                 </span>
               )}
+              {a.percent !== undefined && <small className={`ach-rarity ${a.percent < 5 ? 'rare' : ''}`}>🌍 {rarityText(a.percent)}</small>}
               <small className="ach-tier">
                 {TIER_NAME[a.tier]}
                 {a.online && <span className="ach-online"> · 🌐 {t('лише в лізі гравців')}</span>}

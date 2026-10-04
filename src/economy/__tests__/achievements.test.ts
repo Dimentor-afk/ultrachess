@@ -51,6 +51,25 @@ describe('achievements', () => {
     expect(ranked).toEqual(expect.arrayContaining(['mate-5', 'mate-10', 'flawless']));
   });
 
+  it('the share of players with each achievement; another player\'s profile shows their deck and achievements', async () => {
+    const svc = new GameService(new MemoryStore(), hasher, () => 1_800_000_000_000, Math.random);
+    await svc.init();
+    const a = await svc.register('a@a.com', 'secret12', 'Анна');
+    const b = await svc.register('b@b.com', 'secret12', 'Богдан');
+    for (const tok of [a.token, b.token]) {
+      const [starter] = await svc.packs(tok);
+      await svc.openPack(tok, starter.id);
+    }
+    const achieve = (svc as unknown as { achieve: (id: string, add: object) => Promise<string[]> }).achieve.bind(svc);
+    await achieve(a.profile.id, { wins: 1 });
+    const list = await svc.achievements(b.token);
+    // The seeded admin has no password: two real players, one has it.
+    expect(list.find((x) => x.id === 'wins-1')!.percent).toBe(50);
+    const seen = await svc.playerProfile(b.token, a.profile.id);
+    expect(seen.achievements).toContain('wins-1');
+    expect(seen.deck?.king).toBeTruthy();
+  });
+
   it('castling is read from the record, for the side that castled', () => {
     const decks = { w: classicDeck(), b: classicDeck() };
     const castle = line(createMatch(decks.w, decks.b), [['e2', 'e4'], ['e7', 'e5'], ['g1', 'f3'], ['b8', 'c6'], ['f1', 'c4'], ['f8', 'c5'], ['e1', 'g1']]);

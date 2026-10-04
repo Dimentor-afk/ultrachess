@@ -21,6 +21,7 @@ import type { FxName } from './fxSprites';
 import { requestHint } from './botClient';
 import { Avatar, CardView, Glyph } from './common';
 import { Medal, TitlePlate } from './Achievements';
+import { PlayerModal } from './PlayerModal';
 import { ACHIEVEMENT_BY_ID } from '../economy/achievements';
 import { t, tr } from '../i18n';
 
@@ -224,6 +225,8 @@ export function Game({ start, playerName, playerAvatar, playerTitle, trophies, o
   const [showSummary, setShowSummary] = useState(true);
   const [confirmResign, setConfirmResign] = useState(false);
   const [shared, setShared] = useState(false);
+  // A player's profile opened from the player bar.
+  const [viewing, setViewing] = useState<string | null>(null);
   // Player ladder: a stalled opponent can be timed out.
   const [quietSince, setQuietSince] = useState(() => Date.now());
   const [clock, setClock] = useState(() => Date.now());
@@ -446,6 +449,7 @@ export function Game({ start, playerName, playerAvatar, playerTitle, trophies, o
 
   // Who sits where: the opponent on top, you at the bottom (a spectator: black on top, white below).
   const top: PlayerCard | null = remote ? (human === 'w' ? remote.black : remote.white) : null;
+  const bottomCard: PlayerCard | null = remote ? (human === 'w' ? remote.white : remote.black) : null;
   const sideName = (c: Color) => (remote ? (c === 'w' ? remote.white : remote.black).name : c === human ? playerName : t('Бот · {0}', botLevel(start.botLevel).name));
 
   const selectedPiece = selected !== null ? view.cells[selected] : null;
@@ -482,7 +486,7 @@ export function Game({ start, playerName, playerAvatar, playerTitle, trophies, o
     <section className="page game">
       <div className="game-board-col">
         <div className={`player-bar ${match.turn === bot && !match.result ? 'to-move' : ''}`}>
-          <span className="pb-who">
+          <span className={`pb-who ${top ? 'clickable' : ''}`} onClick={top ? () => setViewing(top.id) : undefined} role={top ? 'button' : undefined} title={top ? t('Профіль гравця') : undefined}>
             {top ? <Avatar card={top.avatar} /> : <span className="avatar avatar-bot">🤖</span>}
             <span>
               <b>{top ? top.name : t('Бот · {0}', botLevel(start.botLevel).name)}</b>
@@ -532,7 +536,11 @@ export function Game({ start, playerName, playerAvatar, playerTitle, trophies, o
           )}
         </div>
         <div className={`player-bar ${match.turn === human && !match.result ? 'to-move' : ''}`}>
-          <span className="pb-who">
+          <span
+            className={`pb-who ${bottomCard ? 'clickable' : ''}`}
+            onClick={bottomCard ? () => setViewing(bottomCard.id) : undefined}
+            role={bottomCard ? 'button' : undefined}
+          >
             {playerAvatar ? <Avatar card={playerAvatar} /> : <span className="avatar">{playerName.slice(0, 1).toUpperCase()}</span>}
             <span>
               <b>{playerName}</b>
@@ -744,6 +752,7 @@ export function Game({ start, playerName, playerAvatar, playerTitle, trophies, o
         </div>
       </aside>
 
+      {viewing && <PlayerModal userId={viewing} onClose={() => setViewing(null)} />}
       {intro && (
         <DeckIntro
           steps={introPlan}

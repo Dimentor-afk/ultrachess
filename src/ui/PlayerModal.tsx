@@ -1,5 +1,10 @@
 import { useEffect, useState } from 'react';
-import { TitlePlate } from './Achievements';
+import { Medal, TitlePlate, rarityText } from './Achievements';
+import { ACHIEVEMENT_BY_ID, ACHIEVEMENTS } from '../economy/achievements';
+import { DECK_SLOTS } from '../engine/deck';
+import { getCard } from '../engine/cards';
+import { CardModal } from './CardModal';
+import { CardArt } from './common';
 import type { PublicProfile } from '../api/client';
 import { CARDS } from '../engine/cards';
 import { Avatar } from './common';
@@ -20,6 +25,14 @@ export function PlayerModal({
 }) {
   const s = useSession();
   const [p, setP] = useState<PublicProfile | null>(null);
+  const [percent, setPercent] = useState<Record<string, number>>({});
+  const [card, setCard] = useState<string | null>(null);
+  const [allAch, setAllAch] = useState(false);
+  useEffect(() => {
+    // How rare each achievement is (the same list as on your own profile).
+    s.api.achievements().then((l) => setPercent(Object.fromEntries(l.map((a) => [a.id, a.percent ?? 0]))), () => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const load = () => s.api.playerProfile(userId).then(setP, (e) => s.toast(errorText(e), 'error'));
   useEffect(() => {
@@ -83,6 +96,49 @@ export function PlayerModal({
                 <span>{t('карток')}</span>
               </div>
             </div>
+            {p.deck && (
+              <div className="pm-section">
+                <h3>{t('Остання колода')}</h3>
+                <div className="pm-deck">
+                  {[...p.deck.pawnVersions, ...DECK_SLOTS.map((sl) => p.deck![sl.key] as string)]
+                    .filter((id, i, all) => id && getCard(id) && all.indexOf(id) === i)
+                    .map((id) => (
+                      <button key={id} className={`pm-card r-${getCard(id).rarity}`} title={getCard(id).name} onClick={() => setCard(id)}>
+                        <CardArt cardId={id} />
+                      </button>
+                    ))}
+                </div>
+              </div>
+            )}
+            <div className="pm-section">
+              <h3>
+                {t('Досягнення')} <span className="muted small">🏆 {p.achievements.length}/{ACHIEVEMENTS.length}</span>
+              </h3>
+              {p.achievements.length === 0 ? (
+                <p className="muted small">{t('Ще жодного.')}</p>
+              ) : (
+                <div className={`pm-ach ${allAch ? 'all' : ''}`}>
+                  {p.achievements
+                    .map((id) => ACHIEVEMENT_BY_ID[id])
+                    .filter(Boolean)
+                    // The rarest first: those are the ones to show off.
+                    .sort((a, b) => (percent[a.id] ?? 100) - (percent[b.id] ?? 100) || b.tier - a.tier)
+                    .slice(0, allAch ? undefined : 8)
+                    .map((a) => (
+                      <span key={a.id} className="pm-ach-item" title={`${a.name}: ${a.text}`}>
+                        <Medal a={a} />
+                        <small>{a.name}</small>
+                        {percent[a.id] !== undefined && <small className="muted">{rarityText(percent[a.id])}</small>}
+                      </span>
+                    ))}
+                </div>
+              )}
+              {p.achievements.length > 8 && (
+                <button className="btn btn-sm btn-ghost" onClick={() => setAllAch(!allAch)}>
+                  {allAch ? t('Згорнути') : t('Усі ({0})', p.achievements.length)}
+                </button>
+              )}
+            </div>
             <div className="editor-actions">
               {p.relation === 'none' && (
                 <button className="btn btn-primary" onClick={add}>
@@ -108,6 +164,11 @@ export function PlayerModal({
           </>
         )}
       </div>
+      {card && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <CardModal card={getCard(card)} onClose={() => setCard(null)} />
+        </div>
+      )}
     </div>
   );
 }

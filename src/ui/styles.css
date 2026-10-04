@@ -9604,3 +9604,86 @@ html.no-anim .cell.barrier.barrier-new::after { animation: none; }
 .ach-online {
   color: #7fd0ff;
 }
+
+.pb-who.clickable {
+  cursor: pointer;
+  border-radius: 10px;
+}
+.pb-who.clickable:hover b {
+  text-decoration: underline;
+}
+.ach-rarity {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+.ach-rarity.rare {
+  color: #ffb86b;
+  font-weight: 700;
+}
+.player-modal .pm-section {
+  margin-top: 0.9rem;
+}
+.player-modal .pm-section h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+}
+.pm-deck {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.pm-card {
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  padding: 0.2rem;
+  border-radius: 10px;
+  border: 2px solid var(--r-common);
+  background: var(--bg-2);
+  cursor: pointer;
+}
+.pm-card {
+  overflow: hidden;
+}
+.pm-card img,
+.pm-card svg {
+  width: 2.4rem;
+  height: 2.4rem;
+  max-width: none;
+  object-fit: contain;
+}
+.pm-card.r-rare {
+  border-color: var(--r-rare);
+}
+.pm-card.r-epic {
+  border-color: var(--r-epic);
+}
+.pm-card.r-legendary {
+  border-color: var(--r-legendary);
+}
+.pm-card.r-mythological {
+  border-color: var(--r-mythological);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--r-mythological) 50%, transparent);
+}
+.pm-ach {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: 0.6rem 0.4rem;
+}
+.pm-ach-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  text-align: center;
+  font-size: 0.72rem;
+  line-height: 1.2;
+}
+.pm-ach-item small:first-of-type {
+  font-weight: 700;
+}
+.player-modal {
+  max-height: 90vh;
+  overflow-y: auto;
+}

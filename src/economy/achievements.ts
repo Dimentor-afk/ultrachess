@@ -144,6 +144,8 @@ export function parseAchievements(raw: string | null | undefined): AchievementSt
 export interface AchievementView extends AchievementDef {
   progress: number;
   done: boolean;
+  /** Share of players who have it, in percent (filled in by the service). */
+  percent?: number;
 }
 
 export function achievementViews(state: AchievementState, computed: Record<ComputedStat, number>): AchievementView[] {
