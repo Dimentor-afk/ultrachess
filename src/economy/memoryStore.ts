@@ -78,6 +78,8 @@ export function withUserDefaults(u: UserRow): UserRow {
     bannedUntil: u.bannedUntil ?? 0,
     banReason: u.banReason ?? '',
     notice: u.notice ?? '',
+    achievements: u.achievements ?? '{}',
+    title: u.title ?? '',
   };
 }
 

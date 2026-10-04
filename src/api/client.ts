@@ -33,6 +33,7 @@ import {
   type Profile,
 } from '../economy/service';
 import type { Hasher, Role } from '../economy/store';
+import type { AchievementView } from '../economy/achievements';
 import { type PurchaseView, type ShardOffer, type ShardProduct, TestPayments } from '../economy/payments';
 import type { Action } from '../engine/match';
 import type { Deck } from '../engine/types';
@@ -41,7 +42,7 @@ import { LiveSocket, liveUrl } from './live';
 import { getLang, t, tr } from '../i18n';
 
 export { ApiError };
-export type { PurchaseView, ShardOffer, ShardProduct };
+export type { PurchaseView, ShardOffer, ShardProduct, AchievementView };
 export type {
   GameView,
   LiveGameRow,
@@ -147,6 +148,9 @@ export interface Api {
   gameRecord(kind: 'm' | 'p', id: string): Promise<GameRecord>;
   inbox(): Promise<Inbox>;
   claimQuest(id: string): Promise<Profile>;
+  achievements(): Promise<AchievementView[]>;
+  claimAchievement(id: string): Promise<{ profile: Profile; list: AchievementView[] }>;
+  setTitle(id: string | null): Promise<Profile>;
   setBotOverride(level: number | null): Promise<Profile>;
   friends(): Promise<FriendsView>;
   searchPlayers(query: string): Promise<PlayerCard[]>;
@@ -264,6 +268,9 @@ class HttpApi implements Api {
   gameRecord = (kind: 'm' | 'p', id: string) => this.call<GameRecord>('GET', `games/${kind}/${id}`);
   inbox = () => this.call<Inbox>('GET', 'inbox');
   claimQuest = (id: string) => this.call<Profile>('POST', `quests/${id}/claim`, {});
+  achievements = () => this.call<AchievementView[]>('GET', 'achievements');
+  claimAchievement = (id: string) => this.call<{ profile: Profile; list: AchievementView[] }>('POST', `achievements/${id}/claim`, {});
+  setTitle = (id: string | null) => this.call<Profile>('POST', 'profile/title', { id });
   setBotOverride = (level: number | null) => this.call<Profile>('POST', 'admin/bot', { level });
   friends = () => this.call<FriendsView>('GET', 'friends');
   searchPlayers = (query: string) => this.call<PlayerCard[]>('POST', 'friends/search', { query });
@@ -459,6 +466,9 @@ class LocalApi implements Api {
   gameRecord = async (kind: 'm' | 'p', id: string) => this.svc.gameRecord(await this.t(), kind, id);
   inbox = async () => this.svc.inbox(await this.t());
   claimQuest = async (id: string) => this.svc.claimQuest(await this.t(), id);
+  achievements = async () => this.svc.achievements(await this.t());
+  claimAchievement = async (id: string) => this.svc.claimAchievement(await this.t(), id);
+  setTitle = async (id: string | null) => this.svc.setTitle(await this.t(), id);
   setBotOverride = async (level: number | null) => this.svc.setBotOverride(await this.t(), level);
   friends = async () => this.svc.friends(await this.t());
   searchPlayers = async (query: string) => this.svc.searchPlayers(await this.t(), query);

@@ -49,6 +49,8 @@ export function GamePage() {
       pvp={pvp}
       onExit={() => {
         void s.refreshInbox();
+        // Achievements from the game: the badge on the profile.
+        void s.api.me().then((p) => p && s.setProfile(p), () => undefined);
         navigate(pvp.ranked || pvp.color === null ? '/play' : '/friends');
       }}
       onRematch={pvp.ranked && pvp.color ? () => navigate('/play/seek') : undefined}

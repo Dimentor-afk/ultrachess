@@ -20,12 +20,16 @@ import { DeckIntro, introSteps } from './DeckIntro';
 import type { FxName } from './fxSprites';
 import { requestHint } from './botClient';
 import { Avatar, CardView, Glyph } from './common';
+import { TitlePlate } from './Achievements';
+import { ACHIEVEMENT_BY_ID } from '../economy/achievements';
 import { t, tr } from '../i18n';
 
 export interface GameProps {
   start: MatchStart;
   playerName: string;
   playerAvatar?: string;
+  /** The achievement plate under the player's name. */
+  playerTitle?: string | null;
   trophies: number;
   /** Report the finished game; resolves to the server's verdict (bot games). */
   onFinish?: (resigned: boolean) => Promise<MatchFinish>;
@@ -72,7 +76,7 @@ export interface RemoteGame {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAction, onExit, onRematch, rematchLabel, remote, captureFx }: GameProps) {
+export function Game({ start, playerName, playerAvatar, playerTitle, trophies, onFinish, onAction, onExit, onRematch, rematchLabel, remote, captureFx }: GameProps) {
   // A spectator sees the board from white's side and acts as nobody.
   const spectator = !!remote && remote.you === null;
   const human = start.color;
@@ -482,6 +486,7 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
             {top ? <Avatar card={top.avatar} /> : <span className="avatar avatar-bot">🤖</span>}
             <span>
               <b>{top ? top.name : t('Бот · {0}', botLevel(start.botLevel).name)}</b>
+              {top?.title && <TitlePlate id={top.title} small />}
               <small className="muted">{top ? `🏆 ${top.trophies} · ` : ''}{tr(start.botDeck.name)}</small>
             </span>
           </span>
@@ -531,6 +536,7 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
             {playerAvatar ? <Avatar card={playerAvatar} /> : <span className="avatar">{playerName.slice(0, 1).toUpperCase()}</span>}
             <span>
               <b>{playerName}</b>
+              {playerTitle && <TitlePlate id={playerTitle} small />}
               <small className="muted">
                 🏆 {trophies} · {tr(start.playerDeck.name)}
               </small>
@@ -834,6 +840,19 @@ export function Game({ start, playerName, playerAvatar, trophies, onFinish, onAc
                     {t('Раунд пройдено: {0} / {1}', verdict.trial.wins, verdict.trial.rounds)}
                   </span>
                 )}
+              </div>
+            )}
+            {verdict && verdict.achievements.length > 0 && (
+              <div className="verdict ach-won">
+                <span className="eyebrow">{t('Нові досягнення')}</span>
+                {verdict.achievements.map((id) => ACHIEVEMENT_BY_ID[id] && (
+                  <span key={id} className="ach-won-row">
+                    <span className="ach-icon">{ACHIEVEMENT_BY_ID[id].icon}</span>
+                    <b>{ACHIEVEMENT_BY_ID[id].name}</b>
+                    <small className="muted">{ACHIEVEMENT_BY_ID[id].text}</small>
+                  </span>
+                ))}
+                <a className="small" href="#/profile/achievements">{t('Забрати нагороду в профілі →')}</a>
               </div>
             )}
             {verdict && !verdict.ladder && !verdict.trial && <p className="muted">{t('Тренування: кубки й паки не нараховуються.')}</p>}

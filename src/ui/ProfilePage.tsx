@@ -9,6 +9,7 @@ import { getSettings, onSettings, play, setSettings } from './settings';
 import { errorText, useSession } from './state';
 import { t, tr, locale } from '../i18n';
 import { LangSelect } from './LangSelect';
+import { AchievementsPanel, TitlePlate } from './Achievements';
 
 const KIND: Record<HistoryRow['kind'], string> = { ranked: t('Ліга гравців'), bot: t('Ліга ботів'), training: t('Тренування'), friend: t('Друг'), trial: t('Випробування') };
 const OUTCOME: Record<HistoryRow['outcome'], string> = { win: t('Перемога'), loss: t('Поразка'), draw: t('Нічия') };
@@ -93,6 +94,7 @@ export function ProfilePage() {
               </button>
             </h1>
           )}
+          {!editing && <TitlePlate id={p.title} />}
           {editing && <small className="muted tiny">{NAME_HINT}{t('. Змінити нікнейм можна раз на 7 днів.')}</small>}
           <div className="profile-tags">
             <span className="tag-chip" title={t('За цим кодом вас можна знайти в друзях')}>
@@ -166,6 +168,8 @@ export function ProfilePage() {
         <Stat label={t('Карток зібрано')} value={`${owned.length}/${CARDS.length}`} />
         <Stat label={t('Рекорд кубків')} value={`🏆 ${Math.max(p.ladders.pvp.best, p.ladders.bot.best)}`} />
       </div>
+
+      <AchievementsPanel />
 
       <div className="panel">
         <h2>{t('Колекція за рідкістю')}</h2>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { TitlePlate } from './Achievements';
 import type { PublicProfile } from '../api/client';
 import { CARDS } from '../engine/cards';
 import { Avatar } from './common';
@@ -56,6 +57,7 @@ export function PlayerModal({
               </span>
               <div>
                 <h2>{p.name}</h2>
+                <TitlePlate id={p.title} />
                 <span className="tag-chip">#{p.tag}</span>
               </div>
             </div>

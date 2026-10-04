@@ -191,6 +191,7 @@ function Shell() {
             <b>{s.profile.name}</b>
             <small>🏆 {s.profile.trophies}</small>
           </span>
+          {s.profile.achievementsReady > 0 && <span className="nav-badge">{s.profile.achievementsReady}</span>}
           <span className="me-chev" aria-hidden="true">
             ›
           </span>
@@ -201,6 +202,7 @@ function Shell() {
       <header className="m-header">
         <a className={`m-me ${route === 'profile' ? 'active' : ''}`} href="#/profile" aria-label={t('Профіль')}>
           <Avatar card={s.profile.avatar} size="sm" />
+          {s.profile.achievementsReady > 0 && <span className="nav-badge">{s.profile.achievementsReady}</span>}
           <span className="m-me-info">
             <b>{s.profile.name}</b>
             <small>🏆 {s.profile.trophies}</small>

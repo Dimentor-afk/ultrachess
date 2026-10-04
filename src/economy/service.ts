@@ -31,6 +31,7 @@ import type { BotOptions, BotTurn } from '../engine/bot/search';
 import { legalMoves } from '../engine/legal';
 import { type QuestEvent, type QuestView, addProgress, parseQuests, questViews } from './quests';
 import { type Hasher, type MatchRow, type PackRow, type PvpRow, type Role, type Store, type TokenRow, type UserRow, randomId } from './store';
+import { ACHIEVEMENT_BY_ID, type AchievementState, type AchievementView, type CountedStat, achievementViews, gameFeats, parseAchievements } from './achievements';
 import { NAME_CHANGE_MS, cleanName, nameProblem, passwordProblem, sha256 } from './account';
 import { type PaymentProvider, type ProviderState, type PurchaseRow, type PurchaseView, SHARD_PRODUCTS, type ShardOffer, formatPrice, productById } from './payments';
 
@@ -109,6 +110,10 @@ export interface Profile {
   ownedFx: string[];
   /** The free pack of the day is waiting in the shop. */
   freePack: boolean;
+  /** Achievements reached whose reward is waiting. */
+  achievementsReady: number;
+  /** Achievement shown as the plate under the name (null: none). */
+  title: string | null;
 }
 
 export interface LadderView {
@@ -219,6 +224,8 @@ export interface MatchFinish {
   leagueUps: LeagueUp[];
   ladder: Ladder | null;
   trial: TrialResult | null;
+  /** Achievements this game reached (ids). */
+  achievements: string[];
   profile: Profile;
 }
 
@@ -255,6 +262,8 @@ export interface PlayerCard {
   arena: string;
   online: boolean;
   lastSeen: number;
+  /** The achievement plate under the name. */
+  title: string | null;
 }
 
 export interface FriendsView {
@@ -340,6 +349,8 @@ export interface PvpState {
   ladder: LadderResult | null;
   /** The player-ladder trial this game counted for, if any. */
   trial: TrialResult | null;
+  /** Achievements the game reached for you, once finished. */
+  achievements: string[];
 }
 
 /** A friend's game in progress, open to watch. */
@@ -580,6 +591,8 @@ export class GameService {
       bannedUntil: 0,
       banReason: '',
       notice: '',
+      achievements: '{}',
+      title: '',
     };
   }
 
@@ -896,7 +909,86 @@ export class GameService {
       captureFx: captureFxById(u.captureFx).id,
       ownedFx: this.fxOf(u),
       freePack: u.freePackDay !== this.today(),
+      achievementsReady: (await this.achievementList(u)).filter((a) => a.done && !a.claimed).length,
+      title: this.titleOf(u),
     };
+  }
+
+  // ── Achievements ──
+
+  /** The player's achievement record; old accounts start their counters from what the profile already counts. */
+  private achState(u: UserRow): AchievementState {
+    const a = parseAchievements(u.achievements);
+    a.stats.wins ??= u.wins;
+    a.stats.games ??= u.wins + u.losses + u.draws;
+    return a;
+  }
+
+  private async achievementList(u: UserRow): Promise<AchievementView[]> {
+    return achievementViews(this.achState(u), {
+      cards: (await this.store.listCards(u.id)).filter((c) => CARD_BY_ID[c.cardId] && !CARD_BY_ID[c.cardId].trialOnly).length,
+      botLeague: leagueIndex('bot', Math.max(u.botBest, u.botTrophies)),
+      pvpLeague: leagueIndex('pvp', Math.max(u.bestTrophies, u.trophies)),
+    });
+  }
+
+  /** The plate shown under the name: an achievement the player has reached. */
+  private titleOf(u: UserRow): string | null {
+    return u.title && ACHIEVEMENT_BY_ID[u.title] ? u.title : null;
+  }
+
+  /**
+   * Count what happened (counters up, feats in) and return the achievements
+   * this reached for the first time.
+   */
+  private async achieve(userId: string, add: Partial<Record<CountedStat, number>>, feats: string[] = []): Promise<string[]> {
+    const u = await this.store.getUser(userId);
+    if (!u || u.deleted) return [];
+    const before = new Set((await this.achievementList(u)).filter((a) => a.done).map((a) => a.id));
+    const st = this.achState(u);
+    for (const [k, n] of Object.entries(add) as [CountedStat, number][]) st.stats[k] = (st.stats[k] ?? 0) + n;
+    for (const f of feats) if (ACHIEVEMENT_BY_ID[f] && !st.feats.includes(f)) st.feats.push(f);
+    const next = { ...u, achievements: JSON.stringify(st) };
+    await this.store.updateUser(userId, { achievements: next.achievements });
+    return (await this.achievementList(next)).filter((a) => a.done && !before.has(a.id)).map((a) => a.id);
+  }
+
+  /** A finished game for one player: counters and the feats found in its record. */
+  private async gameAchievements(userId: string, decks: Record<Color, Deck>, actions: Action[], color: Color, outcome: 'win' | 'loss' | 'draw', pvp: boolean): Promise<string[]> {
+    const won = outcome === 'win';
+    return this.achieve(userId, { games: 1, wins: won ? 1 : 0, pvpWins: won && pvp ? 1 : 0 }, gameFeats(decks, actions, color, won));
+  }
+
+  async achievements(token: string): Promise<AchievementView[]> {
+    return this.achievementList(await this.auth(token));
+  }
+
+  async claimAchievement(token: string, id: string): Promise<{ profile: Profile; list: AchievementView[] }> {
+    const u = await this.auth(token);
+    const a = (await this.achievementList(u)).find((x) => x.id === id);
+    if (!a) throw new ApiError(404, 'Такого досягнення немає.');
+    if (!a.done) throw new ApiError(400, 'Досягнення ще не здобуто.');
+    if (a.claimed) throw new ApiError(409, 'Нагороду вже отримано.');
+    const st = this.achState(u);
+    st.claimed.push(id);
+    await this.store.updateUser(u.id, {
+      achievements: JSON.stringify(st),
+      gold: u.gold + (a.reward.gold ?? 0),
+      shards: u.shards + (a.reward.shards ?? 0),
+    });
+    const fresh = (await this.store.getUser(u.id))!;
+    return { profile: await this.profileOf(u.id), list: await this.achievementList(fresh) };
+  }
+
+  /** Put an achievement's plate under the name (null: none). */
+  async setTitle(token: string, id: string | null): Promise<Profile> {
+    const u = await this.auth(token);
+    if (id) {
+      const a = (await this.achievementList(u)).find((x) => x.id === id);
+      if (!a?.done) throw new ApiError(400, 'Спершу здобудьте це досягнення.');
+    }
+    await this.store.updateUser(u.id, { title: id ?? '' });
+    return this.profileOf(u.id);
   }
 
   private fxOf(u: UserRow): string[] {
@@ -1061,6 +1153,7 @@ export class GameService {
       }
     }
     await this.saveRun(u, { id: t.id, wins, status });
+    if (status === 'won') await this.achieve(userId, { trials: 1 }, t.id === 'comet' ? ['comet-path'] : []);
     return { name: t.name, wins, rounds: t.opponents.length, status, reward, card };
   }
 
@@ -1197,6 +1290,7 @@ export class GameService {
     await this.store.updateUser(u.id, { gold: fresh.gold + gold });
     if (p.type === 'starter') await this.ensureStarterDeck(u.id);
     else await this.questEvent(u.id, ['openPack']);
+    await this.achieve(u.id, { packs: 1 });
     return { pack: this.view(p), cards, gold, shards };
   }
 
@@ -1796,6 +1890,8 @@ export class GameService {
     if (outcome === 'win') events.push('win');
     if (outcome === 'win' && mode === 'bot') events.push('winRanked');
     await this.questEvent(u.id, events);
+    const decks: Record<Color, Deck> = m.color === 'w' ? { w: m.playerDeck, b: m.botDeck } : { w: m.botDeck, b: m.playerDeck };
+    const achievements = await this.gameAchievements(u.id, decks, m.actions, m.color, outcome, false);
     await this.store.updateMatch(m.id, {
       status: 'finished',
       result: JSON.stringify({ outcome, reason: state.result!.reason, moves: state.result!.moves, trophiesDelta: ladder?.trophiesDelta ?? 0 }),
@@ -1810,6 +1906,7 @@ export class GameService {
       leagueUps: ladder?.leagueUps ?? [],
       ladder: ladder ? 'bot' : null,
       trial,
+      achievements,
       profile: await this.profileOf(u.id),
     };
   }
@@ -1867,12 +1964,13 @@ export class GameService {
       arena: PVP_LEAGUES[leagueIndex('pvp', u.trophies)].name,
       online: this.now() - u.lastSeen < ONLINE_MS,
       lastSeen: u.lastSeen,
+      title: this.titleOf(u),
     };
   }
 
   private async cardOf(id: string): Promise<PlayerCard> {
     const u = await this.store.getUser(id);
-    if (!u) return { id, name: 'Гравець', tag: '', avatar: 'pawn-classic', trophies: 0, arena: '', online: false, lastSeen: 0 };
+    if (!u) return { id, name: 'Гравець', tag: '', avatar: 'pawn-classic', trophies: 0, arena: '', online: false, lastSeen: 0, title: null };
     return this.card(u);
   }
 
@@ -1889,7 +1987,7 @@ export class GameService {
       losses: u.losses,
       draws: u.draws,
       bestTrophies: Math.max(u.bestTrophies, u.trophies),
-      cards: (await this.store.listCards(u.id)).length,
+      cards: (await this.store.listCards(u.id)).filter((c) => CARD_BY_ID[c.cardId] && !CARD_BY_ID[c.cardId].trialOnly).length,
       createdAt: u.createdAt,
       relation,
     };
@@ -2165,7 +2263,7 @@ export class GameService {
   private async pvpView(row: PvpRow, color: Color | null): Promise<PvpState> {
     const w = await this.store.getUser(row.whiteId);
     const b = await this.store.getUser(row.blackId);
-    const result = row.result ? (JSON.parse(row.result) as { ladder?: Record<Color, LadderResult>; trial?: Record<Color, TrialResult> }) : null;
+    const result = row.result ? (JSON.parse(row.result) as { ladder?: Record<Color, LadderResult>; trial?: Record<Color, TrialResult>; achievements?: Record<Color, string[]> }) : null;
     return {
       id: row.id,
       color,
@@ -2180,11 +2278,13 @@ export class GameService {
       ranked: !!row.ranked,
       ladder: color && result?.ladder?.[color] ? result.ladder[color] : null,
       trial: color && result?.trial?.[color] ? result.trial[color] : null,
+      achievements: color ? (result?.achievements?.[color] ?? []) : [],
     };
   }
 
   /** A finished game's result; player-ladder games also settle trophies and rewards for both. */
-  private async pvpResult(row: PvpRow, state: MatchState): Promise<string> {
+  /** `actions`: the game's whole record when it is newer than the row's (the last move not written into `row`). */
+  private async pvpResult(row: PvpRow, state: MatchState, actions: Action[] = JSON.parse(row.actions) as Action[]): Promise<string> {
     const winner = state.result!.winner;
     const out: Record<string, unknown> = { winner, reason: state.result!.reason, moves: state.result!.moves };
     if (row.ranked) {
@@ -2202,6 +2302,12 @@ export class GameService {
       out.ladder = ladder;
       out.trial = trial;
     }
+    const achievements: Partial<Record<Color, string[]>> = {};
+    for (const [id, c] of [[row.whiteId, 'w'], [row.blackId, 'b']] as [string, Color][]) {
+      const outcome = winner === null ? 'draw' : winner === c ? 'win' : 'loss';
+      achievements[c] = await this.gameAchievements(id, { w: row.whiteDeck, b: row.blackDeck }, actions, c, outcome, true);
+    }
+    out.achievements = achievements;
     return JSON.stringify(out);
   }
 
@@ -2307,7 +2413,7 @@ export class GameService {
     if (!(await this.store.updatePvp(row.id, patch, expected))) throw new ApiError(409, 'Позиція змінилась — оновлюємо партію.');
     if (next.result) {
       // Settle only after the move is written, so a race cannot pay twice.
-      const fin: Partial<PvpRow> = { status: 'finished', result: await this.pvpResult(row, next) };
+      const fin: Partial<PvpRow> = { status: 'finished', result: await this.pvpResult(row, next, actions) };
       await this.store.updatePvp(row.id, fin);
       Object.assign(patch, fin);
     }
@@ -2399,7 +2505,7 @@ export class GameService {
         botTrophies: u.botTrophies,
         wins: u.wins,
         losses: u.losses,
-        cards: (await this.store.listCards(u.id)).length,
+        cards: (await this.store.listCards(u.id)).filter((c) => CARD_BY_ID[c.cardId] && !CARD_BY_ID[c.cardId].trialOnly).length,
         gold: u.gold,
         shards: u.shards,
         claimed: !!u.passHash,

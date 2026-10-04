@@ -111,6 +111,7 @@ export function PvpGame({ pvp, onExit, onRematch }: { pvp: PvpState; onExit: () 
                 leagueUps: l.leagueUps,
                 ladder: 'pvp',
                 trial: st.trial,
+                achievements: st.achievements,
                 profile: profile ?? s.profile,
               };
             }
@@ -132,6 +133,7 @@ export function PvpGame({ pvp, onExit, onRematch }: { pvp: PvpState; onExit: () 
       start={{ matchId: pvp.id, ranked: pvp.ranked, view: pvp.view, color: side, botLevel: 0, playerDeck: mine, botDeck: theirs }}
       playerName={spectator ? bottom.name : s.profile.name}
       playerAvatar={spectator ? bottom.avatar : s.profile.avatar}
+      playerTitle={spectator ? bottom.title : s.profile.title}
       trophies={spectator ? bottom.trophies : s.profile.trophies}
       remote={remote}
       onFinish={onFinish}

@@ -67,6 +67,10 @@ export interface UserRow {
   banReason: string;
   /** A message the player sees once on their next visit (JSON Notice, '' for none). */
   notice: string;
+  /** Achievement counters, feats and claimed rewards (JSON AchievementState). */
+  achievements: string;
+  /** Achievement shown as the plate under the name ('' none). */
+  title: string;
 }
 
 export interface SessionRow {

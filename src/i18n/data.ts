@@ -2,6 +2,7 @@ import { CAPTURE_FX } from '../economy/captureFx';
 import { LADDER_NAMES, LEAGUES, TRIALS } from '../economy/leagues';
 import { PACKS, STARTER_PACK } from '../economy/packs';
 import { QUEST_POOL } from '../economy/quests';
+import { ACHIEVEMENTS } from '../economy/achievements';
 import { BOARD_THEMES } from '../economy/themes';
 import { BOT_LEVELS } from '../engine/bot/levels';
 import { CARDS, EFFECT_NAMES, PIECE_NAMES, RARITY_NAMES } from '../engine/cards';
@@ -33,6 +34,10 @@ export function localizeData(): void {
   for (const th of BOARD_THEMES) th.name = t(th.name);
   for (const fx of CAPTURE_FX) fx.name = t(fx.name);
   for (const q of QUEST_POOL) q.text = t(q.text);
+  for (const a of ACHIEVEMENTS) {
+    a.name = t(a.name);
+    a.text = t(a.text);
+  }
   for (const p of [...Object.values(PACKS), STARTER_PACK]) {
     p.name = t(p.name);
     p.description = t(p.description);

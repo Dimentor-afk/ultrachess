@@ -9288,3 +9288,181 @@ html.no-anim .cell.barrier.barrier-new::after { animation: none; }
   font-family: var(--font-display);
   font-size: 1.2rem;
 }
+
+/* ── Achievements and plates ── */
+.title-plate {
+  --plate: #cd8a4e;
+  --plate-2: #7a4a22;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0.12em 0.6em 0.12em 0.45em;
+  border-radius: 6px;
+  border: 1px solid var(--plate);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--plate) 32%, transparent), color-mix(in srgb, var(--plate-2) 40%, transparent));
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 0 8px color-mix(in srgb, var(--plate) 35%, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.title-plate.small {
+  font-size: 0.66rem;
+  padding: 0.05em 0.45em 0.05em 0.35em;
+}
+.title-plate-icon {
+  font-size: 1.05em;
+}
+.tier-silver {
+  --plate: #c8d2e6;
+  --plate-2: #5d6a86;
+}
+.tier-gold {
+  --plate: #f5c451;
+  --plate-2: #8a6412;
+}
+.tier-legend {
+  --plate: #ff5fd2;
+  --plate-2: #5b2bc4;
+}
+.title-plate.tier-legend {
+  background: linear-gradient(110deg, #5b2bc4, #c43bb0, #ff8a3d, #c43bb0, #5b2bc4);
+  background-size: 300% 100%;
+  animation: plate-shine 4s linear infinite;
+  border-color: #ffd1f4;
+}
+@keyframes plate-shine {
+  to {
+    background-position: 300% 0;
+  }
+}
+.pb-who .title-plate {
+  display: flex;
+  margin: 0.1rem 0;
+}
+.profile-main .title-plate {
+  margin: 0.15rem 0 0.35rem;
+}
+.player-modal-head .title-plate {
+  margin: 0.2rem 0;
+}
+
+.achievements .ach-filter {
+  display: flex;
+  gap: 0.4rem;
+  margin: 0.6rem 0 0.8rem;
+  flex-wrap: wrap;
+}
+.ach-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0.6rem;
+}
+.ach {
+  --plate: #cd8a4e;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.7rem;
+  align-items: center;
+  padding: 0.7rem;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+}
+.ach.done {
+  border-color: color-mix(in srgb, var(--plate) 60%, transparent);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--plate) 16%, var(--bg-2)), var(--bg-2));
+}
+.ach.ready {
+  box-shadow: 0 0 0 1px var(--plate), 0 0 14px color-mix(in srgb, var(--plate) 45%, transparent);
+}
+.ach.locked .ach-icon {
+  filter: grayscale(1);
+  opacity: 0.45;
+}
+.ach-icon {
+  display: grid;
+  place-items: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  font-size: 1.5rem;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--plate) 18%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--plate) 50%, transparent);
+}
+.ach-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+.ach-body > small {
+  color: var(--muted);
+  line-height: 1.3;
+}
+.ach-body .ach-reward {
+  color: var(--gold);
+  font-weight: 600;
+}
+.ach-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.ach-progress .bar {
+  flex: 1;
+}
+.ach-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  align-items: stretch;
+}
+.ach-lock {
+  opacity: 0.5;
+}
+.ach-won {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.ach-won-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 0.6rem;
+  align-items: center;
+  text-align: left;
+}
+.ach-won-row .ach-icon {
+  --plate: var(--gold);
+  grid-row: span 2;
+  width: 2.2rem;
+  height: 2.2rem;
+  font-size: 1.2rem;
+}
+.me .nav-badge,
+.m-me .nav-badge {
+  margin-left: 0;
+}
+.m-me {
+  position: relative;
+}
+.m-header .m-me .nav-badge {
+  position: absolute;
+  top: -4px;
+  left: 28px;
+  right: auto;
+  flex: none;
+  width: 1.15rem;
+  min-width: 0;
+  height: 1.15rem;
+  padding: 0;
+  font-size: 0.65rem;
+  line-height: 1;
+}

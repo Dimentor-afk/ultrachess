@@ -62,6 +62,7 @@ export function TrialsPage() {
         start={game.start}
         playerName={profile.name}
         playerAvatar={profile.avatar}
+        playerTitle={profile.title}
         captureFx={{ [game.start.color]: captureFxById(profile.captureFx).sprite as FxName }}
         trophies={profile.trophies}
         onAction={(action, v) => api.matchAction(game.start.matchId, action, v)}
