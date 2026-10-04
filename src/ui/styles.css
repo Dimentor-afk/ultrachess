@@ -9687,3 +9687,17 @@ html.no-anim .cell.barrier.barrier-new::after { animation: none; }
   max-height: 90vh;
   overflow-y: auto;
 }
+
+.ach-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0.2rem 0 0.7rem;
+}
+.ach-toggle {
+  width: 100%;
+  margin: 0.2rem 0 0.6rem;
+}
+.ach-grid + .ach-toggle {
+  margin: 0.8rem 0 0;
+}

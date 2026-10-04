@@ -4,11 +4,12 @@ import { ACHIEVEMENT_BY_ID, type AchievementDef } from '../economy/achievements'
 import { t } from '../i18n';
 import { cardArt, packArt } from './cardArt';
 import type { PackType } from '../economy/packs';
-import { currentPath } from './router';
+import { currentPath, useRoutePath } from './router';
 import { play } from './settings';
 import { errorText, useSession } from './state';
 
 const TIER = ['', 'bronze', 'silver', 'gold', 'legend'] as const;
+const OPEN_KEY = 'uc.achievements.open';
 const TIER_NAME = ['', t('Бронза'), t('Срібло'), t('Золото'), t('Легенда')];
 
 /** A round medal in the achievement's colour: its piece sprite (or emoji) inside a rim of its tier. */
@@ -47,33 +48,34 @@ export function TitlePlate({ id, small }: { id: string | null | undefined; small
  */
 export function AchievementPopups() {
   const s = useSession();
-  const seen = useRef<Set<string> | null>(null);
+  // Everything already queued in this tab (the profile keeps listing an achievement until it is refreshed).
+  const queued = useRef(new Set<string>());
   const [queue, setQueue] = useState<string[]>([]);
   const [leaving, setLeaving] = useState(false);
 
+  // The server lists what the player has not seen yet: on the first visit after
+  // the update that is everything they had already earned, so it all plays once.
   useEffect(() => {
-    const now = s.profile.achievements;
-    if (!seen.current) {
-      // What was reached before this visit is old news.
-      seen.current = new Set(now);
-      return;
-    }
-    const fresh = now.filter((id) => !seen.current!.has(id));
-    for (const id of fresh) seen.current.add(id);
+    const fresh = s.profile.achievementsUnseen.filter((id) => ACHIEVEMENT_BY_ID[id] && !queued.current.has(id));
+    for (const id of fresh) queued.current.add(id);
     if (fresh.length) setQueue((q) => [...q, ...fresh]);
-  }, [s.profile.achievements]);
+  }, [s.profile.achievementsUnseen]);
 
   const current = queue[0];
   useEffect(() => {
     if (!current) return;
     play('trophy');
     setLeaving(false);
-    const out = setTimeout(() => setLeaving(true), 4200);
-    const next = setTimeout(() => setQueue((q) => q.slice(1)), 4700);
+    void s.api.seeAchievements([current]).catch(() => undefined);
+    // A long line of them (a player's first visit after the update) goes faster.
+    const show = queue.length > 3 ? 2400 : 4200;
+    const out = setTimeout(() => setLeaving(true), show);
+    const next = setTimeout(() => setQueue((q) => q.slice(1)), show + 500);
     return () => {
       clearTimeout(out);
       clearTimeout(next);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current]);
 
   const a = current ? ACHIEVEMENT_BY_ID[current] : null;
@@ -107,6 +109,15 @@ export function AchievementsPanel() {
   const [busy, setBusy] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'done' | 'open'>('all');
   const ref = useRef<HTMLDivElement>(null);
+  // Folded by default (the list is long); opened from a pop-up or the game summary.
+  const [open, setOpen] = useState(() => {
+    if (currentPath() === '/profile/achievements') return true;
+    try {
+      return localStorage.getItem(OPEN_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
 
   useEffect(() => {
     s.api.achievements().then(
@@ -121,6 +132,14 @@ export function AchievementsPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [s.profile.achievements.length]);
 
+  // A pop-up tapped while the profile is already open: unfold and scroll here.
+  const path = useRoutePath();
+  useEffect(() => {
+    if (path !== '/profile/achievements') return;
+    setOpen(true);
+    setTimeout(() => ref.current?.scrollIntoView({ block: 'start' }), 50);
+  }, [path]);
+
   if (!list) return null;
   const wear = async (a: AchievementView) => {
     setBusy(a.id);
@@ -133,6 +152,14 @@ export function AchievementsPanel() {
     }
   };
 
+  const toggle = () => {
+    setOpen(!open);
+    try {
+      localStorage.setItem(OPEN_KEY, open ? '0' : '1');
+    } catch {
+      // Not remembered: fine.
+    }
+  };
   const shown = list
     .filter((a) => (filter === 'done' ? a.done : filter === 'open' ? !a.done : true))
     .sort((a, b) => Number(b.done) - Number(a.done) || b.tier - a.tier || b.progress / b.target - a.progress / a.target);
@@ -149,6 +176,24 @@ export function AchievementsPanel() {
       <div className="bar ach-total" aria-hidden="true">
         <span style={{ width: `${(doneCount / list.length) * 100}%` }} />
       </div>
+      {!open && (
+        <div className="ach-strip">
+          {list
+            .filter((a) => a.done)
+            .sort((a, b) => (a.percent ?? 100) - (b.percent ?? 100) || b.tier - a.tier)
+            .slice(0, 8)
+            .map((a) => (
+              <span key={a.id} title={a.name}>
+                <Medal a={a} />
+              </span>
+            ))}
+        </div>
+      )}
+      <button className="btn btn-sm ach-toggle" onClick={toggle} aria-expanded={open}>
+        {open ? t('▲ Згорнути') : t('▼ Показати всі ({0})', list.length)}
+      </button>
+      {open && (
+        <>
       <p className="muted small">{t('Будь-яке здобуте досягнення можна поставити плашкою під свій нік: її бачать суперники.')}</p>
       <div className="ach-filter" role="tablist">
         {(
@@ -194,6 +239,11 @@ export function AchievementsPanel() {
           </div>
         ))}
       </div>
+      <button className="btn btn-sm ach-toggle" onClick={toggle}>
+        {t('▲ Згорнути')}
+      </button>
+        </>
+      )}
     </div>
   );
 }

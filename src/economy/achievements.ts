@@ -130,14 +130,16 @@ export const ACHIEVEMENT_BY_ID: Record<string, AchievementDef> = Object.fromEntr
 export interface AchievementState {
   stats: Partial<Record<CountedStat, number>>;
   feats: string[];
+  /** Reached achievements whose pop-up the player has seen (the rest pop up on their next visit). */
+  seen: string[];
 }
 
 export function parseAchievements(raw: string | null | undefined): AchievementState {
   try {
     const a = JSON.parse(raw || '{}') as Partial<AchievementState>;
-    return { stats: a.stats ?? {}, feats: a.feats ?? [] };
+    return { stats: a.stats ?? {}, feats: a.feats ?? [], seen: a.seen ?? [] };
   } catch {
-    return { stats: {}, feats: [] };
+    return { stats: {}, feats: [], seen: [] };
   }
 }
 

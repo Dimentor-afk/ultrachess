@@ -110,8 +110,10 @@ export interface Profile {
   ownedFx: string[];
   /** The free pack of the day is waiting in the shop. */
   freePack: boolean;
-  /** Achievements reached (ids): a new one pops up on the screen. */
+  /** Achievements reached (ids). */
   achievements: string[];
+  /** Reached but not yet shown: they pop up on the screen, then the client marks them seen. */
+  achievementsUnseen: string[];
   /** Achievement shown as the plate under the name (null: none). */
   title: string | null;
 }
@@ -913,7 +915,7 @@ export class GameService {
       captureFx: captureFxById(u.captureFx).id,
       ownedFx: this.fxOf(u),
       freePack: u.freePackDay !== this.today(),
-      achievements: (await this.achievementList(u)).filter((a) => a.done).map((a) => a.id),
+      ...(await this.achievementsOf(u)),
       title: this.titleOf(u),
     };
   }
@@ -935,6 +937,21 @@ export class GameService {
       botLeague: leagueIndex('bot', Math.max(u.botBest, u.botTrophies)),
       pvpLeague: leagueIndex('pvp', Math.max(u.bestTrophies, u.trophies)),
     });
+  }
+
+  private async achievementsOf(u: UserRow): Promise<{ achievements: string[]; achievementsUnseen: string[] }> {
+    const done = (await this.achievementList(u)).filter((a) => a.done).map((a) => a.id);
+    const seen = new Set(this.achState(u).seen);
+    return { achievements: done, achievementsUnseen: done.filter((id) => !seen.has(id)) };
+  }
+
+  /** The pop-ups of these achievements were shown. */
+  async seeAchievements(token: string, ids: string[]): Promise<Profile> {
+    const u = await this.auth(token);
+    const st = this.achState(u);
+    for (const id of ids) if (ACHIEVEMENT_BY_ID[id] && !st.seen.includes(id)) st.seen.push(id);
+    await this.store.updateUser(u.id, { achievements: JSON.stringify(st) });
+    return this.profileOf(u.id);
   }
 
   /** The plate shown under the name: an achievement the player has reached. */

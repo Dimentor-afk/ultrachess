@@ -150,6 +150,7 @@ export interface Api {
   claimQuest(id: string): Promise<Profile>;
   achievements(): Promise<AchievementView[]>;
   setTitle(id: string | null): Promise<Profile>;
+  seeAchievements(ids: string[]): Promise<Profile>;
   setBotOverride(level: number | null): Promise<Profile>;
   friends(): Promise<FriendsView>;
   searchPlayers(query: string): Promise<PlayerCard[]>;
@@ -269,6 +270,7 @@ class HttpApi implements Api {
   claimQuest = (id: string) => this.call<Profile>('POST', `quests/${id}/claim`, {});
   achievements = () => this.call<AchievementView[]>('GET', 'achievements');
   setTitle = (id: string | null) => this.call<Profile>('POST', 'profile/title', { id });
+  seeAchievements = (ids: string[]) => this.call<Profile>('POST', 'achievements/seen', { ids });
   setBotOverride = (level: number | null) => this.call<Profile>('POST', 'admin/bot', { level });
   friends = () => this.call<FriendsView>('GET', 'friends');
   searchPlayers = (query: string) => this.call<PlayerCard[]>('POST', 'friends/search', { query });
@@ -466,6 +468,7 @@ class LocalApi implements Api {
   claimQuest = async (id: string) => this.svc.claimQuest(await this.t(), id);
   achievements = async () => this.svc.achievements(await this.t());
   setTitle = async (id: string | null) => this.svc.setTitle(await this.t(), id);
+  seeAchievements = async (ids: string[]) => this.svc.seeAchievements(await this.t(), ids);
   setBotOverride = async (level: number | null) => this.svc.setBotOverride(await this.t(), level);
   friends = async () => this.svc.friends(await this.t());
   searchPlayers = async (query: string) => this.svc.searchPlayers(await this.t(), query);

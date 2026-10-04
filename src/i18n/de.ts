@@ -1565,5 +1565,7 @@ const dict: Record<string, string> = {
   "Усі ({0})": "Alle ({0})",
   "Рідкісне: у {0}% гравців": "Selten: {0}% der Spieler",
   "У {0}% гравців": "{0}% der Spieler",
+  "▲ Згорнути": "▲ Einklappen",
+  "▼ Показати всі ({0})": "▼ Alle zeigen ({0})",
 };
 export default dict;

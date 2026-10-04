@@ -329,6 +329,7 @@ const routes: [string, RegExp, Handler][] = [
   ['GET', /^inbox$/, ({ token }) => svc.inbox(token)],
   ['POST', /^admin\/bot$/, ({ token, body }) => svc.setBotOverride(token, body.level === null || body.level === undefined ? null : Number(body.level))],
   ['GET', /^achievements$/, ({ token }) => svc.achievements(token)],
+  ['POST', /^achievements\/seen$/, ({ token, body }) => svc.seeAchievements(token, Array.isArray(body.ids) ? body.ids.map(String).slice(0, 100) : [])],
   ['POST', /^profile\/title$/, ({ token, body }) => svc.setTitle(token, body.id ? String(body.id) : null)],
   ['POST', /^quests\/(\w+)\/claim$/, ({ token, params }) => svc.claimQuest(token, params[0])],
   ['GET', /^friends$/, ({ token }) => svc.friends(token)],

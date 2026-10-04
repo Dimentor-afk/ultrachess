@@ -70,6 +70,20 @@ describe('achievements', () => {
     expect(seen.deck?.king).toBeTruthy();
   });
 
+  it('a player from before achievements sees the ones already earned pop up once', async () => {
+    const store = new MemoryStore();
+    const svc = new GameService(store, hasher, () => 1_800_000_000_000, Math.random);
+    await svc.init();
+    const { token, profile } = await svc.register('a@a.com', 'secret12', 'Анна');
+    // An old account: wins counted by the profile, no achievement record yet.
+    await store.updateUser(profile.id, { wins: 12, achievements: '{}' });
+    const me = await svc.me(token);
+    expect(me.achievementsUnseen).toEqual(expect.arrayContaining(['wins-1', 'wins-10']));
+    const after = await svc.seeAchievements(token, ['wins-1', 'wins-10', 'nope']);
+    expect(after.achievementsUnseen).not.toContain('wins-1');
+    expect(after.achievements).toContain('wins-10');
+  });
+
   it('castling is read from the record, for the side that castled', () => {
     const decks = { w: classicDeck(), b: classicDeck() };
     const castle = line(createMatch(decks.w, decks.b), [['e2', 'e4'], ['e7', 'e5'], ['g1', 'f3'], ['b8', 'c6'], ['f1', 'c4'], ['f8', 'c5'], ['e1', 'g1']]);
