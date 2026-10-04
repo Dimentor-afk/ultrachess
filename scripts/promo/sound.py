@@ -1,7 +1,8 @@
 # Sound track for an ad rendered by render.mjs: a 128 BPM track cut to the
 # shots, and sound effects placed on the marks the renderer recorded.
 #   pip install numpy scipy
-#   python3 scripts/promo/sound.py scripts/promo/out/promo.marks.json <video seconds> out.wav [--bpm 128] [--key minor|pop|dark] [--no-music]
+#   python3 scripts/promo/sound.py scripts/promo/out/promo.marks.json <video seconds> out.wav [--bpm 128] [--key minor|pop|dark]
+#           [--style lofi] [--boom] [--native] [--no-music]
 #   ffmpeg -i scripts/promo/out/promo.mp4 -i out.wav -c:v copy -c:a aac -b:a 192k -shortest promo-sound.mp4
 import json
 import sys
@@ -17,6 +18,12 @@ def _arg(name, default):
 
 BPM = float(_arg('--bpm', 128))
 KEY = _arg('--key', 'minor')
+# --style lofi: a soft lo-fi kit (keys, crackle) instead of the EDM one.
+STYLE = _arg('--style', 'edm')
+# --boom: the punchline (drop / reveal) is a vine boom, the meme sound, not a cinematic hit.
+BOOM = '--boom' in sys.argv
+# --native: plain cuts, no whoosh or crash on them.
+NATIVE = '--native' in sys.argv
 BEAT = 60 / BPM
 rng = np.random.default_rng(7)
 
@@ -267,6 +274,29 @@ def rattle(dur):
     return x * 0.5
 
 
+def vine_boom():
+    n = int(1.6 * SR)
+    t = t_(n)
+    f = 52 + 70 * np.exp(-t / 0.06)
+    x = np.sin(2 * np.pi * np.cumsum(f) / SR) + 0.5 * np.sin(4 * np.pi * np.cumsum(f) / SR)
+    x = np.tanh(4 * x) * env(n, 0.002, 0.9)
+    tail = lowpass(noise(n), 300) * env(n, 0.01, 0.6) * 0.4
+    return (x * 0.8 + tail) * 0.9
+
+
+def rhodes(freq, dur):
+    n = int(dur * SR)
+    t = t_(n)
+    x = np.sin(2 * np.pi * freq * t) + 0.35 * np.sin(4 * np.pi * freq * t) * env(n, 0.002, 0.25) + 0.08 * np.sin(6 * np.pi * freq * t)
+    trem = 0.85 + 0.15 * np.sin(2 * np.pi * 4.5 * t)
+    return x * trem * env(n, 0.005, 1.6) * 0.16
+
+
+def crackle(n):
+    x = (rng.uniform(0, 1, n) > 0.9993) * rng.uniform(-1, 1, n) * 0.5
+    return highpass(lowpass(x, 5000), 600) + lowpass(noise(n), 2500) * 0.012
+
+
 # ── Arrangement ──
 # Every shot says what the music does under it (data-music on the shot, in the cut mark):
 #   full  — the whole beat;  tense — a soft pulse (a countdown);  build — no drums, a riser into
@@ -323,6 +353,23 @@ if MUSIC:
             break
         ch = CHORDS[(b // 4) % 4]
         mode = mode_at(tb)
+        if STYLE == 'lofi':
+            if mode != 'end':
+                swing = BEAT * 0.08
+                put(music, tb, lowpass(kick(), 1800) * 0.8, 0.8 if b % 4 in (0,) else 0.0 if b % 4 == 1 else 0.55)
+                if b % 4 == 2:
+                    put(music, tb + BEAT / 2, lowpass(kick(), 1800) * 0.6, 0.6)
+                if b % 2 == 1:
+                    put(music, tb, lowpass(clap(), 2600), 0.5)
+                for h in range(2):
+                    put(music, tb + h * BEAT / 2 + (swing if h else 0), lowpass(hat(), 6500), 0.35 if h else 0.25, pan=0.2)
+                if b % 2 == 0:
+                    put(music, tb, np.sin(2 * np.pi * note(ch[0]) * t_(int(BEAT * 1.9 * SR))) * env(int(BEAT * 1.9 * SR), 0.01, BEAT * 1.4) * 0.35, 0.9)
+                if b % 4 == 0:
+                    for k, x in enumerate(ch[1:]):
+                        put(music, tb + k * 0.03, rhodes(note(x), 4 * BEAT), 0.9, pan=(-0.3 + 0.3 * k))
+                    put(music, tb + 2.5 * BEAT, rhodes(note(ch[3]) * 2, 1.5 * BEAT), 0.5, pan=0.4)
+            continue
         if mode == 'full':
             put(music, tb, kick(), 0.95)
             i = int(tb * SR)
@@ -361,17 +408,23 @@ if MUSIC:
             put(music, d - 2 * BEAT + k * BEAT / 8, clap(), 0.18 + 0.4 * k / 16)
             k += 1
     for d in drops:
+        if BOOM:
+            put(music, d, vine_boom(), 1.1)
+            continue
         put(music, d, crash(), 0.8)
         put(music, d, impact(), 1.0)
     # Every other cut lands on a crash, softer than a drop.
     for i, (t0, mode) in enumerate(shots):
-        if i and mode == 'full' and not any(abs(t0 - d) < 0.1 for d in drops):
+        if i and mode == 'full' and not NATIVE and not any(abs(t0 - d) < 0.1 for d in drops):
             put(music, t0, crash(), 0.3)
-        if mode == 'end':
+        if mode == 'end' and STYLE != 'lofi':
             put(music, t0, pad([note(x) for x in CHORDS[0][1:]] + [note(CHORDS[0][1]) * 2], LENGTH - t0), 0.7)
             put(music, t0, kick(), 1.0)
             put(music, t0, crash(), 0.6)
             put(music, t0, bass_note(note(CHORDS[0][0]), 1.2), 0.9)
+    if STYLE == 'lofi':
+        c = crackle(N)
+        music += np.stack([c, np.roll(c, 97)], 1) * 0.8
     music *= side[:, None]
 
 # ── Effects on the marks ──
@@ -413,7 +466,8 @@ for m in marks:
         put(sfx, t, tick(), 0.5)
         continue
     if k == 'cut' and m['n'] > 0:
-        put(sfx, t - 0.22, whoosh(0.45), 0.55)
+        if not NATIVE:
+            put(sfx, t - 0.22, whoosh(0.45), 0.55)
         continue
     if k == 'count':
         # A clock tick with a low hit under it: 3, 2, 1.
@@ -428,7 +482,8 @@ for m in marks:
     if k in ('drop', 'reveal'):
         continue
     if k == 'cap':
-        put(sfx, t, ding(2637, 0.25), 0.12)
+        if not NATIVE:
+            put(sfx, t, ding(2637, 0.25), 0.12)
         continue
     if k == 'pack':
         if 'opening' in m['c'] and 'idle' not in m['c']:

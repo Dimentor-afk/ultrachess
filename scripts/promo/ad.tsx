@@ -8,10 +8,13 @@ import { loadLang } from '../../src/i18n';
 import { localizeData } from '../../src/i18n/data';
 import '../../src/ui/styles.css';
 import './ad.css';
-import { ADS, type Shot } from './ads';
+import { ADS, NATIVE, type Shot } from './ads';
 
 const q = new URLSearchParams(location.search);
 const ad = ADS[q.get('ad') ?? 'chaos'];
+// An ordinary TikTok rather than an ad: plain cuts, TikTok-style text, a watermark.
+const native = NATIVE.has(q.get('ad') ?? '');
+if (native) document.documentElement.classList.add('native');
 const zoom = q.get('zoom');
 if (zoom) document.documentElement.style.zoom = zoom;
 
@@ -285,7 +288,7 @@ async function main() {
     return (
       <div className="ad">
         <div
-          className={`ad-shot t-${trans} ${i > 0 ? 'enter' : ''} ${last ? '' : 'leave'}`}
+          className={native ? 'ad-shot' : `ad-shot t-${trans} ${i > 0 ? 'enter' : ''} ${last ? '' : 'leave'}`}
           key={`${run}-${n}`}
           data-n={i}
           data-music={s.music ?? 'full'}
@@ -299,8 +302,14 @@ async function main() {
             {s.kind === 'end' && <End s={s} />}
             {s.kind === 'tier' && <TierShot s={s} />}
             {s.kind === 'versus' && <VersusShot s={s} />}
+            {s.kind === 'text' && (
+              <div className="ad-text">
+                <p>{s.text}</p>
+              </div>
+            )}
           </div>
-          {n > 0 && <div className="ad-flash" />}
+          {n > 0 && !native && <div className="ad-flash" />}
+          {native && <span className="ad-mark">ultrachess.app</span>}
         </div>
       </div>
     );

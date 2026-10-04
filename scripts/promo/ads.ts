@@ -36,6 +36,8 @@ export type Shot = (
   | { kind: 'versus'; top: VersusSide; bottom: VersusSide; title?: string; piece?: string; delay: number; ms: number }
   | { kind: 'card'; id: string; caption?: string; ms: number }
   | { kind: 'end'; text?: string; caption?: string; ms: number }
+  /** Plain text on black, meme style ("Nobody:\n\nMy bishop:"). */
+  | { kind: 'text'; text: string; ms: number }
   /** A tier list filling up: `rows` already placed, `add` drops into its row now. */
   | { kind: 'tier'; rows: Partial<Record<Tier, string[]>>; add?: { tier: Tier; id: string }; caption?: string; ms: number }
 ) & { music?: Music };
@@ -257,8 +259,11 @@ const SWAP: Board = {
 const BEAT = 60_000 / 128;
 /** A board shot `beats` long: lead and gap as given, the tail fills the rest. */
 function onBeat(s: Board, beats: number): Shot {
+  return onBeatAt(s, beats, BEAT);
+}
+function onBeatAt(s: Board, beats: number, beat: number): Board {
   const used = (s.lead ?? 600) + s.steps.length * (s.gap ?? 1500);
-  return { ...s, tail: Math.round(beats * BEAT - used) };
+  return { ...s, tail: Math.round(beats * beat - used) };
 }
 
 export const PROMO: Shot[] = [
@@ -388,7 +393,51 @@ const PLOT: Shot[] = [
   { kind: 'end', text: 'Every piece has a plot twist', caption: 'Play it free 👇', ms: Math.round(6 * TB), music: 'end' },
 ];
 
+// ── Native TikToks: no ad look. Plain cuts, TikTok-style text, a small watermark, no end card. ──
+
+// Oddly satisfying (80 BPM lo-fi): effects one after another, no talk.
+const LB = 60_000 / 80;
+const calm = (s: Board, beats: number, caption?: string): Shot => onBeatAt({ ...s, caption, zoom: Math.min(s.zoom ?? 1.25, 1.2) }, beats, LB);
+const SATISFYING: Shot[] = [
+  calm(QUAKE, 4, 'chess but it’s oddly satisfying'),
+  calm(PORTAL, 4),
+  calm(MIRAGE, 4),
+  calm(ECLIPSE, 4),
+  calm(RICOCHET, 4),
+  calm(KAMIKAZE, 4),
+  calm({ ...MATE, steps: ['d6d8'] }, 5),
+];
+
+// Memes (100 BPM): the setup, then the punchline lands on a vine boom.
+const MB = 60_000 / 100;
+const meme = (s: Board, beats: number): Shot => ({ ...onBeatAt(s, beats, MB), music: 'tense' });
+const MEMES: Shot[] = [
+  { kind: 'text', text: 'Nobody:\n\n\nMy bishop:', ms: 3 * MB },
+  meme({ ...RICOCHET, caption: undefined, lead: 300, gap: 1500 }, 5),
+  meme({ ...IMMORTAL, caption: 'When you FINALLY take their queen', steps: ['!queen-immortal:arm', 'a2a3', 'd8d4|💀💀💀'], lead: 300, gap: 900 }, 9),
+  meme({ ...WALLRUN, caption: 'me explaining to my friend how the knight moves', steps: ['c3>special|“…and then it just runs along the wall”'], lead: 900, gap: 1500 }, 6),
+  meme({ ...SPEAR, caption: 'POV: you said “it’s just a pawn”', steps: ['d4d6~|🗿'], lead: 900, gap: 1300 }, 5),
+  meme({ ...KAMIKAZE, caption: 'when they take your piece but it was a trap all along', steps: ['f5d4|😈'], lead: 1000, gap: 1300 }, 6),
+];
+
+// Card of the day (90 BPM): one card, explained like a friend would. A series to follow.
+const CB = 60_000 / 90;
+const MIRAGE_CENTER: Board = { kind: 'board', pos: { ...K, d4: 'w:knight-mirage', h7: 'b:pawn-classic' }, steps: ['d4>mirage'], focus: 'd4', zoom: 1.2 };
+const CARD_OF_DAY: Shot[] = [
+  { kind: 'card', id: 'knight-mirage', caption: 'Card of the day #1 🃏', ms: Math.round(4 * CB) },
+  onBeatAt({ ...MIRAGE, caption: 'Mirage jumps like a knight…', steps: ['e4>mirage|…but leaves FAKE copies of itself'], lead: 900, gap: 1700 }, 7, CB),
+  onBeatAt({ ...MIRAGE_CENTER, caption: 'your opponent sees 6 knights.\nonly one is real 👀', steps: ['d4>mirage'], lead: 700, gap: 2400 }, 6, CB),
+  { kind: 'card', id: 'knight-mirage', caption: 'hit an illusion and it just… vanishes', ms: Math.round(4 * CB) },
+  onBeatAt({ ...MIRAGE, caption: 'mythic rarity. would you play it?\nfollow for card #2 👀', steps: ['e4>mirage'], lead: 600, gap: 1500 }, 6, CB),
+];
+
+/** Ads that should look like ordinary TikToks, not ads. */
+export const NATIVE = new Set(['satisfying', 'memes', 'cardofday']);
+
 export const ADS: Record<string, Shot[]> = {
+  satisfying: SATISFYING,
+  memes: MEMES,
+  cardofday: CARD_OF_DAY,
   versus: VERSUS,
   packs: PACKS,
   plot: PLOT,
