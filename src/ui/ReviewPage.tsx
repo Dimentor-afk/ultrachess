@@ -266,31 +266,33 @@ export function ReviewPage({ kind, id }: { kind: 'm' | 'p'; id: string }) {
             </div>
           ) : (
             <>
-              <EvalGraph review={review} at={at} onPick={(n) => go(n)} flip={me === 'b'} />
+              {review.turns.length > 0 && <EvalGraph review={review} at={at} onPick={(n) => go(n)} flip={me === 'b'} />}
               <Summary review={review} rec={rec} />
             </>
           )}
 
-          <div className="panel rv-moves">
-            <div className="rv-move-grid">
-              {game.turns.map((tn, i) => {
-                const r = review?.turns[i];
-                const info = r ? CLASS_INFO[r.cls] : null;
-                const showMark = r && r.cls !== 'best' && r.cls !== 'excellent' && r.cls !== 'good' && r.cls !== 'forced';
-                return (
-                  <button key={i} className={`rv-move c-${tn.color} ${at === i + 1 ? 'on' : ''}`} onClick={() => go(i + 1)}>
-                    {(tn.color === 'w' || i === 0) && <span className="rv-num">{moveNo(tn.state.ply)}.{tn.color === 'b' ? '…' : ''}</span>}
-                    <span className="rv-move-name">{shortText(game.states[i + 1], tn)}</span>
-                    {showMark && (
-                      <span className="rv-move-mark" style={{ color: info!.color }}>
-                        {info!.mark}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
+          {game.turns.length > 0 && (
+            <div className="panel rv-moves">
+              <div className="rv-move-grid">
+                {game.turns.map((tn, i) => {
+                  const r = review?.turns[i];
+                  const info = r ? CLASS_INFO[r.cls] : null;
+                  const showMark = r && r.cls !== 'best' && r.cls !== 'excellent' && r.cls !== 'good' && r.cls !== 'forced';
+                  return (
+                    <button key={i} className={`rv-move c-${tn.color} ${at === i + 1 ? 'on' : ''}`} onClick={() => go(i + 1)}>
+                      {(tn.color === 'w' || i === 0) && <span className="rv-num">{moveNo(tn.state.ply)}.{tn.color === 'b' ? '…' : ''}</span>}
+                      <span className="rv-move-name">{shortText(game.states[i + 1], tn)}</span>
+                      {showMark && (
+                        <span className="rv-move-mark" style={{ color: info!.color }}>
+                          {info!.mark}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </section>
