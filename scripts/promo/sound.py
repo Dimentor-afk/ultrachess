@@ -285,7 +285,9 @@ drops = sorted(
 # A build shot without a drop inside ends in one: on the next cut.
 for i, (t0, mode) in enumerate(shots):
     if mode == 'build' and not any(t0 <= d < bounds[i + 1] for d in drops):
-        drops.append(bounds[i + 1])
+        # A card slammed in at the start of the next shot lands 0.28 s in.
+        slam = any(m['k'] == 'slam' and abs(m['t'] / 1000 - bounds[i + 1]) < 0.05 for m in marks)
+        drops.append(bounds[i + 1] + (0.28 if slam else 0))
 drops.sort()
 flips = [m for m in marks if m['k'] == 'flip']
 
