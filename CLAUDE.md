@@ -61,7 +61,7 @@ Still to do:
    the author: Payoneer approval (payouts only), then `PAYMENTS_PUBLIC=1` (until then
    only admins see and buy shards for money: `GameService.paymentsAdminOnly`).
    Economy softened (Oct 2026): mythic pack 2000, more shards per duplicate, a free common pack a day,
-   the first bundle ×2, a one-time $2.99 offer (800 shards + legendary pack); numbers in docs/payments.md.
+   a one-time $2.99 offer (800 shards + legendary pack); numbers in docs/payments.md.
    Support email support@ultrachess.app (Cloudflare Email Routing to the author's Gmail).
    (monobank provider for a ФОП exists in git history, commit `e93d7fd`.)
 

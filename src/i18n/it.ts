@@ -1430,10 +1430,8 @@ const dict: Record<string, string> = {
   "Безкоштовно, раз на день.": "Gratis, una volta al giorno.",
   "Наступний — завтра.": "Il prossimo domani.",
   "Спецпропозиція · лише раз": "Offerta speciale · una sola volta",
-  "🎁 Перша покупка уламків — удвічі більше!": "🎁 Primo acquisto di frammenti: il doppio dei frammenti!",
   "+{0} 💎 і {1} — дякуємо за покупку! Пак чекає на головній.": "+{0} 💎 e {1}, grazie per l'acquisto! Il pacchetto ti aspetta nella schermata principale.",
   "{0} уламків і {1} (спецпропозиція, один раз на акаунт) — {2}": "{0} frammenti e un {1} (offerta speciale, una volta per account): {2}",
-  "Перша покупка набору уламків на акаунті дає вдвічі більше уламків (не стосується спецпропозиції).": "Il primo pacchetto di frammenti acquistato su un account dà il doppio dei frammenti (non vale per l'offerta speciale).",
   "Безкоштовний пак сьогодні вже забрано. Новий буде завтра.": "Il pacchetto gratuito di oggi è già stato preso. Domani ce n'è uno nuovo.",
   "Цю пропозицію вже куплено.": "Hai già acquistato questa offerta.",
 };

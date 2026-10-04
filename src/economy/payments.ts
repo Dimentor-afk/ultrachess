@@ -28,9 +28,6 @@ export const SHARD_PRODUCTS: ShardProduct[] = [
   { id: 'shards-10500', shards: 10500, bonus: 30, price: 1999, ccy: 'USD' },
 ];
 
-/** The first shard bundle a player buys brings this many times its shards. */
-export const FIRST_PURCHASE_MULTIPLIER = 2;
-
 export const productById = (id: string) => SHARD_PRODUCTS.find((p) => p.id === id);
 
 /** "$0.99", "$19.99". */
@@ -107,8 +104,6 @@ export interface ShardOffer {
   checkout: CheckoutClient | null;
   /** Not on show to this player (sales open to admins only while the payment service checks the site). */
   hidden: boolean;
-  /** This player has bought nothing yet: the first bundle brings FIRST_PURCHASE_MULTIPLIER times its shards. */
-  firstBonus?: boolean;
 }
 
 /** What the player sees about a purchase. */

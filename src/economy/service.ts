@@ -32,7 +32,7 @@ import { legalMoves } from '../engine/legal';
 import { type QuestEvent, type QuestView, addProgress, parseQuests, questViews } from './quests';
 import { type Hasher, type MatchRow, type PackRow, type PvpRow, type Role, type Store, type TokenRow, type UserRow, randomId } from './store';
 import { NAME_CHANGE_MS, cleanName, nameProblem, passwordProblem, sha256 } from './account';
-import { type PaymentProvider, type ProviderState, type PurchaseRow, type PurchaseView, FIRST_PURCHASE_MULTIPLIER, SHARD_PRODUCTS, type ShardOffer, formatPrice, productById } from './payments';
+import { type PaymentProvider, type ProviderState, type PurchaseRow, type PurchaseView, SHARD_PRODUCTS, type ShardOffer, formatPrice, productById } from './payments';
 
 /** Short public code for finding a player (first 6 hex digits of the id). */
 const tagOf = (u: UserRow) => u.id.slice(0, 6).toUpperCase();
@@ -1253,11 +1253,10 @@ export class GameService {
       test: this.payments?.id === 'test',
       checkout: this.payments?.client ?? null,
       hidden: false,
-      firstBonus: !!u && paid.size === 0,
     };
   }
 
-  /** Products this player has paid for (refunded ones count: the bonus and one-time offers are used up). */
+  /** Products this player has paid for (refunded ones count: a one-time offer is used up). */
   private async paidProducts(userId: string): Promise<Set<string>> {
     const list = await this.store.listPurchases(userId, 1000);
     return new Set(list.filter((p) => p.status === 'paid' || p.status === 'refunded').map((p) => p.product));
@@ -1279,15 +1278,13 @@ export class GameService {
     if (!product) throw new ApiError(404, 'Такого набору немає.');
     const paid = await this.paidProducts(u.id);
     if (product.once && paid.has(product.id)) throw new ApiError(400, 'Цю пропозицію вже куплено.');
-    // The very first purchase of a shard bundle brings twice the shards (one-time offers have their own deal).
-    const shards = !product.once && paid.size === 0 ? product.shards * FIRST_PURCHASE_MULTIPLIER : product.shards;
     const recent = (await this.store.listPurchases(u.id, 20)).filter((p) => p.status === 'pending' && this.now() - p.createdAt < 60 * 60_000);
     if (recent.length >= 5) throw new ApiError(429, 'Забагато незавершених оплат. Завершіть одну з них або спробуйте за годину.');
     const p: PurchaseRow = {
       id: randomId(10),
       userId: u.id,
       product: product.id,
-      shards,
+      shards: product.shards,
       amount: product.price,
       ccy: product.ccy,
       provider: this.payments.id,
@@ -1303,7 +1300,7 @@ export class GameService {
         base,
         amount: p.amount,
         ccy: p.ccy,
-        title: `Ultrachess: ${shards} shards${product.pack ? ` + ${product.pack} pack` : ''}`,
+        title: `Ultrachess: ${product.shards} shards${product.pack ? ` + ${product.pack} pack` : ''}`,
         redirectUrl: `${base}#/shop/paid/${p.id}`,
         webhookUrl: `${base}api/payments/${this.payments.id}/webhook`,
       });

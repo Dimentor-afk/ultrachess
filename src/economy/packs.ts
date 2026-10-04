@@ -103,11 +103,11 @@ export function packGold(type: PackType): number {
  * rarity's pack but never the whole price.
  */
 export const SHARDS_PER_DUPE: Record<Rarity, number> = {
-  common: 4,
+  common: 3,
   rare: 12,
   epic: 50,
-  legendary: 160,
-  mythological: 500,
+  legendary: 150,
+  mythological: 450,
 };
 
 export const PACK_SHARD_PRICE: Record<Exclude<PackType, 'starter'>, number> = {

@@ -9206,7 +9206,7 @@ html.no-anim .cell.barrier.barrier-new::after { animation: none; }
   .rp-moves { max-height: 240px; }
 }
 
-/* ── Free pack of the day, the one-time special offer, the first-purchase bonus ── */
+/* ── Free pack of the day, the one-time special offer ── */
 .shop-pack.free-pack {
   position: relative;
   background: linear-gradient(180deg, #24451f, #12261a);
@@ -9272,9 +9272,4 @@ html.no-anim .cell.barrier.barrier-new::after { animation: none; }
 .shard-special-what b {
   font-family: var(--font-display);
   font-size: 1.2rem;
-}
-.first-bonus {
-  margin: 0.4rem 0 0;
-  font-weight: 600;
-  color: var(--ok);
 }
