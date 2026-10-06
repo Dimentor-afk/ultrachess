@@ -278,6 +278,12 @@ export class MemoryStore implements Store {
     this.save();
     return true;
   }
+  async listFinishedMatches(since: number) {
+    return clone(this.data.matches.filter((m) => m.status === 'finished' && m.result && m.createdAt >= since).map(withMatchDefaults));
+  }
+  async listFinishedPvp(since: number) {
+    return clone(this.data.pvp.filter((p) => p.status === 'finished' && p.result && p.updatedAt >= since));
+  }
   async listMatches(userId: string, limit: number) {
     return clone(this.data.matches.filter((m) => m.userId === userId).slice(-limit).reverse());
   }

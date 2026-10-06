@@ -35,6 +35,7 @@ import {
 import type { Hasher, Role } from '../economy/store';
 import type { AchievementView } from '../economy/achievements';
 import type { ReferralView } from '../economy/referrals';
+import type { AdminStats } from '../economy/adminStats';
 import { type PurchaseView, type ShardOffer, type ShardProduct, TestPayments } from '../economy/payments';
 import type { Action } from '../engine/match';
 import type { Deck } from '../engine/types';
@@ -43,7 +44,7 @@ import { LiveSocket, liveUrl } from './live';
 import { getLang, t, tr } from '../i18n';
 
 export { ApiError };
-export type { PurchaseView, ShardOffer, ShardProduct, AchievementView, ReferralView };
+export type { PurchaseView, ShardOffer, ShardProduct, AchievementView, ReferralView, AdminStats };
 export type {
   GameView,
   LiveGameRow,
@@ -131,6 +132,7 @@ export interface Api {
   finishMatch(id: string, resigned: boolean): Promise<MatchFinish>;
   leaderboard(): Promise<LeaderRow[]>;
   adminUsers(): Promise<AdminUser[]>;
+  adminStats(days: number): Promise<AdminStats>;
   adminGrantPack(userId: string, type: PackType): Promise<void>;
   adminGrantAllCards(userId: string): Promise<void>;
   adminSetTrophies(userId: string, trophies: number, ladder?: 'bot' | 'pvp'): Promise<void>;
@@ -255,6 +257,7 @@ class HttpApi implements Api {
   finishMatch = (id: string, resigned: boolean) => this.call<MatchFinish>('POST', `matches/${id}/finish`, { resigned });
   leaderboard = () => this.call<LeaderRow[]>('GET', 'leaderboard');
   adminUsers = () => this.call<AdminUser[]>('GET', 'admin/users');
+  adminStats = (days: number) => this.call<AdminStats>('GET', `admin/stats/${days}`);
   adminGrantPack = (userId: string, type: PackType) => this.call<void>('POST', `admin/users/${userId}/pack`, { type });
   adminGrantAllCards = (userId: string) => this.call<void>('POST', `admin/users/${userId}/all-cards`, {});
   adminSetTrophies = (userId: string, trophies: number, ladder: 'bot' | 'pvp' = 'pvp') => this.call<void>('POST', `admin/users/${userId}/trophies`, { trophies, ladder });
@@ -455,6 +458,7 @@ class LocalApi implements Api {
     return this.svc.leaderboard();
   };
   adminUsers = async () => this.svc.adminUsers(await this.t());
+  adminStats = async (days: number) => this.svc.adminStats(await this.t(), days);
   adminGrantPack = async (userId: string, type: PackType) => this.svc.adminGrantPack(await this.t(), userId, type);
   adminGrantAllCards = async (userId: string) => this.svc.adminGrantAllCards(await this.t(), userId);
   adminSetTrophies = async (userId: string, trophies: number, ladder: 'bot' | 'pvp' = 'pvp') => this.svc.adminSetTrophies(await this.t(), userId, trophies, ladder);

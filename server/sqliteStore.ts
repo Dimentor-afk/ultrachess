@@ -613,6 +613,12 @@ export class SqliteStore implements Store {
     }
     return Number(this.db.prepare(sql).run(...vals).changes) > 0;
   }
+  async listFinishedMatches(since: number) {
+    return (this.db.prepare("SELECT * FROM matches WHERE status = 'finished' AND result IS NOT NULL AND created_at >= ?").all(since) as Row[]).map((r) => match(r)!);
+  }
+  async listFinishedPvp(since: number) {
+    return (this.db.prepare("SELECT * FROM pvp WHERE status = 'finished' AND result IS NOT NULL AND updated_at >= ?").all(since) as Row[]).map((r) => pvp(r)!);
+  }
   async listMatches(userId: string, limit: number) {
     return (this.db.prepare('SELECT * FROM matches WHERE user_id = ? ORDER BY created_at DESC LIMIT ?').all(userId, limit) as Row[]).map(
       (r) => match(r)!,

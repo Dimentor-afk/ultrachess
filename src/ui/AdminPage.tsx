@@ -1,3 +1,4 @@
+import { AdminStatsTab } from './AdminStats';
 import { useEffect, useMemo, useState } from 'react';
 import type { AdminUser } from '../api/client';
 import { PACKS, type PackType, packName } from '../economy/packs';
@@ -49,6 +50,7 @@ export function AdminPage() {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
   const [openId, setOpenId] = useState<string | null>(null);
+  const [tab, setTab] = useState<'players' | 'stats'>('players');
 
   const load = () => s.api.adminUsers().then(setUsers, (e) => s.toast(errorText(e), 'error'));
   useEffect(() => {
@@ -86,6 +88,17 @@ export function AdminPage() {
       <div className="page-head">
         <h1>{t('Адмін-панель')}</h1>
       </div>
+      <div className="ladder-switch admin-tabs" role="tablist">
+        <button role="tab" aria-selected={tab === 'players'} className={`ladder-tab ${tab === 'players' ? 'on' : ''}`} onClick={() => setTab('players')}>
+          <b>Гравці</b>
+        </button>
+        <button role="tab" aria-selected={tab === 'stats'} className={`ladder-tab ${tab === 'stats' ? 'on' : ''}`} onClick={() => setTab('stats')}>
+          <b>Статистика</b>
+        </button>
+      </div>
+      {tab === 'stats' && <AdminStatsTab />}
+      {tab === 'players' && (
+        <>
 
       {users && (
         <div className="stat-grid admin-stats">
@@ -212,6 +225,8 @@ export function AdminPage() {
       </div>
       {open && <PlayerSheet u={open} run={run} onClose={() => setOpenId(null)} />}
       <AdminPurchases />
+        </>
+      )}
     </section>
   );
 }

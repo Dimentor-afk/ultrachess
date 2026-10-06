@@ -234,6 +234,10 @@ export interface Store {
   /** Drop sessions and link tokens that expired before `now`. */
   purgeSessions(now: number): Promise<void>;
   listMatches(userId: string, limit: number): Promise<MatchRow[]>;
+  /** Every finished game with the bot since `since` (admin statistics). */
+  listFinishedMatches(since: number): Promise<MatchRow[]>;
+  /** Every finished game between players, last changed since `since` (admin statistics). */
+  listFinishedPvp(since: number): Promise<PvpRow[]>;
 
   listFriends(userId: string): Promise<FriendRow[]>;
   insertFriend(f: FriendRow): Promise<void>;

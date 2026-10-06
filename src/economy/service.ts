@@ -33,6 +33,7 @@ import { type QuestEvent, type QuestView, addProgress, parseQuests, questViews }
 import { type Hasher, type MatchRow, type PackRow, type PvpRow, type Role, type Store, type TokenRow, type UserRow, randomId } from './store';
 import { CREATOR_TITLE, SHOWCASE_SIZE, ACHIEVEMENT_BY_ID, type AchievementState, type AchievementView, type CountedStat, achievementViews, gameFeats, parseAchievements } from './achievements';
 import { FOUNDER_PLATE, REFERRAL_DAILY_CAP, REFERRAL_GAMES, REFERRAL_MIN_MOVES, REFERRAL_PACK, type ReferralView } from './referrals';
+import { type AdminStats, computeAdminStats } from './adminStats';
 import { NAME_CHANGE_MS, cleanName, nameProblem, passwordProblem, sha256 } from './account';
 import { type PaymentProvider, type ProviderState, type PurchaseRow, type PurchaseView, SHARD_PRODUCTS, type ShardOffer, formatPrice, productById } from './payments';
 
@@ -2748,6 +2749,35 @@ export class GameService {
       });
     }
     return out.sort((a, b) => b.trophies - a.trophies);
+  }
+
+  private statsCache = new Map<number, { at: number; stats: AdminStats }>();
+
+  /** Game and balance statistics over the last `days` days (0: all time), kept for two minutes. */
+  async adminStats(token: string, days: number): Promise<AdminStats> {
+    await this.admin(token);
+    const d = [0, 1, 7, 30].includes(days) ? days : 7;
+    const hit = this.statsCache.get(d);
+    if (hit && this.now() - hit.at < 120_000) return hit.stats;
+    const since = d ? this.now() - d * 864e5 : 0;
+    const users = await this.store.listUsers(100_000);
+    const activeDecks: Deck[] = [];
+    for (const u of users) {
+      if (!u.passHash || u.deleted || !u.activeDeckId) continue;
+      const deck = (await this.store.listDecks(u.id)).find((x) => x.id === u.activeDeckId);
+      if (deck) activeDecks.push(deck.deck);
+    }
+    const stats = computeAdminStats({
+      now: this.now(),
+      days: d,
+      users,
+      activeDecks,
+      matches: await this.store.listFinishedMatches(since),
+      pvp: await this.store.listFinishedPvp(since),
+      purchases: await this.store.listAllPurchases(100_000),
+    });
+    this.statsCache.set(d, { at: this.now(), stats });
+    return stats;
   }
 
   async adminGrantPack(token: string, userId: string, type: PackType): Promise<void> {
