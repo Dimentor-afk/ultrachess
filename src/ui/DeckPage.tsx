@@ -96,6 +96,7 @@ function DeckHub({ deck }: { deck: Deck }) {
 
   // ── Autosave: every valid change is stored after a short pause. ──
   const pending = useRef<Deck | null>(null);
+  const boardRef = useRef<HTMLDivElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const flush = async () => {
     if (timer.current) clearTimeout(timer.current);
@@ -210,6 +211,8 @@ function DeckHub({ deck }: { deck: Deck }) {
     setArmed(cardId);
     setFilter(CARD_BY_ID[cardId].pieceType);
     setMessage(null);
+    // Straight to the board: the squares for it light up there.
+    setTimeout(() => boardRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 50);
   };
 
 
@@ -388,7 +391,7 @@ function DeckHub({ deck }: { deck: Deck }) {
       )}
 
       <div className="hub-top">
-        <div className="builder-board-col">
+        <div className="builder-board-col" ref={boardRef}>
           <div className="builder-board">
             <div className="builder-rank">
               <span className="rank-label">2</span>

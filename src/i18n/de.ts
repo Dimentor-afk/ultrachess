@@ -578,7 +578,7 @@ const dict: Record<string, string> = {
   "Натисніть, щоб переглянути ще раз": "Tippe, um es noch einmal anzusehen",
   "Повне правило": "Vollständige Regel",
   "У грі": "Im Spiel",
-  "усе інше — як {0}": "alles andere wie ein {0}",
+  "усе інше як {0}": "alles andere wie ein {0}",
   "Фішка": "Der Kniff",
   "Як ходить": "So zieht sie",
   "Закрити": "Schließen",

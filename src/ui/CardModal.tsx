@@ -5,7 +5,6 @@ import { Emblem } from './art';
 import { cardArt } from './cardArt';
 // The clip (scripts and their player) loads with the first opened card.
 const CardClip = lazy(() => import('./CardClip').then((m) => ({ default: m.CardClip })));
-import { CARD_SPECS, SPEC_KINDS } from './cardSpec';
 import { Icon } from './icons';
 import { t } from '../i18n';
 
@@ -18,7 +17,7 @@ const PIECE_ACC: Record<Card['pieceType'], string> = {
   king: t('звичайний король'),
 };
 
-/** Clash-style card popup: the card, its trick in marked lines, a clip of it, and the actions. */
+/** Clash-style card popup: the card, its rules, a clip of it, and the actions. */
 export function CardModal({
   card,
   locked = false,
@@ -39,7 +38,6 @@ export function CardModal({
   }, [onClose]);
 
   const art = cardArt(card.id);
-  const spec = CARD_SPECS[card.id];
   const classic = CLASSIC_CARD[card.pieceType] === card.id;
   return (
     <div className="modal-backdrop card-modal-backdrop" onClick={onClose}>
@@ -90,22 +88,9 @@ export function CardModal({
           <section className="cm-section">
             <h3 className="cm-sub">
               {classic ? t('Як ходить') : t('Фішка')}
-              {!classic && <span className="cm-sub-note">{t('усе інше — як {0}', PIECE_ACC[card.pieceType])}</span>}
+              {!classic && <span className="cm-sub-note">{t('усе інше як {0}', PIECE_ACC[card.pieceType])}</span>}
             </h3>
-            {spec ? (
-              <ul className="card-spec">
-                {spec.map(([kind, text], i) => (
-                  <li key={i} className={`spec-${kind}`}>
-                    <span className="spec-icon" title={SPEC_KINDS[kind].label} aria-label={SPEC_KINDS[kind].label}>
-                      {SPEC_KINDS[kind].icon}
-                    </span>
-                    <span>{text}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="card-modal-rules">{card.rulesText}</p>
-            )}
+            <p className="card-modal-rules">{card.rulesText}</p>
           </section>
 
           <section className="cm-section cm-clip">
@@ -117,12 +102,6 @@ export function CardModal({
             </Suspense>
           </section>
 
-          {spec && (
-            <details className="card-modal-full">
-              <summary>{t('Повне правило')}</summary>
-              <p className="card-modal-rules">{card.rulesText}</p>
-            </details>
-          )}
           {note && <p className="cm-note">{note}</p>}
           {children && <div className="card-modal-actions">{children}</div>}
         </div>

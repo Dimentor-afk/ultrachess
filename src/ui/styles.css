@@ -1853,6 +1853,8 @@ select optgroup {
   flex-direction: column;
   gap: 0.7rem;
   min-width: 0;
+  /* "Використати" scrolls here: clear of the sticky phone header. */
+  scroll-margin-top: calc(4.2rem + env(safe-area-inset-top, 0px));
 }
 
 .builder-board {
