@@ -91,10 +91,13 @@ function patterns(): { re: RegExp; key: string }[] {
 }
 
 const PIECES = '\\S+';
-const SQ = '[a-h][1-8]';
+/** A board square, or a levitation platform past the edge ("c↑", "→5"). */
+const SQ = '[a-h][1-8]|[a-h][↑↓]|[←→][1-8]';
 /** "Кінь e2–e4 (Тихий крок) = Ферзь" and "Король: рокіровка e1–g1": the engine's move lines. */
 const MOVE = new RegExp(`^(${PIECES}) (${SQ})([–×])(${SQ})(?: \\((.+)\\))?(?: = (${PIECES}))?$`);
 const CASTLE = new RegExp(`^(${PIECES}): рокіровка (${SQ})–(${SQ})$`);
+/** A move label with the promotion piece: "Хід по діагоналі → ферзь". */
+const PROMO = /^(.+) → (ферзь|тура|слон|кінь)$/;
 
 /**
  * Translate text made by the server or the engine: an exact entry, a move
@@ -105,12 +108,15 @@ export function tr(text: string | null | undefined): string {
   const exact = dict[text];
   if (exact !== undefined) return exact;
   const mv = MOVE.exec(text);
-  if (mv) {
+  // Only a piece name starts a move line ("Діагональ a3–f8" is an ability choice).
+  if (mv && dict[mv[1]] !== undefined) {
     let s = `${t(mv[1])} ${mv[2]}${mv[3]}${mv[4]}`;
     if (mv[5]) s += ` (${tr(mv[5])})`;
     if (mv[6]) s += ` = ${t(mv[6])}`;
     return s;
   }
+  const promo = PROMO.exec(text);
+  if (promo) return `${tr(promo[1])} → ${t(promo[2])}`;
   const castle = CASTLE.exec(text);
   if (castle) return t('{0}: рокіровка {1}–{2}', t(castle[1]), castle[2], castle[3]);
   if (text.includes('; ')) return text.split('; ').map(tr).join('; ');

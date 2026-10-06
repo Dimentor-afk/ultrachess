@@ -716,8 +716,8 @@ export function Game({ start, playerName, playerAvatar, playerTitle, trophies, o
                     className={`quick-ability r-${a.card.rarity} ${a.ready ? 'ready' : ''} ${a.on ? 'on' : ''}`}
                     disabled={a.disabled}
                     onClick={a.press}
-                    title={a.def?.name}
-                    aria-label={a.def?.name}
+                    title={tr(a.def?.name)}
+                    aria-label={tr(a.def?.name)}
                   >
                     <img className={`pixel ${a.sprite.tint ? 'tinted' : ''}`} src={a.sprite.src} alt="" />
                     {!a.ready && <span className="quick-cd">{a.cd}</span>}
@@ -795,7 +795,7 @@ export function Game({ start, playerName, playerAvatar, playerTitle, trophies, o
                   </span>
                   <span className="ability-text">
                     {card.rarity === 'mythological' && <span className="ability-eyebrow">{t('Міфічна здібність')}</span>}
-                    <b>{def?.name ?? t('Левітація')}</b>
+                    <b>{def ? tr(def.name) : t('Левітація')}</b>
                     <small>
                       {!ready
                         ? t('перезарядка: {0} ход.', cd)
