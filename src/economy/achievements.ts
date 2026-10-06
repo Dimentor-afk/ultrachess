@@ -83,6 +83,8 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   count('cards-all', 'cards', CARDS.filter((c) => !c.trialOnly).length, 4, CARDS_LOOK, 'Ходяча енциклопедія', 'Зберіть усі картки з паків.'),
   count('bot-league-4', 'botLeague', 4, 2, { icon: '🤖', hue: 190 }, 'Срібло ботів', 'Дійдіть до Срібної ліги ботів.'),
   count('bot-league-7', 'botLeague', 7, 3, { icon: '🤖', hue: 320 }, 'Перемагач машин', 'Дійдіть до Міфічної ліги ботів.'),
+  count('bot-league-10', 'botLeague', 10, 4, { icon: '🧠', hue: 270 }, 'Сильніше за гросмейстра', 'Дійдіть до Гросмейстерської арени ботів.'),
+  count('bot-league-12', 'botLeague', 12, 4, { icon: '⚡', hue: 50 }, 'Над машиною', 'Дійдіть до Ultra арени ботів.'),
   count('pvp-league-2', 'pvpLeague', 2, 2, { art: 'rook-castle', hue: 210 }, 'Срібна арена', 'Дійдіть до Срібної арени в лізі гравців.'),
   count('pvp-league-4', 'pvpLeague', 4, 4, { art: 'rook-castle', hue: 340 }, 'Бог арени', 'Дійдіть до Міфічної арени в лізі гравців.'),
   count('trials-1', 'trials', 1, 2, { art: 'king-hint', hue: 170 }, 'Випробуваний', 'Пройдіть будь-яке випробування.'),

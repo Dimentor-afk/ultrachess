@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { chooseTurn } from '../bot/search';
+import { MATE, chooseTurn } from '../bot/search';
+import { candidateMoves, isLegalCandidate, legalMoves } from '../legal';
 import { classicDeck } from '../deck';
 import { type MatchState, createMatch, performAction } from '../match';
 import type { Deck, Position } from '../types';
@@ -24,6 +25,26 @@ describe('bot', () => {
     const turn = chooseTurn(asMatch(pos), 'b', { depth: 2, timeMs: 2000 });
     const move = turn.actions.find((a) => a.type === 'move');
     expect(move && move.type === 'move' && move.move.to).toBe(S('a1'));
+  });
+
+  it('finds a mate in two that a 3-ply search cannot see', () => {
+    // 1. Qh7+ Kf8 2. Qh8#: needs four plies plus the mate check.
+    const pos = build({ g1: 'w:king-classic', h1: 'w:queen-classic', g6: 'w:pawn-classic', f7: 'b:pawn-classic', e7: 'b:pawn-classic', g8: 'b:king-classic', a7: 'b:pawn-classic' }, 'w');
+    const turn = chooseTurn(asMatch(pos), 'w', { depth: 6, timeMs: 10_000, noise: 0 });
+    const move = turn.actions.find((a) => a.type === 'move');
+    expect(move && move.type === 'move' && move.move.to).toBe(S('h7'));
+    expect(turn.score).toBeGreaterThan(MATE / 2);
+  });
+
+  it('checks legality lazily without changing which moves are legal', () => {
+    let s = createMatch(classicDeck(), classicDeck());
+    for (let i = 0; i < 40 && !s.result; i++) {
+      const lazy = candidateMoves(s).filter((m) => isLegalCandidate(s, m));
+      expect(lazy).toEqual(legalMoves(s));
+      const moves = legalMoves(s);
+      if (!moves.length) break;
+      s = performAction(s, { type: 'move', move: moves[(i * 7) % moves.length] });
+    }
   });
 
   it('takes a hanging queen', () => {

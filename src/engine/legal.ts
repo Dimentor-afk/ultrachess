@@ -68,6 +68,20 @@ export interface LegalFilter {
  * `capturesOnly` skips quiet moves before the costly king-safety check.
  */
 export function legalMoves(pos: Position, capturesOnly = false, filter: LegalFilter = {}): Move[] {
+  const out: Move[] = [];
+  for (const m of candidateMoves(pos, capturesOnly, filter.from)) {
+    if (filter.limit !== undefined && out.length >= filter.limit) return out;
+    if (isLegalCandidate(pos, m)) out.push(m);
+  }
+  return out;
+}
+
+/**
+ * The moves of the side to move before the king-safety check (the costly part):
+ * a move from here is legal exactly when `isLegalCandidate` says so. The bot
+ * checks only the moves it actually looks at; most are cut off before that.
+ */
+export function candidateMoves(pos: Position, capturesOnly = false, from?: Square): Move[] {
   const color = pos.turn;
   if (pos.pending.some((pc) => pc.color === color)) return [];
   const enemy = opposite(color);
@@ -75,29 +89,36 @@ export function legalMoves(pos: Position, capturesOnly = false, filter: LegalFil
   const ctx = makeCtx(pos, color, ply, false);
   ctx.squareAttacked = (s) => isSquareAttacked(pos, s, enemy, ply + 1);
   const out: Move[] = [];
-  let belief: Position | null = null;
-  const first = filter.from ?? 0;
-  const last = filter.from ?? CELLS - 1;
+  const first = from ?? 0;
+  const last = from ?? CELLS - 1;
   for (let s = first; s <= last; s++) {
     const p = pos.board[s];
     if (!p || p.color !== color || isFrozen(pos, p.id, ply)) continue;
     for (const m of generatorFor(p.cardId)(ctx, p, s)) {
-      if (filter.limit !== undefined && out.length >= filter.limit) return out;
       if (capturesOnly && m.captures.length === 0 && !m.promotion) continue;
       if (m.captures.some((c) => pos.board[c]?.type === 'king')) continue;
       if (barrierBlocks(pos, color, ply, m)) continue;
-      // Taking an illusion is judged as if it were the real piece the player
-      // sees, so legality never reveals which pieces are illusions.
-      const touch = m.touch ?? m.captures[0];
-      let base = pos;
-      if (touch !== undefined && pos.board[touch] === null) {
-        belief ??= beliefFor(pos, color);
-        base = belief;
-      }
-      if (kingSafeAfter(base, m, color)) out.push(m);
+      out.push(m);
     }
   }
   return out;
+}
+
+const beliefs = new WeakMap<Position, Position>();
+
+/** Whether a move from `candidateMoves(pos)` leaves the mover's king safe. */
+export function isLegalCandidate(pos: Position, m: Move): boolean {
+  const color = pos.turn;
+  // Taking an illusion is judged as if it were the real piece the player
+  // sees, so legality never reveals which pieces are illusions.
+  const touch = m.touch ?? m.captures[0];
+  let base = pos;
+  if (touch !== undefined && pos.board[touch] === null) {
+    let b = beliefs.get(pos);
+    if (!b) beliefs.set(pos, (b = beliefFor(pos, color)));
+    base = b;
+  }
+  return kingSafeAfter(base, m, color);
 }
 
 /** Quick pseudo-legal move count (bot mobility). */

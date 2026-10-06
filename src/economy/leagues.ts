@@ -34,6 +34,12 @@ export const BOT_LEAGUES: League[] = [
   { name: 'Золота ліга', minTrophies: 1000, botLevel: 5, botMaxRarity: 'epic', reward: { gold: 150, pack: 'rare' }, art: 'epic' },
   { name: 'Платинова ліга', minTrophies: 1350, botLevel: 6, botMaxRarity: 'legendary', reward: { gold: 200, pack: 'epic' }, art: 'legendary' },
   { name: 'Міфічна ліга ботів', minTrophies: 1750, botLevel: 7, botMaxRarity: 'mythological', reward: { gold: 300, pack: 'legendary' }, art: 'mythic' },
+  // The arena of strong bots, up to ~3000.
+  { name: 'Арена майстрів', minTrophies: 2200, botLevel: 8, botMaxRarity: 'mythological', reward: { gold: 350, pack: 'epic' }, art: 'mythic' },
+  { name: 'Міжнародна арена', minTrophies: 2700, botLevel: 9, botMaxRarity: 'mythological', reward: { gold: 400, pack: 'legendary' }, art: 'mythic' },
+  { name: 'Гросмейстерська арена', minTrophies: 3250, botLevel: 10, botMaxRarity: 'mythological', reward: { gold: 450, pack: 'legendary' }, art: 'mythic' },
+  { name: 'Арена чемпіонів', minTrophies: 3850, botLevel: 11, botMaxRarity: 'mythological', reward: { gold: 500, pack: 'legendary' }, art: 'mythic' },
+  { name: 'Ultra арена', minTrophies: 4500, botLevel: 12, botMaxRarity: 'mythological', reward: { gold: 600, pack: 'mythic' }, art: 'mythic' },
 ];
 
 export const PVP_LEAGUES: League[] = [
