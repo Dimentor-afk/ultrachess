@@ -324,7 +324,7 @@ export const CARD_SCRIPTS: Record<string, ClipScript> = {
       { marks: 'e3', say: t('Фіолетові клітинки — куди слон дістає через портал') },
       { move: 'e3 b4', label: /портал/i, say: t('За край — і з дзеркального боку, з\'їдає коня') },
       { move: 'h8 g8', say: t('Суперник ходить…') },
-      { marks: 'hero', say: t('Портал знову працює — і так щоходу') },
+      { marks: 'hero', say: t('Після порталу слон перезаряджається 5 ваших ходів') },
     ],
   },
   'bishop-eclipse': {

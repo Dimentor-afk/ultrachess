@@ -144,9 +144,12 @@ describe('bishop cards', () => {
     expect(t).toEqual(expect.arrayContaining([S('h3'), S('g4'), S('f5'), S('e6'), S('d7')]));
     const after = play(pos, 'f1', 'd7', 'портал');
     expect(at(after, 'd7')).toBe('w:bishop-portal');
-    // No limit: after the opponent's move the portal works again.
+    // Then it recharges for 5 own turns: no portal until the cooldown is over.
+    expect(after.cooldowns[after.board[S('d7')]!.id]).toBe(5);
     const again = play(after, 'h8', 'g8');
-    expect(movesFrom(again, 'd7').some((m) => m.label.includes('портал'))).toBe(true);
+    expect(movesFrom(again, 'd7').some((m) => m.label.includes('портал'))).toBe(false);
+    const ready = { ...again, cooldowns: {} };
+    expect(movesFrom(ready, 'd7').some((m) => m.label.includes('портал'))).toBe(true);
     expect(movesFrom(play(pos, 'f1', 'e2'), 'e2').length).toBe(0); // black to move now
   });
 

@@ -16,6 +16,8 @@ import type { Leg, Move, Piece, Square } from '../types';
 type Dir = [number, number];
 
 export const LEVITATION_COOLDOWN = 5;
+/** Own turns before Портальний слон can use the portal again. */
+export const PORTAL_COOLDOWN = 5;
 
 /** Perpendicular directions: diagonal turns stay diagonal, straight turns 90°. */
 function perpendicular([df, dr]: Dir): Dir[] {
@@ -191,11 +193,11 @@ export function pierceMoves(ctx: GenCtx, p: Piece, from: Square, dirs: Dir[]): M
 /**
  * Портальний слон: slide to the board edge, leave through it and reappear on
  * the point-mirrored square (a6 → h3), then keep moving the same way.
- * No limit: the portal works on every move.
+ * After a move through the portal it recharges for PORTAL_COOLDOWN own turns.
  */
 export function portalMoves(ctx: GenCtx, p: Piece, from: Square, dirs: Dir[]): Move[] {
   const out: Move[] = [];
-  if (!isBoardSquare(from)) return out;
+  if (!isBoardSquare(from) || (ctx.pos.cooldowns[p.id] ?? 0) > 0) return out;
   const passOwn = defaultPassOwn(p);
   const add = (s: Square, path: Square[], edge: Square, mirror: Square, capture: boolean) => {
     if (!capture && ctx.attack) return;
@@ -203,6 +205,7 @@ export function portalMoves(ctx: GenCtx, p: Piece, from: Square, dirs: Dir[]): M
       mk(p, from, s, {
         kind: 'special',
         captures: capture ? [s] : [],
+        cooldown: PORTAL_COOLDOWN,
         path: path.slice(),
         legs: [
           { to: edge, style: 'slide', stop: true },
