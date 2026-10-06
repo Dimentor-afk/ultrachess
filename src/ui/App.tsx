@@ -13,7 +13,7 @@ import { ErrorBoundary } from './ErrorBoundary';
 import { Icon } from './icons';
 import { Sheet } from './Sheet';
 import { AchievementPopups } from './Achievements';
-import { REF_KEY, ReferralPrompt } from './Referral';
+import { REF_KEY, ReferralPrompt, ReferralSheet } from './Referral';
 import { currentPath, navigate, onNavigate, useRoutePath } from './router';
 import { LeaguesPage } from './LeaguesPage';
 import { TrialsPage } from './TrialsPage';
@@ -157,6 +157,7 @@ function Shell() {
   const s = useSession();
   // An unopened starter pack takes the player home, where it opens by itself.
   const [route, setRoute] = useState<Route>(() => (s.packs.some((p) => p.type === 'starter') ? 'play' : readRoute()));
+  const [invite, setInvite] = useState(false);
   useEffect(() => {
     return onNavigate(() => setRoute(readRoute()));
   }, []);
@@ -197,6 +198,10 @@ function Shell() {
             </a>
           ))}
         </nav>
+        <button type="button" className="nav-invite" onClick={() => setInvite(true)}>
+          <span className="nav-invite-ico">🎁</span>
+          <span>{t('Запросіть друзів')}</span>
+        </button>
         <a className={`nav-help ${route === 'help' ? 'active' : ''}`} href="#/help">
           <Icon name="info" /> {t('Як грати')}
         </a>
@@ -211,6 +216,7 @@ function Shell() {
           </span>
         </a>
       </aside>
+      {invite && <ReferralSheet onClose={() => setInvite(false)} />}
 
       {/* Phones: profile, wallet and help on top; five tabs at the bottom. */}
       <header className="m-header">

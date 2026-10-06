@@ -5191,6 +5191,34 @@ html.no-coords .rank-label {
   background: rgba(255, 255, 255, 0.04);
 }
 
+.nav-invite {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid rgba(245, 196, 81, 0.45);
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(245, 196, 81, 0.16), rgba(255, 255, 255, 0.02));
+  color: var(--gold);
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+}
+.nav-invite:hover {
+  background: linear-gradient(135deg, rgba(245, 196, 81, 0.26), rgba(255, 255, 255, 0.04));
+}
+.nav-invite-ico {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+.nav-invite + .nav-help {
+  margin-top: 0.4rem;
+}
+
 .nav-help + .me {
   margin-top: 0.3rem;
 }
