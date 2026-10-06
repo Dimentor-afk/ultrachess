@@ -72,7 +72,7 @@ function collect(): Set<string> {
       moves.forEach((m) => out.add(m.label));
       s = performAction(s, { type: 'move', move: moves[Math.floor(r() * moves.length)] });
     }
-    s.history.forEach((h) => out.add(h.text));
+    s.history.forEach((h) => out.add(h.text ?? ''));
     if (s.result) out.add(s.result.reason);
   }
   return out;
