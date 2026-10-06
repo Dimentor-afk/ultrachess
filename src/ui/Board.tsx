@@ -7,7 +7,7 @@ import type { PlayerView, ViewPiece } from '../engine/view';
 import { Emblem } from './art';
 import { pieceSprite } from './cardArt';
 import { FX, type FxName } from './fxSprites';
-import { useSettings } from './settings';
+import { getSettings, useSettings } from './settings';
 import { useOutlined } from './spriteOutline';
 import { t } from '../i18n';
 
@@ -36,6 +36,8 @@ export function boardRing(view: PlayerView, marks: Map<Square, unknown>): number
 const LEG_PAUSE = 90;
 /** Землетрус: the wave along the line, ms per square. */
 const QUAKE_STEP = 70;
+/** Землетрус: the rook's leap (up, a hang, the slam) before the line starts to shake. */
+const LEAP_MS = 640;
 /** The squash after landing. */
 const SETTLE_MS = 150;
 
@@ -238,6 +240,8 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
   }
   const live = fx && anim.current.sig === sig ? fx : null;
   const glides = new Map<Square, Glide>();
+  // The quake waits for the rook's leap (a replay of an old action has none).
+  const quakeAt = live?.leap !== undefined && getSettings().animations ? LEAP_MS : 0;
   let moverMs = 0;
   let moverTimed: Timed[] = [];
   let moverSkip = 0;
@@ -259,11 +263,12 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
       if (m.after) glides.get(m.to)!.delay = moverMs;
     });
     if (live.shake) {
-      // Землетрус: the pieces on the line jump one after another, a wave along it.
+      // Землетрус: the pieces on the line jump one after another, a wave along it
+      // (after the rook has landed from its leap).
       const line = live.sprites.filter((x) => x.kind === 'quake').map((x) => x.square);
       live.moves.forEach((m) => {
         const k = line.indexOf(m.from);
-        if (k >= 0) glides.get(m.to)!.delay = 60 + k * QUAKE_STEP;
+        if (k >= 0) glides.get(m.to)!.delay = quakeAt + 60 + k * QUAKE_STEP;
       });
     }
   }
@@ -277,7 +282,7 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
       const name = x.kind === 'capture' && x.by && captureFx?.[x.by] ? captureFx[x.by]! : (x.kind as FxName);
       // Quake and eclipse ripple along their line; a capture plays when the
       // mover arrives (each one in turn for a chain).
-      let delay = x.kind === 'quake' ? i * QUAKE_STEP : x.kind === 'eclipse' ? i * 45 : x.kind === 'explode' ? 180 : 0;
+      let delay = x.kind === 'quake' ? quakeAt + i * QUAKE_STEP : x.kind === 'eclipse' ? i * 45 : x.kind === 'explode' ? 180 : 0;
       if (x.wait !== undefined) delay = moverMs + x.wait;
       if (x.kind === 'portal' && x.leg !== undefined) {
         // The gate opens a little before the piece gets there; the far gate
@@ -304,8 +309,8 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
       }
       sprites.push({ name, square: x.square, delay });
       if (x.kind === 'quake') {
-        sprites.push({ name: 'dust', square: x.square, delay: i * QUAKE_STEP + 120 });
-        cracks.push({ square: x.square, delay: i * QUAKE_STEP });
+        sprites.push({ name: 'dust', square: x.square, delay: quakeAt + i * QUAKE_STEP + 120 });
+        cracks.push({ square: x.square, delay: quakeAt + i * QUAKE_STEP });
       }
       if (x.kind === 'explode') {
         // Смертник and friends: a mushroom of fire over the flash, and debris flying off.
@@ -313,6 +318,10 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
         debris.push({ square: x.square, delay: delay + 40 });
       }
     });
+    // The rook slams down: a blow and dust where it lands.
+    if (quakeAt && live.leap !== undefined) {
+      sprites.push({ name: 'impact', square: live.leap, delay: quakeAt - 90 }, { name: 'dust', square: live.leap, delay: quakeAt - 60 });
+    }
     if (checkSquare !== null) sprites.push({ name: 'check', square: checkSquare, delay: 250 });
   }
   if (celebrate) {
@@ -356,7 +365,17 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
       const content = (
         <>
           {piece &&
-            (glides.has(s) ? (
+            (quakeAt && s === live?.leap ? (
+              <span key={`leap-${anim.current.n}`} className="quake-leap" style={{ '--leap': `${LEAP_MS}ms` } as CSSProperties}>
+                {glides.has(s) ? (
+                  <GlidePiece glide={glides.get(s)!} orientation={orientation} ring={ring}>
+                    <PieceView piece={piece} />
+                  </GlidePiece>
+                ) : (
+                  <PieceView piece={piece} />
+                )}
+              </span>
+            ) : glides.has(s) ? (
               <GlidePiece key={`glide-${anim.current.n}`} glide={glides.get(s)!} orientation={orientation} ring={ring}>
                 <PieceView piece={piece} />
               </GlidePiece>
@@ -411,6 +430,8 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
           gridTemplateColumns: `${ring}fr repeat(8, 1fr) ${ring}fr`,
           gridTemplateRows: `${ring}fr repeat(8, 1fr) ${ring}fr`,
           '--platform': `${(0.9 / TOTAL) * 100}cqw`,
+          // The shake starts when the rook lands.
+          ...(live?.shake && quakeAt ? { animationDelay: `${quakeAt}ms` } : {}),
         } as CSSProperties
       }
     >

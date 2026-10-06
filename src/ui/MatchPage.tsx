@@ -455,6 +455,48 @@ export function Game({ start, playerName, playerAvatar, playerTitle, trophies, o
   const selectedPiece = selected !== null ? view.cells[selected] : null;
   const menuOptions = useMemo(() => (menu ? abilityOptions(match, menu) : []), [menu, match]);
 
+  /** One ability button's state and action (the dock tile and the round quick button share it). */
+  const ability = (c: NonNullable<(typeof view.cells)[number]>) => {
+    const card = getCard(c.cardId);
+    const def = ABILITY_DEFS[c.cardId];
+    const cd = match.cooldowns[c.id] ?? 0;
+    const ready = cd === 0;
+    const canPress = myTurn && !busy && !view.pending && !stage && ready && !!def && !def.viaMove && abilityReady(match, c.id);
+    const viaMoveKind = def?.id === 'mirage' || def?.id === 'dash' ? def.id : null;
+    const on = (!!viaMoveKind && special === viaMoveKind) || menu === c.id || (def?.id === 'immortal' && view.immortalArmed);
+    const press = () => {
+      if (!def) return;
+      if (viaMoveKind) {
+        const turnOn = special !== viaMoveKind;
+        setSpecial(turnOn ? viaMoveKind : null);
+        setSelected(turnOn ? (specialMoves(viaMoveKind)[0]?.from ?? null) : null);
+      } else if (def.id === 'immortal') act({ type: 'ability', pieceId: c.id, key: 'arm' });
+      else if (def.id === 'hint') void showHint(c.id);
+      else setMenu(menu === c.id ? null : c.id);
+    };
+    const disabled = viaMoveKind ? !myTurn || busy || (special !== viaMoveKind && specialMoves(viaMoveKind).length === 0) : !canPress;
+    const sprite = pieceSprite(c.cardId, c.type, human);
+    // Levitation has no button (it is a move); Міраж is pressed, then played as a jump.
+    const passive = !def || (def.viaMove && !viaMoveKind);
+    return { card, def, cd, ready, viaMoveKind, on, press, disabled, sprite, passive };
+  };
+
+  // Землетрус: the lines to shake are picked by arrows at the board's edge, not from a list.
+  const quakeMenu = menu !== null && ABILITY_DEFS[match.board.find((p) => p?.id === menu)?.cardId ?? '']?.id === 'earthquake';
+  const quakeArrows = quakeMenu
+    ? menuOptions.map((o) => {
+        const dir = Number(o.key.split(':')[2]);
+        const ring = boardRing(view, marks);
+        const end = dir > 0 ? o.squares[o.squares.length - 1] : o.squares[0];
+        const before = dir > 0 ? o.squares[o.squares.length - 2] : o.squares[1];
+        const a = squareCenter(end, human, ring);
+        const b = squareCenter(before, human, ring);
+        const dx = a.x - b.x;
+        const dy = a.y - b.y;
+        return { o, x: a.x + dx * 0.62, y: a.y + dy * 0.62, angle: (Math.atan2(dy, dx) * 180) / Math.PI };
+      })
+    : [];
+
   let statusText: string;
   if (match.result && spectator) {
     statusText =
@@ -517,6 +559,21 @@ export function Game({ start, playerName, playerAvatar, playerTitle, trophies, o
             introHidden={intro ? new Set(introPlan.slice(landed).flatMap((x) => x.squares)) : undefined}
             introLanding={intro && landed > 0 ? new Set(introPlan[landed - 1].squares) : undefined}
           />
+          {quakeArrows.map(({ o, x, y, angle }) => (
+            <button
+              key={o.key}
+              className="quake-arrow"
+              style={{ left: `${x}%`, top: `${y}%` }}
+              onClick={() => act({ type: 'ability', pieceId: menu!, key: o.key })}
+              onMouseEnter={() => setPreview(o.squares)}
+              onMouseLeave={() => setPreview([])}
+              onFocus={() => setPreview(o.squares)}
+              aria-label={tr(o.label)}
+              title={tr(o.label)}
+            >
+              <span style={{ transform: `rotate(${angle}deg)` }}>➤</span>
+            </button>
+          ))}
           {popover && (
             <div
               className={`board-popover ${squareCenter(popover.square, human, boardRing(view, marks)).y < 50 ? 'grow-down' : 'grow-up'}`}
@@ -535,7 +592,7 @@ export function Game({ start, playerName, playerAvatar, playerTitle, trophies, o
             </div>
           )}
         </div>
-        <div className={`player-bar ${match.turn === human && !match.result ? 'to-move' : ''}`}>
+        <div className={`player-bar player-bar-own ${spectator ? 'spectating' : ''} ${match.turn === human && !match.result ? 'to-move' : ''}`}>
           <span
             className={`pb-who ${bottomCard ? 'clickable' : ''}`}
             onClick={bottomCard ? () => setViewing(bottomCard.id) : undefined}
@@ -551,7 +608,29 @@ export function Game({ start, playerName, playerAvatar, playerTitle, trophies, o
             </span>
           </span>
           <Captured types={lostPieces(match, bot)} color={bot} />
-          <span className="muted small">{t('Хід')}{' '}{fullMoves(match.ply) + (match.turn === 'w' ? 1 : 0)}</span>
+          <span className="muted small pb-move">{t('Хід')}{' '}{fullMoves(match.ply) + (match.turn === 'w' ? 1 : 0)}</span>
+          {myAbilityPieces.some(({ c }) => !ability(c!).passive) && (
+            <span className="quick-abilities">
+              {myAbilityPieces.map(({ c }) => {
+                const a = ability(c!);
+                if (a.passive) return null;
+                return (
+                  <button
+                    key={c!.id}
+                    type="button"
+                    className={`quick-ability r-${a.card.rarity} ${a.ready ? 'ready' : ''} ${a.on ? 'on' : ''}`}
+                    disabled={a.disabled}
+                    onClick={a.press}
+                    title={a.def?.name}
+                    aria-label={a.def?.name}
+                  >
+                    <img className={`pixel ${a.sprite.tint ? 'tinted' : ''}`} src={a.sprite.src} alt="" />
+                    {!a.ready && <span className="quick-cd">{a.cd}</span>}
+                  </button>
+                );
+              })}
+            </span>
+          )}
         </div>
       </div>
 
@@ -587,27 +666,7 @@ export function Game({ start, playerName, playerAvatar, playerTitle, trophies, o
         {myAbilityPieces.length > 0 && (
           <div className="ability-dock" aria-label={t('Здібності')}>
             {myAbilityPieces.map(({ c }) => {
-              const card = getCard(c!.cardId);
-              const def = ABILITY_DEFS[c!.cardId];
-              const cd = match.cooldowns[c!.id] ?? 0;
-              const ready = cd === 0;
-              const canPress = myTurn && !busy && !view.pending && !stage && ready && !!def && !def.viaMove && abilityReady(match, c!.id);
-              const viaMoveKind = def?.id === 'mirage' || def?.id === 'dash' ? def.id : null;
-              const on = (!!viaMoveKind && special === viaMoveKind) || menu === c!.id || (def?.id === 'immortal' && view.immortalArmed);
-              const press = () => {
-                if (!def) return;
-                if (viaMoveKind) {
-                  const turnOn = special !== viaMoveKind;
-                  setSpecial(turnOn ? viaMoveKind : null);
-                  setSelected(turnOn ? (specialMoves(viaMoveKind)[0]?.from ?? null) : null);
-                } else if (def.id === 'immortal') act({ type: 'ability', pieceId: c!.id, key: 'arm' });
-                else if (def.id === 'hint') void showHint(c!.id);
-                else setMenu(menu === c!.id ? null : c!.id);
-              };
-              const disabled = viaMoveKind ? !myTurn || busy || (special !== viaMoveKind && specialMoves(viaMoveKind).length === 0) : !canPress;
-              const sprite = pieceSprite(c!.cardId, c!.type, human);
-              // Levitation has no button (it is a move); Міраж is pressed, then played as a jump.
-              const passive = !def || (def.viaMove && !viaMoveKind);
+              const { card, def, cd, ready, viaMoveKind, on, press, disabled, sprite, passive } = ability(c!);
               return (
                 <button
                   key={c!.id}
@@ -653,7 +712,15 @@ export function Game({ start, playerName, playerAvatar, playerTitle, trophies, o
             })}
           </div>
         )}
-        {menu && (
+        {menu && quakeMenu && (
+          <div className="ability-options quake-hint">
+            <span>{t('Оберіть лінію: натисніть стрілку біля краю дошки, куди її зсунути.')}</span>
+            <button className="btn btn-sm btn-ghost" onClick={() => setMenu(null)}>
+              {t('Скасувати')}
+            </button>
+          </div>
+        )}
+        {menu && !quakeMenu && (
           <div className="ability-options" onMouseLeave={() => setPreview([])}>
             {menuOptions.map((o) => (
               <button

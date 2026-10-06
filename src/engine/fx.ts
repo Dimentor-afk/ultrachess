@@ -71,6 +71,8 @@ export interface MatchFx {
   sprites: FxSprite[];
   /** Shake the board (Землетрус). */
   shake: boolean;
+  /** Землетрус: the rook's square (after the action); it leaps up, hangs and slams down before the line shakes. */
+  leap?: Square;
 }
 
 function squaresById(pos: Position): Map<string, Square> {
@@ -231,5 +233,6 @@ export function computeFx(
       }
     }
   }
-  return { id, moves, sprites, shake };
+  const leap = quake && info.ability ? now.get(info.ability.pieceId) : undefined;
+  return { id, moves, sprites, shake, ...(leap !== undefined ? { leap } : {}) };
 }

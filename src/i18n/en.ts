@@ -1600,5 +1600,6 @@ const dict: Record<string, string> = {
   "Допоможіть розвивати Ultrachess і зібрати спільноту гравців. Надішліть другу своє посилання, і ви обоє отримаєте нагороди.": "Help Ultrachess grow and build a community of players. Send a friend your link and you'll both get rewards.",
   "Ви отримаєте її, коли запрошений друг зіграє {0} партій. Видається лише під час акції.": "You get it when your invited friend has played {0} games. Given only during the campaign.",
   "Акцію завершено, плашку більше не видають.": "The campaign is over, this plate is no longer given.",
+  "Оберіть лінію: натисніть стрілку біля краю дошки, куди її зсунути.": "Pick a line: tap the arrow at the board's edge in the direction to shift it.",
 };
 export default dict;
