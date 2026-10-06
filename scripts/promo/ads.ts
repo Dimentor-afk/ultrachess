@@ -482,10 +482,31 @@ const SERIES: Record<string, Shot[]> = {
 };
 
 /** Ads that should look like ordinary TikToks, not ads. */
-export const NATIVE = new Set(['satisfying', 'memes', 'cardofday', ...Object.keys(SERIES)]);
+// "Nobody came" meme (UA trend): game highlights under one line that stays on screen,
+// then the author adds the trend's own clip and sound in CapCut. No music of ours.
+const bare = (s: Board, ms: number): Board => {
+  const b: Board = { ...s, caption: undefined, steps: s.steps.map((x) => x.split('|')[0]), lead: 250, zoom: Math.min(s.zoom ?? 1.25, 1.3) };
+  return onBeatAt(b, 1, ms);
+};
+const NOBODY: Shot[] = [
+  bare({ ...QUAKE, gap: 1500 }, 2000),
+  bare({ ...BERSERK, gap: 1500 }, 1900),
+  bare({ ...PORTAL, gap: 1800 }, 2200),
+  bare({ ...MIRAGE, gap: 1500 }, 1900),
+  bare({ ...IMMORTAL, gap: 800 }, 2900),
+  bare({ ...KAMIKAZE, gap: 1300 }, 1900),
+];
+
+/** A line that stays over the whole video (it does not pop again on each cut). */
+export const PINNED: Record<string, string> = {
+  nobody: 'Розробив класну гру як проєкт\nі поділився з усіма знайомими',
+};
+
+export const NATIVE = new Set(['satisfying', 'memes', 'cardofday', 'nobody', ...Object.keys(SERIES)]);
 
 export const ADS: Record<string, Shot[]> = {
   satisfying: SATISFYING,
+  nobody: NOBODY,
   memes: MEMES,
   cardofday: CARD_OF_DAY,
   ...SERIES,

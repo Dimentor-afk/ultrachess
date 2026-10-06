@@ -8,12 +8,13 @@ import { loadLang } from '../../src/i18n';
 import { localizeData } from '../../src/i18n/data';
 import '../../src/ui/styles.css';
 import './ad.css';
-import { ADS, NATIVE, type Shot } from './ads';
+import { ADS, NATIVE, PINNED, type Shot } from './ads';
 
 const q = new URLSearchParams(location.search);
 const ad = ADS[q.get('ad') ?? 'chaos'];
 // An ordinary TikTok rather than an ad: plain cuts, TikTok-style text, a watermark.
 const native = NATIVE.has(q.get('ad') ?? '');
+const pin = PINNED[q.get('ad') ?? ''];
 if (native) document.documentElement.classList.add('native');
 const zoom = q.get('zoom');
 if (zoom) document.documentElement.style.zoom = zoom;
@@ -311,6 +312,11 @@ async function main() {
           {n > 0 && !native && <div className="ad-flash" />}
           {native && <span className="ad-mark">ultrachess.app</span>}
         </div>
+        {pin && (
+          <div className="ad-cap ad-cap-top">
+            <span>{pin}</span>
+          </div>
+        )}
       </div>
     );
   }
