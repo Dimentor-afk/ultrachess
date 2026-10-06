@@ -10508,11 +10508,10 @@ html.no-anim .emote-bubble {
     font-size: 0.75rem;
     color: var(--muted);
   }
-  .piece-brief .card-spec {
+  .pbr-rules {
     margin: 0.45rem 0 0;
-  }
-  .piece-brief .card-spec li {
-    font-size: 0.84rem;
+    font-size: 0.86rem;
+    line-height: 1.4;
   }
 
   /* Ability buttons: two to a row, small, right under the board. */

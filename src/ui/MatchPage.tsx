@@ -22,7 +22,6 @@ import type { FxName } from './fxSprites';
 import { requestHint } from './botClient';
 import { Avatar, CardView, Glyph } from './common';
 import { CardModal } from './CardModal';
-import { CARD_SPECS, SPEC_KINDS } from './cardSpec';
 import { Medal, TitlePlate } from './Achievements';
 import { PlayerModal } from './PlayerModal';
 import { EMOTES } from '../economy/emotes';
@@ -1113,11 +1112,10 @@ function Captured({ types, color }: { types: PieceType[]; color: Color }) {
   );
 }
 
-/** Phones: what the tapped piece does, in the card's short lines, with the full card a tap away. */
+/** Phones: what the tapped piece does, in the card's own rules text, with the full card a tap away. */
 function PieceBrief({ cell, onMore }: { cell: ViewPiece; onMore: () => void }) {
   const card = getCard(cell.cardId);
   const sprite = pieceSprite(cell.cardId, cell.type, cell.color, getSettings().blackStyle);
-  const spec = CARD_SPECS[card.id];
   return (
     <div className={`piece-brief r-${card.rarity}`}>
       <button type="button" className="pbr-head" onClick={onMore}>
@@ -1130,20 +1128,7 @@ function PieceBrief({ cell, onMore }: { cell: ViewPiece; onMore: () => void }) {
         </span>
         <span className="pbr-more">{t('Детальніше')}</span>
       </button>
-      {spec ? (
-        <ul className="card-spec">
-          {spec.map(([kind, text], i) => (
-            <li key={i} className={`spec-${kind}`}>
-              <span className="spec-icon" title={SPEC_KINDS[kind].label} aria-label={SPEC_KINDS[kind].label}>
-                {SPEC_KINDS[kind].icon}
-              </span>
-              <span>{text}</span>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="small">{card.rulesText}</p>
-      )}
+      <p className="pbr-rules">{card.rulesText}</p>
     </div>
   );
 }
