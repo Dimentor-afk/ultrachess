@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { ReferralSheet } from './Referral';
 import type { MatchStart, PackView } from '../api/client';
 import { PACKS, PACK_SHARD_PRICE, RARITIES, STARTER_PACK, packName } from '../economy/packs';
 import { LADDER_NAMES, LADDER_PACK_LIMIT, LADDER_TROPHIES, LADDER_WIN_GOLD, LEAGUES, type Ladder } from '../economy/leagues';
@@ -38,6 +39,7 @@ export function HomePage() {
   const [level, setLevel] = useState(2);
   const [busy, setBusy] = useState(false);
   const [sheet, setSheet] = useState<'quests' | 'training' | 'odds' | null>(null);
+  const [invite, setInvite] = useState(false);
   const closeSheet = useCallback(() => setSheet(null), []);
   const [ladder, setLadderState] = useState<Ladder>(savedLadder);
   const setLadder = (l: Ladder) => {
@@ -333,6 +335,10 @@ export function HomePage() {
               </span>
               <span className="hb-rail-label">{t('Випробування')}</span>
             </a>
+            <button className="hb-rail-btn hb-invite-btn" onClick={() => setInvite(true)}>
+              <span className="hb-rail-icon rail-invite">🎁</span>
+              <span className="hb-rail-label">{t('Запросити')}</span>
+            </button>
           </nav>
 
           <a className="hb-arena" href={`#/leagues/${ladder}`} title={t('Усі ліги й нагороди')}>
@@ -449,6 +455,7 @@ export function HomePage() {
         </Sheet>
       )}
 
+      {invite && <ReferralSheet onClose={() => setInvite(false)} />}
       {opening && (
         <PackOpening
           pack={opening}

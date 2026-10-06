@@ -231,7 +231,7 @@ const routes: [string, RegExp, Handler][] = [
     'POST',
     /^auth\/register$/,
     async ({ req, res, body }) => {
-      const r = await svc.register(String(body.email ?? ''), String(body.password ?? ''), String(body.name ?? ''), siteBase(req), langOf(req));
+      const r = await svc.register(String(body.email ?? ''), String(body.password ?? ''), String(body.name ?? ''), siteBase(req), langOf(req), body.ref ? String(body.ref).slice(0, 12) : undefined);
       setCookie(res, r.token, isSecure(req));
       return r.profile;
     },
@@ -331,6 +331,7 @@ const routes: [string, RegExp, Handler][] = [
   ['GET', /^achievements$/, ({ token }) => svc.achievements(token)],
   ['POST', /^achievements\/seen$/, ({ token, body }) => svc.seeAchievements(token, Array.isArray(body.ids) ? body.ids.map(String).slice(0, 100) : [])],
   ['POST', /^achievements\/showcase$/, ({ token, body }) => svc.setShowcase(token, Array.isArray(body.ids) ? body.ids.map(String).slice(0, 10) : [])],
+  ['GET', /^referrals$/, ({ token }) => svc.referrals(token)],
   ['POST', /^profile\/title$/, ({ token, body }) => svc.setTitle(token, body.id ? String(body.id) : null)],
   ['POST', /^quests\/(\w+)\/claim$/, ({ token, params }) => svc.claimQuest(token, params[0])],
   ['GET', /^friends$/, ({ token }) => svc.friends(token)],

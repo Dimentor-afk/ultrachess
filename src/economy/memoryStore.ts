@@ -80,6 +80,10 @@ export function withUserDefaults(u: UserRow): UserRow {
     notice: u.notice ?? '',
     achievements: u.achievements ?? '{}',
     title: u.title ?? '',
+    plates: u.plates ?? '[]',
+    referredBy: u.referredBy ?? '',
+    refStage: u.refStage ?? 0,
+    refGames: u.refGames ?? 0,
   };
 }
 

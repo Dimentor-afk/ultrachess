@@ -34,6 +34,7 @@ import {
 } from '../economy/service';
 import type { Hasher, Role } from '../economy/store';
 import type { AchievementView } from '../economy/achievements';
+import type { ReferralView } from '../economy/referrals';
 import { type PurchaseView, type ShardOffer, type ShardProduct, TestPayments } from '../economy/payments';
 import type { Action } from '../engine/match';
 import type { Deck } from '../engine/types';
@@ -42,7 +43,7 @@ import { LiveSocket, liveUrl } from './live';
 import { getLang, t, tr } from '../i18n';
 
 export { ApiError };
-export type { PurchaseView, ShardOffer, ShardProduct, AchievementView };
+export type { PurchaseView, ShardOffer, ShardProduct, AchievementView, ReferralView };
 export type {
   GameView,
   LiveGameRow,
@@ -79,7 +80,9 @@ export interface ChallengesView {
 export interface Api {
   mode: 'server' | 'local';
   me(): Promise<Profile | null>;
-  register(email: string, password: string, name: string): Promise<Profile>;
+  /** `ref`: the invite code the player came with. */
+  register(email: string, password: string, name: string, ref?: string): Promise<Profile>;
+  referrals(): Promise<ReferralView>;
   login(email: string, password: string): Promise<Profile>;
   logout(): Promise<void>;
   /** "Forgot password": always the same answer (in the demo, with the link). */
@@ -200,7 +203,8 @@ class HttpApi implements Api {
       throw e;
     }
   }
-  register = (email: string, password: string, name: string) => this.call<Profile>('POST', 'auth/register', { email, password, name });
+  register = (email: string, password: string, name: string, ref?: string) => this.call<Profile>('POST', 'auth/register', { email, password, name, ref });
+  referrals = () => this.call<ReferralView>('GET', 'referrals');
   login = (email: string, password: string) => this.call<Profile>('POST', 'auth/login', { email, password });
   logout = async () => {
     this.socket?.close();
@@ -383,9 +387,10 @@ class LocalApi implements Api {
       return null;
     }
   }
-  async register(email: string, password: string, name: string) {
+  referrals = async () => this.svc.referrals(await this.t());
+  async register(email: string, password: string, name: string, ref?: string) {
     await this.t();
-    const r = await this.svc.register(email, password, name);
+    const r = await this.svc.register(email, password, name, undefined, undefined, ref);
     this.remember(r.token);
     return r.profile;
   }

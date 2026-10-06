@@ -13,6 +13,7 @@ import { ErrorBoundary } from './ErrorBoundary';
 import { Icon } from './icons';
 import { Sheet } from './Sheet';
 import { AchievementPopups } from './Achievements';
+import { REF_KEY, ReferralPrompt } from './Referral';
 import { currentPath, navigate, onNavigate, useRoutePath } from './router';
 import { LeaguesPage } from './LeaguesPage';
 import { TrialsPage } from './TrialsPage';
@@ -89,6 +90,19 @@ export function App() {
       setLoaded('anon');
     });
   }, [toast]);
+
+  // An invite link (#/join/<code>): keep the code for the sign-up, then go on to the app.
+  const joinPath = useRoutePath();
+  useEffect(() => {
+    const m = /^\/?join\/([0-9a-fA-F]{6})$/.exec(joinPath);
+    if (!m) return;
+    try {
+      localStorage.setItem(REF_KEY, m[1].toUpperCase());
+    } catch {
+      // Private mode: the code is lost, the game still opens.
+    }
+    navigate('/play');
+  }, [joinPath]);
 
   const onAuth = async (p: Profile) => setLoaded(await loadAll(api!, p));
   // Links from letters (#/reset/…, #/verify/…) open before anything else, signed in or not.
@@ -274,6 +288,7 @@ function Shell() {
       </main>
       {s.profile.notice && <NoticeSheet />}
       <AchievementPopups />
+      <ReferralPrompt />
     </div>
   );
 }

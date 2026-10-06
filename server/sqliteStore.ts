@@ -183,6 +183,10 @@ const USER_COLS: Record<keyof UserRow, string> = {
   notice: 'notice',
   achievements: 'achievements',
   title: 'title',
+  plates: 'plates',
+  referredBy: 'referred_by',
+  refStage: 'ref_stage',
+  refGames: 'ref_games',
 };
 
 /** Columns added after the first release, for databases created before them. */
@@ -216,6 +220,10 @@ const USER_MIGRATIONS: [string, string][] = [
   ['notice', "TEXT NOT NULL DEFAULT ''"],
   ['achievements', "TEXT NOT NULL DEFAULT '{}'"],
   ['title', "TEXT NOT NULL DEFAULT ''"],
+  ['plates', "TEXT NOT NULL DEFAULT '[]'"],
+  ['referred_by', "TEXT NOT NULL DEFAULT ''"],
+  ['ref_stage', 'INTEGER NOT NULL DEFAULT 0'],
+  ['ref_games', 'INTEGER NOT NULL DEFAULT 0'],
 ];
 
 /** Columns added to other tables after the first release. */
@@ -286,6 +294,10 @@ function user(r: Row | undefined): UserRow | null {
     notice: (r.notice as string | null) ?? '',
     achievements: (r.achievements as string | null) ?? '{}',
     title: (r.title as string | null) ?? '',
+    plates: (r.plates as string | null) ?? '[]',
+    referredBy: (r.referred_by as string | null) ?? '',
+    refStage: Number(r.ref_stage ?? 0),
+    refGames: Number(r.ref_games ?? 0),
   };
 }
 

@@ -32,6 +32,7 @@ import { legalMoves } from '../engine/legal';
 import { type QuestEvent, type QuestView, addProgress, parseQuests, questViews } from './quests';
 import { type Hasher, type MatchRow, type PackRow, type PvpRow, type Role, type Store, type TokenRow, type UserRow, randomId } from './store';
 import { CREATOR_TITLE, SHOWCASE_SIZE, ACHIEVEMENT_BY_ID, type AchievementState, type AchievementView, type CountedStat, achievementViews, gameFeats, parseAchievements } from './achievements';
+import { FOUNDER_PLATE, FOUNDER_UNTIL, REFERRAL_DAILY_CAP, REFERRAL_GAMES, REFERRAL_MIN_MOVES, REFERRAL_PACK, type ReferralView } from './referrals';
 import { NAME_CHANGE_MS, cleanName, nameProblem, passwordProblem, sha256 } from './account';
 import { type PaymentProvider, type ProviderState, type PurchaseRow, type PurchaseView, SHARD_PRODUCTS, type ShardOffer, formatPrice, productById } from './payments';
 
@@ -116,6 +117,8 @@ export interface Profile {
   achievementsUnseen: string[];
   /** Achievements picked for the profile showcase (empty: the rarest are shown). */
   showcase: string[];
+  /** Plates this player may wear (the owner's, the invite campaign's). */
+  plates: string[];
   /** Achievement shown as the plate under the name (null: none). */
   title: string | null;
 }
@@ -605,13 +608,18 @@ export class GameService {
       notice: '',
       achievements: '{}',
       title: '',
+      plates: '[]',
+      referredBy: '',
+      refStage: 0,
+      refGames: 0,
     };
   }
 
   // ── Accounts ──
 
   /** `base` (the site's address): where the confirmation link in the welcome letter points. */
-  async register(emailRaw: string, password: string, nameRaw: string, base?: string, lang?: string): Promise<{ token: string; profile: Profile }> {
+  /** `ref`: the code of the player whose invite link brought this one (see referrals.ts). */
+  async register(emailRaw: string, password: string, nameRaw: string, base?: string, lang?: string, ref?: string): Promise<{ token: string; profile: Profile }> {
     const email = emailRaw.trim().toLowerCase();
     if (!emailOk(email)) throw new ApiError(400, 'Вкажіть коректну пошту.');
     const typed = cleanName(nameRaw);
@@ -638,6 +646,7 @@ export class GameService {
       await this.store.insertUser(user);
     }
     await this.giveStarter(user);
+    if (ref) await this.applyReferral(user, ref).catch((e) => console.error('Referral failed:', e));
     // The confirmation letter must not stand in the way of playing: a failure is only logged.
     if (base) await this.sendLink(user, 'verify', email, base, lang).catch((e) => console.error('Verification mail failed:', e));
     return { token: await this.newSession(user.id), profile: await this.profileOf(user.id) };
@@ -923,6 +932,7 @@ export class GameService {
       freePack: u.freePackDay !== this.today(),
       ...(await this.achievementsOf(u)),
       showcase: this.achState(u).showcase ?? [],
+      plates: this.platesOf(u),
       title: this.titleOf(u),
     };
   }
@@ -1023,8 +1033,21 @@ export class GameService {
 
   /** The plate shown under the name: an achievement the player has reached. */
   private titleOf(u: UserRow): string | null {
-    // Plates are exclusive: only the game's owner has one, "Творець гри" (unless taken off).
-    return this.isOwner(u) && u.title !== '-' ? CREATOR_TITLE : null;
+    // Plates are exclusive: the owner's "Творець гри" and the invite campaign's plate.
+    const owned = this.platesOf(u);
+    if (u.title === '-') return null;
+    return u.title && owned.includes(u.title) ? u.title : (owned[0] ?? null);
+  }
+
+  /** The plates this player may wear. */
+  private platesOf(u: UserRow): string[] {
+    let earned: string[] = [];
+    try {
+      earned = JSON.parse(u.plates || '[]');
+    } catch {
+      earned = [];
+    }
+    return [...(this.isOwner(u) ? [CREATOR_TITLE] : []), ...earned];
   }
 
   /**
@@ -1086,15 +1109,66 @@ export class GameService {
     return percent;
   }
 
-  /** The owner puts their "Творець гри" plate on or takes it off (null). Nobody else has a plate. */
+  /** Put on one of your plates, or take it off (null). */
   async setTitle(token: string, id: string | null): Promise<Profile> {
     const u = await this.auth(token);
-    if (id !== null && id !== CREATOR_TITLE) throw new ApiError(400, 'Такої плашки немає.');
-    if (id === CREATOR_TITLE && !this.isOwner(u)) throw new ApiError(403, 'Ця плашка лише для творця гри.');
-    // The owner taking the plate off: '-' (an empty title would put it back).
-    await this.store.updateUser(u.id, { title: id ?? (this.isOwner(u) ? '-' : '') });
+    const owned = this.platesOf(u);
+    if (id !== null && !owned.includes(id)) {
+      throw id === CREATOR_TITLE ? new ApiError(403, 'Ця плашка лише для творця гри.') : new ApiError(400, 'Такої плашки немає.');
+    }
+    // Taking it off: '-' (an empty title would put the first plate back).
+    await this.store.updateUser(u.id, { title: id ?? (owned.length ? '-' : '') });
     return this.profileOf(u.id);
   }
+
+  // ── Invite a friend ──
+
+  /** A new player came through `code`'s link: both get a pack (the inviter within a daily cap). */
+  private async applyReferral(user: UserRow, code: string): Promise<void> {
+    const tag = code.trim().replace(/^#/, '').toUpperCase();
+    if (!/^[0-9A-F]{6}$/.test(tag)) return;
+    const fresh = await this.store.getUser(user.id);
+    if (!fresh || fresh.referredBy) return;
+    const all = await this.store.listUsers(100_000);
+    const inviter = all.find((u) => tagOf(u) === tag && u.passHash && !u.deleted && u.id !== user.id);
+    if (!inviter) return;
+    await this.store.updateUser(user.id, { referredBy: inviter.id, refStage: 1 });
+    await this.createPack(user.id, REFERRAL_PACK, 'Запрошення друга');
+    const today = this.today();
+    const joinedToday = all.filter((u) => u.referredBy === inviter.id && new Date(u.createdAt).toISOString().slice(0, 10) === today).length;
+    if (joinedToday < REFERRAL_DAILY_CAP) await this.createPack(inviter.id, REFERRAL_PACK, `Запрошення: ${fresh.name}`);
+    this.emit({ type: 'nudge', users: [inviter.id] });
+  }
+
+  /** A finished game of an invited player: after enough of them, both get the second reward. */
+  private async referralGame(userId: string, moves: number): Promise<void> {
+    if (moves < REFERRAL_MIN_MOVES) return;
+    const u = await this.store.getUser(userId);
+    if (!u || !u.referredBy || u.refStage !== 1) return;
+    const games = u.refGames + 1;
+    if (games < REFERRAL_GAMES) return void (await this.store.updateUser(u.id, { refGames: games }));
+    await this.store.updateUser(u.id, { refGames: games, refStage: 2 });
+    await this.createPack(u.id, REFERRAL_PACK, 'Запрошення: 10 партій');
+    const inviter = await this.store.getUser(u.referredBy);
+    if (!inviter || inviter.deleted) return;
+    await this.createPack(inviter.id, REFERRAL_PACK, `Запрошення: ${u.name} зіграв 10 партій`);
+    const plates = this.platesOf(inviter).filter((p) => p !== CREATOR_TITLE);
+    if (this.now() <= FOUNDER_UNTIL && !plates.includes(FOUNDER_PLATE)) {
+      await this.store.updateUser(inviter.id, { plates: JSON.stringify([...plates, FOUNDER_PLATE]) });
+    }
+    this.emit({ type: 'nudge', users: [inviter.id, u.id] });
+  }
+
+  /** Your invite code, the friends who came through it and the campaign plate. */
+  async referrals(token: string): Promise<ReferralView> {
+    const me = await this.auth(token);
+    const friends = (await this.store.listUsers(100_000))
+      .filter((u) => u.referredBy === me.id && !u.deleted)
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .map((u) => ({ name: u.name, games: Math.min(u.refGames, REFERRAL_GAMES), done: u.refStage >= 2 }));
+    return { code: tagOf(me), friends, plateOpen: this.now() <= FOUNDER_UNTIL, plateUntil: FOUNDER_UNTIL, hasPlate: this.platesOf(me).includes(FOUNDER_PLATE) };
+  }
+
 
 
   private fxOf(u: UserRow): string[] {
@@ -1998,6 +2072,7 @@ export class GameService {
     await this.questEvent(u.id, events);
     const decks: Record<Color, Deck> = m.color === 'w' ? { w: m.playerDeck, b: m.botDeck } : { w: m.botDeck, b: m.playerDeck };
     const achievements = await this.gameAchievements(u.id, decks, m.actions, m.color, outcome, { pvp: false, reason: state.result!.reason });
+    await this.referralGame(u.id, state.result!.moves);
     await this.store.updateMatch(m.id, {
       status: 'finished',
       result: JSON.stringify({ outcome, reason: state.result!.reason, moves: state.result!.moves, trophiesDelta: ladder?.trophiesDelta ?? 0 }),
@@ -2452,6 +2527,7 @@ export class GameService {
       achievements[c] = await this.gameAchievements(id, { w: row.whiteDeck, b: row.blackDeck }, actions, c, outcome, { pvp: true, ranked: !!row.ranked, friend: !row.ranked, reason: state.result!.reason });
     }
     out.achievements = achievements;
+    for (const id of [row.whiteId, row.blackId]) await this.referralGame(id, state.result!.moves);
     return JSON.stringify(out);
   }
 

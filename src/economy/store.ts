@@ -69,8 +69,16 @@ export interface UserRow {
   notice: string;
   /** Achievement counters, feats and claimed rewards (JSON AchievementState). */
   achievements: string;
-  /** Achievement shown as the plate under the name ('' none). */
+  /** The plate shown under the name ('' default, '-' none). */
   title: string;
+  /** Plates earned besides the owner's (JSON array of ids, e.g. "founder"). */
+  plates: string;
+  /** Who invited this player (user id, '' none). */
+  referredBy: string;
+  /** Invite rewards paid: 0 none, 1 at sign-up, 2 after the games too. */
+  refStage: number;
+  /** Games counted towards the invite's second reward. */
+  refGames: number;
 }
 
 export interface SessionRow {

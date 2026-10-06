@@ -1,6 +1,7 @@
 import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import type { AchievementView } from '../api/client';
 import { ACHIEVEMENT_BY_ID, CREATOR_TITLE, SHOWCASE_SIZE, type AchievementDef } from '../economy/achievements';
+import { FOUNDER_PLATE } from '../economy/referrals';
 import { t } from '../i18n';
 import { cardArt, packArt } from './cardArt';
 import type { PackType } from '../economy/packs';
@@ -63,6 +64,14 @@ export function rarityText(percent: number): string {
 
 /** The plate under a player's name: an achievement they chose to show. */
 export function TitlePlate({ id, small }: { id: string | null | undefined; small?: boolean }) {
+  if (id === FOUNDER_PLATE) {
+    return (
+      <span className={`title-plate founder ${small ? 'small' : ''}`} title={t('Засновник спільноти')}>
+        <span className="creator-crown">🌱</span>
+        {t('Засновник спільноти')}
+      </span>
+    );
+  }
   if (id === CREATOR_TITLE) {
     return (
       <span className={`title-plate creator ${small ? 'small' : ''}`} title={t('Творець гри')}>
@@ -221,23 +230,23 @@ export function AchievementsPanel() {
       <div className="bar ach-total" aria-hidden="true">
         <span style={{ width: `${(doneCount / list.length) * 100}%` }} />
       </div>
-      {s.profile.owner && (
-        <div className="creator-row">
-          <TitlePlate id={CREATOR_TITLE} />
+      {s.profile.plates.map((id) => (
+        <div key={id} className="creator-row">
+          <TitlePlate id={id} />
           <button
-            className={`btn btn-sm ${s.profile.title === CREATOR_TITLE ? 'btn-primary' : 'btn-ghost'}`}
+            className={`btn btn-sm ${s.profile.title === id ? 'btn-primary' : 'btn-ghost'}`}
             onClick={async () => {
               try {
-                s.setProfile(await s.api.setTitle(s.profile.title === CREATOR_TITLE ? null : CREATOR_TITLE));
+                s.setProfile(await s.api.setTitle(s.profile.title === id ? null : id));
               } catch (e) {
                 s.toast(errorText(e), 'error');
               }
             }}
           >
-            {s.profile.title === CREATOR_TITLE ? t('✓ Плашка') : t('Плашка')}
+            {s.profile.title === id ? t('✓ Плашка') : t('Плашка')}
           </button>
         </div>
-      )}
+      ))}
       <div className="ach-showcase-head">
         <b>{t('Вітрина')}</b>
         <small className="muted">{showcase.length ? t('Ці досягнення бачать інші гравці у вашому профілі.') : t('Поки показуються найрідкісніші. Оберіть свої кнопкою ★ у списку.')}</small>

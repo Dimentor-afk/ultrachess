@@ -6,6 +6,7 @@ import { ForgotForm, NAME_HINT } from './AccountPages';
 import { NAME_MAX, PASSWORD_MIN } from '../economy/account';
 import { t } from '../i18n';
 import { LangSelect } from './LangSelect';
+import { REF_KEY } from './Referral';
 
 export function AuthPage({ api, onAuth }: { api: Api; onAuth: (p: Profile) => void }) {
   const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('register');
@@ -14,13 +15,27 @@ export function AuthPage({ api, onAuth }: { api: Api; onAuth: (p: Profile) => vo
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Came through a friend's invite link: the code goes with the sign-up.
+  const [ref] = useState(() => {
+    try {
+      return localStorage.getItem(REF_KEY) ?? '';
+    } catch {
+      return '';
+    }
+  });
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
     setError(null);
     try {
-      onAuth(mode === 'login' ? await api.login(email, password) : await api.register(email, password, name));
+      const p = mode === 'login' ? await api.login(email, password) : await api.register(email, password, name, ref || undefined);
+      try {
+        localStorage.removeItem(REF_KEY);
+      } catch {
+        // Nothing to clean.
+      }
+      onAuth(p);
     } catch (err) {
       setError(errorText(err));
     } finally {
@@ -58,6 +73,12 @@ export function AuthPage({ api, onAuth }: { api: Api; onAuth: (p: Profile) => vo
             {t('Вхід')}
           </button>
         </div>
+        {mode === 'register' && ref && (
+          <p className="ref-invited">
+            <img src={packArt('epic')} alt="" />
+            <span>{t('Вас запросив друг: після реєстрації ви обоє отримаєте епічний пак!')}</span>
+          </p>
+        )}
         {mode === 'register' && (
           <label className="field">
             <span>{t('Нікнейм')}</span>

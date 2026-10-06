@@ -9842,3 +9842,134 @@ html.no-anim .cell.barrier.barrier-new::after { animation: none; }
   gap: 0.15rem 0.45rem;
   min-width: 0;
 }
+
+/* The invite campaign's plate: green and gold, flowing. */
+.title-plate.founder {
+  gap: 0.35em;
+  padding: 0.14em 0.75em 0.14em 0.5em;
+  border: 1px solid #d9ffe9;
+  background: linear-gradient(90deg, #0f8a5a, #2fd38b, #f5c451, #2fd38b, #0f8a5a);
+  background-size: 300% 100%;
+  animation: creator-flow 4s linear infinite;
+  box-shadow: 0 0 12px rgba(47, 211, 139, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+
+/* Home: the round invite button, glowing like an offer. */
+.rail-invite {
+  border-radius: 50%;
+  font-size: 1.45rem;
+  background: radial-gradient(circle at 35% 30%, #ffe38a, #f5a623 55%, #c96a10);
+  border-color: #fff3c4;
+  animation: invite-glow 1.8s ease-in-out infinite;
+}
+@keyframes invite-glow {
+  0%,
+  100% {
+    box-shadow: 0 4px 0 rgba(0, 0, 0, 0.45), 0 0 0 0 rgba(245, 196, 81, 0.6);
+  }
+  50% {
+    box-shadow: 0 4px 0 rgba(0, 0, 0, 0.45), 0 0 0 8px rgba(245, 196, 81, 0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rail-invite,
+  .title-plate.founder {
+    animation: none;
+  }
+}
+
+.ref {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+.ref-lead {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.4;
+}
+.ref-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+.ref-steps li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.7rem;
+  align-items: center;
+  padding: 0.6rem 0.7rem;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+}
+.ref-steps li img {
+  width: 2.6rem;
+  height: 2.6rem;
+  object-fit: contain;
+}
+.ref-steps li > span:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.ref-steps li > .title-plate {
+  justify-self: start;
+}
+.ref-steps li small {
+  color: var(--muted);
+}
+.ref-plate-step {
+  grid-template-columns: 1fr !important;
+  border-color: rgba(47, 211, 139, 0.6) !important;
+}
+.ref-link input {
+  width: 100%;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.85rem;
+}
+.ref-actions {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 0.5rem;
+}
+.ref-friends h3 {
+  margin: 0.2rem 0 0.4rem;
+  font-size: 0.95rem;
+}
+.ref-friend {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 1.3fr auto;
+  gap: 0.6rem;
+  align-items: center;
+  padding: 0.3rem 0;
+}
+.ref-friend b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ref-friend.done small {
+  color: var(--ok);
+  font-weight: 800;
+}
+.ref-invited {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 0 0.6rem;
+  padding: 0.6rem 0.7rem;
+  border-radius: 12px;
+  border: 1px solid rgba(182, 115, 255, 0.6);
+  background: rgba(182, 115, 255, 0.14);
+  font-weight: 600;
+}
+.ref-invited img {
+  width: 2.4rem;
+  height: 2.4rem;
+  object-fit: contain;
+}
