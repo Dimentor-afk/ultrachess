@@ -4,7 +4,6 @@ import { FOUNDER_PLATE, REFERRAL_GAMES, REFERRAL_PACK } from '../economy/referra
 import { t } from '../i18n';
 import { packArt } from './cardArt';
 import { TitlePlate } from './Achievements';
-import { Sheet } from './Sheet';
 import { errorText, useSession } from './state';
 
 /** Where the invite code waits between opening the link and signing up. */
@@ -15,7 +14,7 @@ export function inviteUrl(code: string): string {
   return `${location.origin}${location.pathname}#/join/${code}`;
 }
 
-/** "Запросіть друзів": the invite link, the rewards, and the friends who came through it. */
+/** "Запросіть друзів", a window over the app: the invite link, the rewards, and the friends who came through it. */
 export function ReferralSheet({ onClose }: { onClose: () => void }) {
   const s = useSession();
   const [r, setR] = useState<ReferralView | null>(null);
@@ -27,6 +26,11 @@ export function ReferralSheet({ onClose }: { onClose: () => void }) {
   }, []);
 
   const url = r ? inviteUrl(r.code) : '';
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(url);
@@ -38,7 +42,7 @@ export function ReferralSheet({ onClose }: { onClose: () => void }) {
   };
   const share = async () => {
     try {
-      if (navigator.share) await navigator.share({ title: 'Ultrachess', text: t('Ultrachess — шахи, де в кожної фігури свій хід. Зареєструйся за моїм посиланням і отримаєш епічний пак.'), url });
+      if (navigator.share) await navigator.share({ title: 'Ultrachess', text: t('Грай в Ultrachess, шахи, де в кожної фігури свій хід. Реєструйся за моїм посиланням і отримаєш епічний пак.'), url });
       else await copy();
     } catch {
       // Cancelled.
@@ -46,9 +50,16 @@ export function ReferralSheet({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <Sheet title={t('Запросіть друзів')} onClose={onClose}>
+    <div className="modal-backdrop ref-backdrop" onClick={onClose}>
+      <div className="modal ref-modal" role="dialog" aria-modal="true" aria-label={t('Запросіть друзів')} onClick={(e) => e.stopPropagation()}>
+        <div className="ref-head">
+          <h2>{t('Запросіть друзів')}</h2>
+          <button className="icon-btn ref-close" onClick={onClose} aria-label={t('Закрити')}>
+            ✕
+          </button>
+        </div>
       <div className="ref">
-        <p className="ref-lead">{t('Надішліть другу своє посилання — нагороди отримаєте ви обоє.')}</p>
+        <p className="ref-lead">{t('Надішліть другу своє посилання, і ви обоє отримаєте нагороди.')}</p>
         <ul className="ref-steps">
           <li>
             <span className="ref-ico">
@@ -75,8 +86,8 @@ export function ReferralSheet({ onClose }: { onClose: () => void }) {
               <TitlePlate id={FOUNDER_PLATE} small />
               <small>
                 {!r || r.plateOpen
-                  ? t('Вам — за друга, який зіграв {0} партій. Видається лише під час акції.', REFERRAL_GAMES)
-                  : t('Акцію завершено: плашку більше не видають.')}
+                  ? t('Ви отримаєте її, коли запрошений друг зіграє {0} партій. Видається лише під час акції.', REFERRAL_GAMES)
+                  : t('Акцію завершено, плашку більше не видають.')}
               </small>
             </span>
           </li>
@@ -112,7 +123,8 @@ export function ReferralSheet({ onClose }: { onClose: () => void }) {
           <p className="muted">{t('Завантаження…')}</p>
         )}
       </div>
-    </Sheet>
+      </div>
+    </div>
   );
 }
 

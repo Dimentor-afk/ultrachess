@@ -9988,3 +9988,46 @@ html.no-anim .cell.barrier.barrier-new::after { animation: none; }
   height: 2.4rem;
   object-fit: contain;
 }
+
+/* The invite window: centred over the app, above the tab bar. */
+.ref-backdrop {
+  z-index: 250;
+}
+.ref-modal {
+  width: min(440px, 100%);
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+  animation: ref-pop 0.25s ease-out;
+}
+.ref-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-bottom: 0.6rem;
+}
+.ref-head h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+.ref-close {
+  flex: none;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+  color: var(--text);
+  cursor: pointer;
+}
+@keyframes ref-pop {
+  from {
+    transform: scale(0.94);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ref-modal {
+    animation: none;
+  }
+}
