@@ -860,7 +860,7 @@ const dict: Record<string, string> = {
   "рахую…": "rechne…",
   "увімкнути захист": "Schutz aktivieren",
   "захист увімкнено": "Schutz aktiv",
-  "готово — ходом фігури": "bereit – mit einem Zug der Figur",
+  "готово, ходіть фігурою": "bereit: Figur ziehen",
   "перезарядка: {0} ход.": "Abklingzeit: {0} Züge",
   "Левітація": "Schweben",
   "Міфічна здібність": "Mythische Fähigkeit",
@@ -1605,5 +1605,6 @@ const dict: Record<string, string> = {
   "Показувати реакції суперника": "Reaktionen des Gegners zeigen",
   "Сховати реакції суперника": "Reaktionen des Gegners ausblenden",
   "хід {0}": "Zug {0}",
+  "Детальніше": "Mehr",
 };
 export default dict;

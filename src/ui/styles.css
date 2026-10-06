@@ -10421,3 +10421,132 @@ html.no-anim .emote-bubble {
     min-height: 0;
   }
 }
+
+/* The tapped piece in short lines (phones); the full card is on desktop. */
+.piece-brief {
+  display: none;
+}
+@media (max-width: 980px) {
+  .game-side {
+    gap: 0.55rem;
+  }
+  .player-bar-own:not(.spectating) .quick-abilities {
+    display: none;
+  }
+  .game-side > .piece-panel.is-empty {
+    display: none;
+  }
+  .game-side > .piece-panel {
+    padding: 0.6rem 0.7rem;
+  }
+  .game-side > .piece-panel > h2,
+  .piece-panel .piece-card {
+    display: none;
+  }
+  .piece-brief {
+    display: block;
+  }
+  .piece-panel .piece-status {
+    margin: 0.35rem 0 0;
+    padding-left: 1.1rem;
+  }
+  .piece-panel .piece-status li:first-child {
+    display: none;
+  }
+  .pbr-head {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--text);
+    text-align: left;
+    cursor: pointer;
+  }
+  .pbr-art {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 2.6rem;
+    height: 2.6rem;
+    border-radius: 10px;
+    border: 2px solid color-mix(in srgb, var(--r) 60%, transparent);
+    background: radial-gradient(circle, color-mix(in srgb, var(--r) 40%, transparent), transparent 70%), #0b1020;
+  }
+  .pbr-art img {
+    width: 82%;
+    height: 82%;
+    object-fit: contain;
+  }
+  .pbr-art img.tinted {
+    filter: brightness(0.4) saturate(1.5) drop-shadow(1px 0 0 #e9cf87) drop-shadow(-1px 0 0 #e9cf87);
+  }
+  .pbr-name {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: 1.15;
+  }
+  .pbr-name small {
+    color: var(--muted);
+    font-size: 0.72rem;
+  }
+  .pbr-name b {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: 1.05rem;
+    color: var(--r);
+  }
+  .pbr-more {
+    margin-left: auto;
+    flex: none;
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+  .piece-brief .card-spec {
+    margin: 0.45rem 0 0;
+  }
+  .piece-brief .card-spec li {
+    font-size: 0.84rem;
+  }
+
+  /* Ability buttons: two to a row, small, right under the board. */
+  .ability-dock {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.4rem;
+  }
+  .ability-dock > .ability-tile:only-child,
+  .ability-dock > .ability-tile.r-mythological {
+    grid-column: 1 / -1;
+  }
+  .ability-tile {
+    padding: 0.3rem 0.5rem 0.3rem 0.3rem;
+    gap: 0.45rem;
+    border-radius: 12px;
+  }
+  .ability-art,
+  .ability-tile.r-mythological .ability-art {
+    width: 38px;
+    height: 38px;
+  }
+  .ability-tile.r-mythological {
+    padding: 0.35rem 0.6rem 0.35rem 0.35rem;
+  }
+  .ability-text b,
+  .ability-tile.r-mythological .ability-text b {
+    font-size: 0.95rem;
+  }
+  .ability-text small {
+    font-size: 0.72rem;
+  }
+}
+@media (max-width: 980px) {
+  .ability-art {
+    overflow: hidden;
+  }
+}

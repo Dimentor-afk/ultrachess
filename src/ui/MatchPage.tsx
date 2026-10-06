@@ -6,6 +6,7 @@ import { opposite, squareName } from '../engine/coords';
 import { type Action, type MatchState, fullMoves, performAction, resign } from '../engine/match';
 import { findKing } from '../engine/position';
 import type { Color, Move, PieceType, Square } from '../engine/types';
+import type { ViewPiece } from '../engine/view';
 import type { GameView, MatchFinish, MatchStart, PlayerCard } from '../api/client';
 import type { LiveStatus } from '../api/live';
 import { packArt, pieceSprite } from './cardArt';
@@ -20,6 +21,8 @@ import { DeckIntro, introSteps } from './DeckIntro';
 import type { FxName } from './fxSprites';
 import { requestHint } from './botClient';
 import { Avatar, CardView, Glyph } from './common';
+import { CardModal } from './CardModal';
+import { CARD_SPECS, SPEC_KINDS } from './cardSpec';
 import { Medal, TitlePlate } from './Achievements';
 import { PlayerModal } from './PlayerModal';
 import { EMOTES } from '../economy/emotes';
@@ -500,6 +503,7 @@ export function Game({ start, playerName, playerAvatar, playerTitle, trophies, o
   const sideName = (c: Color) => (remote ? (c === 'w' ? remote.white : remote.black).name : c === human ? playerName : t('Бот · {0}', botLevel(start.botLevel).name));
 
   const selectedPiece = selected !== null ? view.cells[selected] : null;
+  const [cardOpen, setCardOpen] = useState<string | null>(null);
   const menuOptions = useMemo(() => (menu ? abilityOptions(match, menu) : []), [menu, match]);
 
   /** One ability button's state and action (the dock tile and the round quick button share it). */
@@ -519,7 +523,11 @@ export function Game({ start, playerName, playerAvatar, playerTitle, trophies, o
         setSelected(turnOn ? (specialMoves(viaMoveKind)[0]?.from ?? null) : null);
       } else if (def.id === 'immortal') act({ type: 'ability', pieceId: c.id, key: 'arm' });
       else if (def.id === 'hint') void showHint(c.id);
-      else setMenu(menu === c.id ? null : c.id);
+      else {
+        // The line picker comes up right under the buttons, not below the tapped piece's card.
+        setSelected(null);
+        setMenu(menu === c.id ? null : c.id);
+      }
     };
     const disabled = viaMoveKind ? !myTurn || busy || (special !== viaMoveKind && specialMoves(viaMoveKind).length === 0) : !canPress;
     const sprite = pieceSprite(c.cardId, c.type, human);
@@ -544,8 +552,8 @@ export function Game({ start, playerName, playerAvatar, playerTitle, trophies, o
       })
     : [];
 
-  // On a phone the bar under the board only holds your takes, the quick buttons and reactions: with none of them it goes.
-  const ownBarEmpty = lostPieces(match, bot).length === 0 && !myAbilityPieces.some(({ c }) => !ability(c!).passive) && !(remote?.emote && !spectator) && !bubbles[human];
+  // On a phone the bar under the board only holds your takes and reactions: with neither it goes.
+  const ownBarEmpty = lostPieces(match, bot).length === 0 && !(remote?.emote && !spectator) && !bubbles[human];
 
   let statusText: string;
   if (match.result && spectator) {
@@ -770,7 +778,7 @@ export function Game({ start, playerName, playerAvatar, playerTitle, trophies, o
                       {!ready
                         ? t('перезарядка: {0} ход.', cd)
                         : passive
-                          ? t('готово — ходом фігури')
+                          ? t('готово, ходіть фігурою')
                           : def.id === 'immortal'
                             ? view.immortalArmed
                               ? t('захист увімкнено')
@@ -827,11 +835,14 @@ export function Game({ start, playerName, playerAvatar, playerTitle, trophies, o
           </p>
         )}
 
-        <div className="panel piece-panel">
+        <div className={`panel piece-panel ${selectedPiece ? '' : 'is-empty'}`}>
           <h2>{t('Фігура')}</h2>
           {selectedPiece ? (
             <div>
-              <CardView card={getCard(selectedPiece.cardId)} compact color={selectedPiece.color} />
+              <div className="piece-card">
+                <CardView card={getCard(selectedPiece.cardId)} compact color={selectedPiece.color} />
+              </div>
+              <PieceBrief cell={selectedPiece} onMore={() => setCardOpen(selectedPiece.cardId)} />
               <ul className="piece-status small">
                 <li>
                   {spectator ? (selectedPiece.color === 'w' ? t('Білі') : t('Чорні')) : selectedPiece.color === human ? t('Ваша') : t('Суперника')}, {squareName(selected!)}
@@ -903,6 +914,7 @@ export function Game({ start, playerName, playerAvatar, playerTitle, trophies, o
       </aside>
 
       {viewing && <PlayerModal userId={viewing} onClose={() => setViewing(null)} />}
+      {cardOpen && <CardModal card={getCard(cardOpen)} onClose={() => setCardOpen(null)} />}
       {intro && (
         <DeckIntro
           steps={introPlan}
@@ -1098,5 +1110,40 @@ function Captured({ types, color }: { types: PieceType[]; color: Color }) {
         );
       })}
     </span>
+  );
+}
+
+/** Phones: what the tapped piece does, in the card's short lines, with the full card a tap away. */
+function PieceBrief({ cell, onMore }: { cell: ViewPiece; onMore: () => void }) {
+  const card = getCard(cell.cardId);
+  const sprite = pieceSprite(cell.cardId, cell.type, cell.color, getSettings().blackStyle);
+  const spec = CARD_SPECS[card.id];
+  return (
+    <div className={`piece-brief r-${card.rarity}`}>
+      <button type="button" className="pbr-head" onClick={onMore}>
+        <span className="pbr-art">
+          <img className={`pixel ${sprite.tint ? 'tinted' : ''}`} src={sprite.src} alt="" />
+        </span>
+        <span className="pbr-name">
+          <small>{PIECE_NAMES[card.pieceType]}</small>
+          <b>{card.name}</b>
+        </span>
+        <span className="pbr-more">{t('Детальніше')}</span>
+      </button>
+      {spec ? (
+        <ul className="card-spec">
+          {spec.map(([kind, text], i) => (
+            <li key={i} className={`spec-${kind}`}>
+              <span className="spec-icon" title={SPEC_KINDS[kind].label} aria-label={SPEC_KINDS[kind].label}>
+                {SPEC_KINDS[kind].icon}
+              </span>
+              <span>{text}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="small">{card.rulesText}</p>
+      )}
+    </div>
   );
 }
