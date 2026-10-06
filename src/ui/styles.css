@@ -10395,3 +10395,29 @@ html.no-anim .emote-bubble {
   margin: 0.3rem 0 0;
   padding-left: 1.1rem;
 }
+
+/* The move number lives in the status panel on phones, not under the board. */
+.status-move {
+  display: none;
+}
+@media (max-width: 980px) {
+  .player-bar-own:not(.spectating) .pb-move {
+    display: none;
+  }
+  .player-bar-own.is-empty:not(.spectating) {
+    display: none;
+  }
+  .status-move {
+    display: inline;
+  }
+}
+@media (max-width: 980px) {
+  /* Under the board: no frame, just your takes on the left and the round buttons on the right. */
+  .player-bar-own:not(.spectating) {
+    background: none;
+    border: 0;
+    box-shadow: none;
+    padding: 0.15rem 0.1rem;
+    min-height: 0;
+  }
+}

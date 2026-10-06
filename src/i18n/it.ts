@@ -1604,5 +1604,6 @@ const dict: Record<string, string> = {
   "Реакції": "Reazioni",
   "Показувати реакції суперника": "Mostra le reazioni dell'avversario",
   "Сховати реакції суперника": "Nascondi le reazioni dell'avversario",
+  "хід {0}": "mossa {0}",
 };
 export default dict;

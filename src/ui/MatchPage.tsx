@@ -544,6 +544,9 @@ export function Game({ start, playerName, playerAvatar, playerTitle, trophies, o
       })
     : [];
 
+  // On a phone the bar under the board only holds your takes, the quick buttons and reactions: with none of them it goes.
+  const ownBarEmpty = lostPieces(match, bot).length === 0 && !myAbilityPieces.some(({ c }) => !ability(c!).passive) && !(remote?.emote && !spectator) && !bubbles[human];
+
   let statusText: string;
   if (match.result && spectator) {
     statusText =
@@ -644,7 +647,11 @@ export function Game({ start, playerName, playerAvatar, playerTitle, trophies, o
             </div>
           )}
         </div>
-        <div className={`player-bar player-bar-own ${spectator ? 'spectating' : ''} ${match.turn === human && !match.result ? 'to-move' : ''}`}>
+        <div
+          className={`player-bar player-bar-own ${spectator ? 'spectating' : ''} ${match.turn === human && !match.result ? 'to-move' : ''} ${
+            ownBarEmpty ? 'is-empty' : ''
+          }`}
+        >
           <span
             className={`pb-who ${bottomCard ? 'clickable' : ''}`}
             onClick={bottomCard ? () => setViewing(bottomCard.id) : undefined}
@@ -718,7 +725,7 @@ export function Game({ start, playerName, playerAvatar, playerTitle, trophies, o
                 ? t('{0} · раунд {1}/{2}', start.trial.name, start.trial.round, start.trial.rounds)
                 : start.ranked
                   ? t('Ліга ботів')
-                  : t('Тренування')}</span>
+                  : t('Тренування')}<span className="status-move"> · {t('хід {0}', fullMoves(match.ply) + (match.turn === 'w' ? 1 : 0))}</span></span>
           <br />
           <strong>{statusText}</strong>
           {remote && watchers > 0 && (
