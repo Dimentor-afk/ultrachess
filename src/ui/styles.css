@@ -10519,9 +10519,23 @@ html.no-anim .emote-bubble {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.4rem;
   }
-  .ability-dock > .ability-tile:only-child,
-  .ability-dock > .ability-tile.r-mythological {
+  /* Equal tiles in a row: one fills it, two or four go two to a row, three share one row. */
+  .ability-dock > .ability-tile:only-child {
     grid-column: 1 / -1;
+  }
+  .ability-dock:has(> .ability-tile:nth-child(3):last-child) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .ability-dock:has(> .ability-tile:nth-child(3):last-child) .ability-text small {
+    display: none;
+  }
+  .ability-dock > .ability-tile .ability-eyebrow {
+    display: none;
+  }
+  .ability-text b {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .ability-tile {
     padding: 0.3rem 0.5rem 0.3rem 0.3rem;
