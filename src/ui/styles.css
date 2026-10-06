@@ -5192,7 +5192,7 @@ html.no-coords .rank-label {
 }
 
 .nav-invite {
-  margin-top: auto;
+  margin-top: 1rem;
   display: flex;
   align-items: center;
   gap: 0.6rem;
@@ -5214,9 +5214,6 @@ html.no-coords .rank-label {
 .nav-invite-ico {
   font-size: 1.1rem;
   line-height: 1;
-}
-.nav-invite + .nav-help {
-  margin-top: 0.4rem;
 }
 
 .nav-help + .me {
