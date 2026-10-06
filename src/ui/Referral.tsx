@@ -59,7 +59,7 @@ export function ReferralSheet({ onClose }: { onClose: () => void }) {
           </button>
         </div>
       <div className="ref">
-        <p className="ref-lead">{t('Надішліть другу своє посилання, і ви обоє отримаєте нагороди.')}</p>
+        <p className="ref-lead">{t('Допоможіть розвивати Ultrachess і зібрати спільноту гравців. Надішліть другу своє посилання, і ви обоє отримаєте нагороди.')}</p>
         <ul className="ref-steps">
           <li>
             <span className="ref-ico">

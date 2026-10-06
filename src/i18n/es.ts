@@ -1597,7 +1597,7 @@ const dict: Record<string, string> = {
   "Запрошені ({0})": "Invitados ({0})",
   "Вас запросив друг. Після реєстрації ви обоє отримаєте епічний пак.": "Te ha invitado un amigo. Al registrarte, los dos recibiréis un sobre épico.",
   "Грай в Ultrachess, шахи, де в кожної фігури свій хід. Реєструйся за моїм посиланням і отримаєш епічний пак.": "Juega a Ultrachess, el ajedrez en el que cada pieza tiene su propio movimiento. Regístrate con mi enlace y recibirás un sobre épico.",
-  "Надішліть другу своє посилання, і ви обоє отримаєте нагороди.": "Envía tu enlace a un amigo y los dos recibiréis recompensas.",
+  "Допоможіть розвивати Ultrachess і зібрати спільноту гравців. Надішліть другу своє посилання, і ви обоє отримаєте нагороди.": "Ayuda a que Ultrachess crezca y a formar una comunidad de jugadores. Envía tu enlace a un amigo y los dos recibiréis recompensas.",
   "Ви отримаєте її, коли запрошений друг зіграє {0} партій. Видається лише під час акції.": "La recibes cuando tu amigo invitado haya jugado {0} partidas. Solo durante la campaña.",
   "Акцію завершено, плашку більше не видають.": "La campaña ha terminado, la placa ya no se entrega.",
 };
