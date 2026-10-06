@@ -65,6 +65,15 @@ Still to do:
    Support email support@ultrachess.app (Cloudflare Email Routing to the author's Gmail).
    (monobank provider for a ФОП exists in git history, commit `e93d7fd`.)
 
+### Deferred by the author (Oct 2026)
+
+Mobile app: first PWA push ("your move") with a service worker (manifest and icons exist), then
+Android, then iOS via Capacitor around the same client and server. The blocker is payments:
+stores require their own in-app purchases for shards/packs (a third provider behind the payments
+interface), or no selling inside the app. Also from the ideas list, not started: admin funnel
+(sign-up → first game → 10 games), puzzle of the day, "clip of the moment" share video,
+Telegram Mini App, draft mode, weekend tournament, a 2-minute interactive tutorial.
+
 ### Open question for the teacher
 
 Lab 27 is written for real-time action games (20 Hz server tick, interpolation,
