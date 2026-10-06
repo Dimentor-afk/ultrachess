@@ -32,7 +32,7 @@ import { legalMoves } from '../engine/legal';
 import { type QuestEvent, type QuestView, addProgress, parseQuests, questViews } from './quests';
 import { type Hasher, type MatchRow, type PackRow, type PvpRow, type Role, type Store, type TokenRow, type UserRow, randomId } from './store';
 import { CREATOR_TITLE, SHOWCASE_SIZE, ACHIEVEMENT_BY_ID, type AchievementState, type AchievementView, type CountedStat, achievementViews, gameFeats, parseAchievements } from './achievements';
-import { FOUNDER_PLATE, FOUNDER_UNTIL, REFERRAL_DAILY_CAP, REFERRAL_GAMES, REFERRAL_MIN_MOVES, REFERRAL_PACK, type ReferralView } from './referrals';
+import { FOUNDER_PLATE, REFERRAL_DAILY_CAP, REFERRAL_GAMES, REFERRAL_MIN_MOVES, REFERRAL_PACK, type ReferralView } from './referrals';
 import { NAME_CHANGE_MS, cleanName, nameProblem, passwordProblem, sha256 } from './account';
 import { type PaymentProvider, type ProviderState, type PurchaseRow, type PurchaseView, SHARD_PRODUCTS, type ShardOffer, formatPrice, productById } from './payments';
 
@@ -1123,6 +1123,9 @@ export class GameService {
 
   // ── Invite a friend ──
 
+  /** The campaign plate is still given (the server closes it with FOUNDER_PLATE=closed). */
+  founderPlateOpen = true;
+
   /** A new player came through `code`'s link: both get a pack (the inviter within a daily cap). */
   private async applyReferral(user: UserRow, code: string): Promise<void> {
     const tag = code.trim().replace(/^#/, '').toUpperCase();
@@ -1153,7 +1156,7 @@ export class GameService {
     if (!inviter || inviter.deleted) return;
     await this.createPack(inviter.id, REFERRAL_PACK, `Запрошення: ${u.name} зіграв 10 партій`);
     const plates = this.platesOf(inviter).filter((p) => p !== CREATOR_TITLE);
-    if (this.now() <= FOUNDER_UNTIL && !plates.includes(FOUNDER_PLATE)) {
+    if (this.founderPlateOpen && !plates.includes(FOUNDER_PLATE)) {
       await this.store.updateUser(inviter.id, { plates: JSON.stringify([...plates, FOUNDER_PLATE]) });
     }
     this.emit({ type: 'nudge', users: [inviter.id, u.id] });
@@ -1166,7 +1169,7 @@ export class GameService {
       .filter((u) => u.referredBy === me.id && !u.deleted)
       .sort((a, b) => b.createdAt - a.createdAt)
       .map((u) => ({ name: u.name, games: Math.min(u.refGames, REFERRAL_GAMES), done: u.refStage >= 2 }));
-    return { code: tagOf(me), friends, plateOpen: this.now() <= FOUNDER_UNTIL, plateUntil: FOUNDER_UNTIL, hasPlate: this.platesOf(me).includes(FOUNDER_PLATE) };
+    return { code: tagOf(me), friends, plateOpen: this.founderPlateOpen, hasPlate: this.platesOf(me).includes(FOUNDER_PLATE) };
   }
 
 

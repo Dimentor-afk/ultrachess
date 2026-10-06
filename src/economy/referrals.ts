@@ -14,9 +14,12 @@ export const REFERRAL_MIN_MOVES = 5;
 /** Sign-up packs an inviter can get in one UTC day (a cap on farming with fake accounts). */
 export const REFERRAL_DAILY_CAP = 5;
 
-/** The campaign plate: earned for a friend who played their games, and only until this date. */
+/**
+ * The campaign plate: earned for a friend who played their games, only while
+ * the campaign runs. No end date: the author closes it on the server with
+ * FOUNDER_PLATE=closed, and those who have it keep it.
+ */
 export const FOUNDER_PLATE = 'founder';
-export const FOUNDER_UNTIL = Date.UTC(2026, 11, 31, 23, 59, 59);
 
 /** A friend you invited, as you see them. */
 export interface ReferralFriend {
@@ -32,6 +35,5 @@ export interface ReferralView {
   friends: ReferralFriend[];
   /** The plate can still be earned. */
   plateOpen: boolean;
-  plateUntil: number;
   hasPlate: boolean;
 }

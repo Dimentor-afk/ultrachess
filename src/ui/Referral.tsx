@@ -1,12 +1,10 @@
 import { useEffect, useState } from 'react';
 import type { ReferralView } from '../api/client';
-import { REFERRAL_GAMES } from '../economy/referrals';
-import { FOUNDER_PLATE } from '../economy/referrals';
+import { FOUNDER_PLATE, REFERRAL_GAMES, REFERRAL_PACK } from '../economy/referrals';
 import { t } from '../i18n';
 import { packArt } from './cardArt';
 import { TitlePlate } from './Achievements';
 import { Sheet } from './Sheet';
-import { locale } from '../i18n';
 import { errorText, useSession } from './state';
 
 /** Where the invite code waits between opening the link and signing up. */
@@ -17,7 +15,7 @@ export function inviteUrl(code: string): string {
   return `${location.origin}${location.pathname}#/join/${code}`;
 }
 
-/** "Поділіться грою": the invite link, the rewards, and the friends who came through it. */
+/** "Запросіть друзів": the invite link, the rewards, and the friends who came through it. */
 export function ReferralSheet({ onClose }: { onClose: () => void }) {
   const s = useSession();
   const [r, setR] = useState<ReferralView | null>(null);
@@ -40,7 +38,7 @@ export function ReferralSheet({ onClose }: { onClose: () => void }) {
   };
   const share = async () => {
     try {
-      if (navigator.share) await navigator.share({ title: 'Ultrachess', text: t('Шахи, де кожна фігура — унікальна. Заходь за моїм посиланням — отримаєш епічний пак!'), url });
+      if (navigator.share) await navigator.share({ title: 'Ultrachess', text: t('Ultrachess — шахи, де в кожної фігури свій хід. Зареєструйся за моїм посиланням і отримаєш епічний пак.'), url });
       else await copy();
     } catch {
       // Cancelled.
@@ -48,45 +46,48 @@ export function ReferralSheet({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <Sheet title={t('Поділіться грою')} onClose={onClose}>
+    <Sheet title={t('Запросіть друзів')} onClose={onClose}>
       <div className="ref">
-        <p className="ref-lead">{t('Допоможіть розвивати Ultrachess і зібрати спільноту: запросіть друзів за своїм посиланням.')}</p>
-        <ol className="ref-steps">
+        <p className="ref-lead">{t('Надішліть другу своє посилання — нагороди отримаєте ви обоє.')}</p>
+        <ul className="ref-steps">
           <li>
-            <img src={packArt('epic')} alt="" />
-            <span>
-              <b>{t('Друг зареєструвався за посиланням')}</b>
-              <small>{t('Епічний пак вам і епічний пак другу.')}</small>
+            <span className="ref-ico">
+              <img src={packArt(REFERRAL_PACK)} alt="" />
+            </span>
+            <span className="ref-txt">
+              <b>{t('Друг реєструється')}</b>
+              <small>{t('Епічний пак вам і йому.')}</small>
             </span>
           </li>
           <li>
-            <img src={packArt('epic')} alt="" />
-            <span>
-              <b>{t('Друг зіграв {0} партій', REFERRAL_GAMES)}</b>
-              <small>{t('Ще по епічному паку вам обом.')}</small>
+            <span className="ref-ico">
+              <img src={packArt(REFERRAL_PACK)} alt="" />
+            </span>
+            <span className="ref-txt">
+              <b>{t('Друг грає {0} партій', REFERRAL_GAMES)}</b>
+              <small>{t('Ще по епічному паку.')}</small>
             </span>
           </li>
-          <li className="ref-plate-step">
-            <TitlePlate id={FOUNDER_PLATE} />
-            <span>
-              <b>{t('Ексклюзивна плашка')}</b>
+          <li>
+            <span className="ref-ico ref-ico-plate">🌱</span>
+            <span className="ref-txt">
+              <b>{t('Плашка під ніком')}</b>
+              <TitlePlate id={FOUNDER_PLATE} small />
               <small>
-                {r && r.plateOpen
-                  ? t('Лише для тих, хто запросить друга до {0}. Потім її не отримати.', new Date(r.plateUntil).toLocaleDateString(locale()))
-                  : t('Цю плашку більше не видають.')}
+                {!r || r.plateOpen
+                  ? t('Вам — за друга, який зіграв {0} партій. Видається лише під час акції.', REFERRAL_GAMES)
+                  : t('Акцію завершено: плашку більше не видають.')}
               </small>
             </span>
           </li>
-        </ol>
+        </ul>
 
         {r ? (
           <>
-            <div className="ref-link">
-              <input readOnly value={url} onFocus={(e) => e.currentTarget.select()} aria-label={t('Ваше посилання')} />
-            </div>
+            <input className="ref-link" readOnly value={url} onFocus={(e) => e.currentTarget.select()} aria-label={t('Ваше посилання')} />
             <div className="ref-actions">
               <button className="btn btn-primary" onClick={() => void share()}>
-                {t('📤 Поділитися')}
+                {t('Поділитися')}
               </button>
               <button className="btn" onClick={() => void copy()}>
                 {copied ? t('✓ Скопійовано') : t('Копіювати')}
@@ -94,7 +95,7 @@ export function ReferralSheet({ onClose }: { onClose: () => void }) {
             </div>
             {r.friends.length > 0 && (
               <div className="ref-friends">
-                <h3>{t('Ваші запрошені ({0})', r.friends.length)}</h3>
+                <h3>{t('Запрошені ({0})', r.friends.length)}</h3>
                 {r.friends.map((f, i) => (
                   <div key={i} className={`ref-friend ${f.done ? 'done' : ''}`}>
                     <b>{f.name}</b>

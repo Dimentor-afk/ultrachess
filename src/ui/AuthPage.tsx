@@ -76,7 +76,7 @@ export function AuthPage({ api, onAuth }: { api: Api; onAuth: (p: Profile) => vo
         {mode === 'register' && ref && (
           <p className="ref-invited">
             <img src={packArt('epic')} alt="" />
-            <span>{t('Вас запросив друг: після реєстрації ви обоє отримаєте епічний пак!')}</span>
+            <span>{t('Вас запросив друг. Після реєстрації ви обоє отримаєте епічний пак.')}</span>
           </p>
         )}
         {mode === 'register' && (

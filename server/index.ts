@@ -108,6 +108,8 @@ const bots = new BotPool();
 const admins = process.env.ADMIN_EMAILS ? process.env.ADMIN_EMAILS.split(',').map((e) => e.trim().toLowerCase()).filter(Boolean) : ADMIN_EMAILS;
 const svc = new GameService(store, hasher, Date.now, Math.random, bots.run, admins);
 svc.mailer = resendMailer();
+// The invite campaign's plate: FOUNDER_PLATE=closed stops giving it (players keep theirs).
+svc.founderPlateOpen = process.env.FOUNDER_PLATE !== 'closed';
 if (!svc.mailer) console.log('No RESEND_API_KEY: links from letters (password reset, confirmation) go to this log.');
 // PUBLIC_URL="https://ultrachess.app" — where links in letters point. Without it, the
 // request's Host is used; set it in production so a forged Host cannot redirect the links.

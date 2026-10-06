@@ -47,7 +47,8 @@ describe('invite a friend', () => {
   });
 
   it('after the campaign the second reward still comes, the plate does not', async () => {
-    const { svc, a, epics, game } = await setup(Date.UTC(2027, 1, 1));
+    const { svc, a, epics, game } = await setup();
+    svc.founderPlateOpen = false;
     const b = await svc.register('b@b.com', 'secret12', 'Богдан', undefined, undefined, a.profile.tag);
     for (let i = 0; i < REFERRAL_GAMES; i++) await game(b.profile.id, 20);
     expect(await epics(a.token)).toBe(2);
