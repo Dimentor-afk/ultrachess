@@ -24,7 +24,7 @@ import { Avatar, CardView, Glyph } from './common';
 import { CardModal } from './CardModal';
 import { Medal, TitlePlate } from './Achievements';
 import { PlayerModal } from './PlayerModal';
-import { EMOTES } from '../economy/emotes';
+import { EMOTES, EMOTE_GAP_MS } from '../economy/emotes';
 import { ACHIEVEMENT_BY_ID } from '../economy/achievements';
 import { t, tr } from '../i18n';
 
@@ -263,9 +263,14 @@ export function Game({ start, playerName, playerAvatar, playerTitle, trophies, o
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [remote]);
+  // The server takes one reaction per 2 s: the buttons rest meanwhile, so a press is never lost silently.
+  const [emoteRest, setEmoteRest] = useState(false);
   const sendEmote = (e: string) => {
+    if (emoteRest) return;
     remote?.emote?.(e);
     setPicker(false);
+    setEmoteRest(true);
+    setTimeout(() => setEmoteRest(false), EMOTE_GAP_MS);
   };
   const toggleMute = () => {
     const next = !muted;
@@ -752,6 +757,24 @@ export function Game({ start, playerName, playerAvatar, playerTitle, trophies, o
             <p className="tip">{t('Сині плитки за краєм дошки — платформи левітації. Фігура мусить повернутися за 3 ходи суперника.')}</p>
           )}
         </div>
+
+        {remote?.emote && !spectator && (
+          <div className="panel emote-panel">
+            <div className="emote-panel-head">
+              <h2>{t('Реакції')}</h2>
+              <button type="button" className="emote-panel-mute" onClick={toggleMute} title={muted ? t('Показувати реакції суперника') : t('Сховати реакції суперника')}>
+                {muted ? '🔈' : '🔇'}
+              </button>
+            </div>
+            <div className="emote-row">
+              {EMOTES.map((e) => (
+                <button key={e} type="button" onClick={() => sendEmote(e)} disabled={emoteRest} aria-label={e}>
+                  {e}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {myAbilityPieces.length > 0 && (
           <div className="ability-dock" aria-label={t('Здібності')}>

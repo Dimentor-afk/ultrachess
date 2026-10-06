@@ -157,13 +157,16 @@ export class LiveSocket {
       }
       this.receive(msg);
     };
-    ws.onclose = () => {
+    ws.onclose = (e) => {
       if (this.ws === ws) this.ws = null;
       for (const [req, p] of this.pending) {
         clearTimeout(p.timer);
         p.reject(new TypeError(t('З’єднання обірвалося')));
         this.pending.delete(req);
       }
+      // Too many tabs open: the server let a newer one in. This tab waits until it is
+      // looked at again (no reconnect loop between tabs).
+      if (e.code === 4008) return this.setStatus('offline');
       this.later();
     };
     ws.onerror = () => ws.close();

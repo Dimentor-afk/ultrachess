@@ -42,6 +42,9 @@ const HEARTBEAT_MS = 25_000;
 const MSG_BUDGET = 120;
 /** Games one connection may watch at once (a player has a few tabs, not hundreds). */
 const MAX_WATCHED = 20;
+/** Open connections per account (tabs, devices). Each holds ~100 KB of compressor
+ *  memory, so one account must not open thousands; the oldest gives way. */
+const MAX_CONNS_PER_USER = 8;
 
 export class Hub {
   private wss = new WebSocketServer({
@@ -88,6 +91,11 @@ export class Hub {
 
   private accept(ws: WebSocket, token: string, userId: string): void {
     const conn: Conn = { ws, token, userId, games: new Map(), alive: true, budget: MSG_BUDGET, lastEmote: 0 };
+    const mine = [...(this.byUser.get(userId) ?? [])];
+    for (const old of mine.slice(0, Math.max(0, mine.length - MAX_CONNS_PER_USER + 1))) {
+      old.ws.close(4008, 'Забагато відкритих вкладок');
+      this.drop(old);
+    }
     this.conns.add(conn);
     this.index(this.byUser, userId, conn);
     ws.on('pong', () => (conn.alive = true));

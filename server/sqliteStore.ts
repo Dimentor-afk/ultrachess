@@ -1,8 +1,21 @@
 // SQLite implementation of the game Store (Node's built-in node:sqlite).
 
+import { createHash } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import type { PurchaseRow, PurchaseStatus } from '../src/economy/payments';
 import type { CardRow, ChallengeRow, DeckRow, FriendRow, MatchRow, PackRow, PvpRow, SeekRow, SessionRow, Store, TokenRow, UserRow } from '../src/economy/store';
+
+/** What the sessions table keys a session by: the SHA-256 of its token. */
+function tokenKey(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
+}
+/**
+ * A token kept as it is, from before hashing (48 hex digits). Never a value as long as
+ * a hash: a hash read from the database must not open the session by itself.
+ */
+function legacyKey(token: string): string {
+  return token.length === 64 ? '' : token;
+}
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS users (
@@ -441,22 +454,29 @@ export class SqliteStore implements Store {
     return (this.db.prepare('SELECT * FROM users ORDER BY trophies DESC LIMIT ?').all(limit) as Row[]).map((r) => user(r)!);
   }
 
+  // Sessions are kept by the SHA-256 of their token: the browser holds the token
+  // itself, so a copy of the database cannot be used to sign in as anyone.
   async insertSession(s: SessionRow) {
-    this.db.prepare('INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)').run(s.token, s.userId, s.expiresAt);
+    this.db.prepare('INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)').run(tokenKey(s.token), s.userId, s.expiresAt);
   }
   async getSession(token: string) {
-    const r = this.db.prepare('SELECT * FROM sessions WHERE token = ?').get(token) as Row | undefined;
-    return r ? { token: r.token as string, userId: r.user_id as string, expiresAt: Number(r.expires_at) } : null;
+    const key = tokenKey(token);
+    let r = this.db.prepare('SELECT * FROM sessions WHERE token = ?').get(key) as Row | undefined;
+    if (!r && legacyKey(token)) {
+      // Stored before hashing: moved to its hashed key on first use.
+      r = this.db.prepare('UPDATE sessions SET token = ? WHERE token = ? RETURNING *').get(key, token) as Row | undefined;
+    }
+    return r ? { token, userId: r.user_id as string, expiresAt: Number(r.expires_at) } : null;
   }
   async purgeSessions(now: number) {
     this.db.prepare('DELETE FROM sessions WHERE expires_at < ?').run(now);
     this.db.prepare('DELETE FROM tokens WHERE expires_at < ?').run(now);
   }
   async deleteSession(token: string) {
-    this.db.prepare('DELETE FROM sessions WHERE token = ?').run(token);
+    this.db.prepare('DELETE FROM sessions WHERE token IN (?, ?)').run(tokenKey(token), legacyKey(token));
   }
   async deleteUserSessions(userId: string, except?: string) {
-    this.db.prepare('DELETE FROM sessions WHERE user_id = ? AND token != ?').run(userId, except ?? '');
+    this.db.prepare('DELETE FROM sessions WHERE user_id = ? AND token NOT IN (?, ?)').run(userId, except ? tokenKey(except) : '', except ? legacyKey(except) : '');
   }
 
   async insertPurchase(p: PurchaseRow) {

@@ -10590,3 +10590,69 @@ html.no-anim .emote-bubble {
     overflow: hidden;
   }
 }
+
+/* Reactions on a computer: their own panel beside the board (the 🙂 under the board is
+   for phones), and bigger bubbles that read at a glance. */
+.emote-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.emote-panel-head h2 {
+  margin: 0;
+}
+.emote-panel-mute {
+  border: 0;
+  background: none;
+  font-size: 1rem;
+  opacity: 0.75;
+  cursor: pointer;
+}
+.emote-row {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.35rem;
+  margin-top: 0.55rem;
+}
+.emote-row button {
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg-2);
+  font-size: 1.5rem;
+  cursor: pointer;
+  transition: transform 0.1s, background 0.15s;
+}
+.emote-row button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.08);
+}
+.emote-row button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+@media (min-width: 981px) {
+  .player-bar-own .emote-wrap {
+    display: none;
+  }
+  .emote-bubble {
+    width: 4.4rem;
+    height: 4.4rem;
+    font-size: 2.7rem;
+    top: 85%;
+    left: 1.2rem;
+  }
+  .emote-bubble.mine {
+    top: auto;
+    bottom: 85%;
+    left: auto;
+    right: 1.2rem;
+  }
+}
+@media (max-width: 980px) {
+  .emote-panel {
+    display: none;
+  }
+}

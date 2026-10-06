@@ -31,7 +31,8 @@ const SECURITY_HEADERS = {
   'Referrer-Policy': 'same-origin',
   'X-Frame-Options': 'SAMEORIGIN',
   // Pages of other sites cannot frame this one or keep a handle to its window.
-  'Content-Security-Policy': "frame-ancestors 'self'",
+  // No plugins, no <base> pointing elsewhere.
+  'Content-Security-Policy': "frame-ancestors 'self'; object-src 'none'; base-uri 'self'",
   'Cross-Origin-Opener-Policy': 'same-origin',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
 };
@@ -72,8 +73,13 @@ const LIMITS = {
   mail: { max: 10, windowMs: 60 * 60_000 },
   /** Actions that check a password while signed in (change password or e-mail, delete). */
   password: { max: 10, windowMs: 10 * 60_000 },
+  /** Letters to one address, whoever asks (no flooding someone's mailbox from many addresses). */
+  mailTo: { max: 5, windowMs: 60 * 60_000 },
   /** Everything else. */
   api: { max: 1200, windowMs: 60_000 },
+  /** Everything from one address, whatever cookie it sends (a made-up session per request
+   *  would otherwise get a fresh `api` bucket each time). High: a school shares one IP. */
+  apiIp: { max: 6000, windowMs: 60_000 },
 };
 const hits = new Map<string, { n: number; until: number }>();
 
@@ -196,6 +202,8 @@ function send(res: ServerResponse, status: number, data?: unknown, req?: Incomin
  * defence after the SameSite cookie): a browser always sends Origin on them.
  */
 function sameOrigin(req: IncomingMessage): boolean {
+  // Browsers also say where a request comes from; another site's is refused.
+  if (req.headers['sec-fetch-site'] === 'cross-site') return false;
   const origin = req.headers.origin;
   if (!origin) return true;
   try {
@@ -462,7 +470,7 @@ const server = createServer(async (req, res) => {
   const ip = clientIp(req);
   const who = token || ip;
   const tooMany = () => send(res, 429, { error: 'Забагато запитів. Спробуйте трохи згодом.' });
-  if (!allow('api', who)) return tooMany();
+  if (!allow('apiIp', ip) || !allow('api', who)) return tooMany();
   if (sub.startsWith('matches/') && sub.endsWith('/action') && !allow('bot', who)) return tooMany();
   try {
     const body = req.method === 'GET' || req.method === 'DELETE' ? {} : await readBody(req);
@@ -471,6 +479,7 @@ const server = createServer(async (req, res) => {
       if (!allow('authIp', ip) || !allow('auth', `${ip}|${email}`)) return tooMany();
     }
     if ((sub === 'auth/forgot' || sub === 'account/verify' || sub === 'account/email') && !allow('mail', ip)) return tooMany();
+    if ((sub === 'auth/forgot' || sub === 'account/email') && !allow('mailTo', String(body.email ?? '').trim().toLowerCase())) return tooMany();
     if (sub.startsWith('account/') && sub !== 'account/verify' && !allow('password', who)) return tooMany();
     const params = route[1].exec(sub)!.slice(1);
     const out = await route[2]({ req, res, token, body, params });
