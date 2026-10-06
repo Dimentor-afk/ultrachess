@@ -1467,14 +1467,39 @@ select optgroup {
   height: 100%;
 }
 
+/* Opponent turns left on a levitation platform: where the cooldown usually sits, in sky blue. */
 .badge-platform {
-  top: -12%;
-  left: -12%;
-  background: var(--gold);
-  color: #ffffff;
+  left: 50%;
+  bottom: -2%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2em;
+  padding: 0.25em 0.55em;
   border-radius: 999px;
-  padding: 0.3em 0.45em;
-  box-shadow: 0 0 0 0.3cqw var(--frame);
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 2.3cqw;
+  color: #fff;
+  background: #1f6fd1;
+  border: 0.25cqw solid #9fd4ff;
+  box-shadow: 0 0 1.2cqw rgba(80, 170, 255, 0.7);
+  z-index: 3;
+  white-space: nowrap;
+}
+.badge-platform.last {
+  background: #c8283c;
+  border-color: #ffb3bd;
+  box-shadow: 0 0 1.2cqw rgba(255, 70, 90, 0.8);
+  animation: platform-last 0.9s ease-in-out infinite;
+}
+@keyframes platform-last {
+  50% {
+    transform: translateX(-50%) scale(1.15);
+  }
+}
+html.no-anim .badge-platform.last {
+  animation: none;
 }
 
 .badge-illusion {

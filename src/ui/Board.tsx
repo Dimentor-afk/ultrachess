@@ -525,7 +525,8 @@ function PieceViewInner({ piece }: { piece: ViewPiece }) {
           <Emblem cardId={card.id} />
         </span>
       )}
-      {piece.cooldown !== null && piece.cooldown > 0 && (
+      {/* On a platform the countdown that matters is the platform's, not the cooldown. */}
+      {piece.cooldown !== null && piece.cooldown > 0 && piece.platformTurnsLeft === null && (
         <span className="badge badge-cd" title={t('Перезарядка: ще {0} ход.', piece.cooldown)}>
           <span className="badge-cd-icon">⏳</span>
           {piece.cooldown}
@@ -538,7 +539,8 @@ function PieceViewInner({ piece }: { piece: ViewPiece }) {
         </span>
       )}
       {piece.platformTurnsLeft !== null && (
-        <span className="badge badge-platform" title={t('Ходів суперника до зникнення платформи')}>
+        <span className={`badge badge-platform ${piece.platformTurnsLeft <= 1 ? 'last' : ''}`} title={t('Ходів суперника до зникнення платформи')}>
+          <span className="badge-cd-icon">⏱</span>
           {piece.platformTurnsLeft}
         </span>
       )}

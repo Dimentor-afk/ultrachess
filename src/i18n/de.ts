@@ -1620,5 +1620,6 @@ const dict: Record<string, string> = {
   "Дійдіть до Гросмейстерської арени ботів.": "Erreiche die Großmeister-Arena der Bots.",
   "Над машиною": "Über der Maschine",
   "Дійдіть до Ultra арени ботів.": "Erreiche die Ultra-Arena der Bots.",
+  "на платформі: ще {0} ход. суперника": "auf der Plattform: noch {0} gegnerische Züge",
 };
 export default dict;

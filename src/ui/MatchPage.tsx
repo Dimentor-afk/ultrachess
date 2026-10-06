@@ -797,7 +797,9 @@ export function Game({ start, playerName, playerAvatar, playerTitle, trophies, o
                     {card.rarity === 'mythological' && <span className="ability-eyebrow">{t('Міфічна здібність')}</span>}
                     <b>{def ? tr(def.name) : t('Левітація')}</b>
                     <small>
-                      {!ready
+                      {c!.platformTurnsLeft !== null
+                        ? t('на платформі: ще {0} ход. суперника', c!.platformTurnsLeft)
+                        : !ready
                         ? t('перезарядка: {0} ход.', cd)
                         : passive
                           ? t('готово, ходіть фігурою')
