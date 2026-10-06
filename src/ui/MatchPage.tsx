@@ -22,6 +22,7 @@ import { requestHint } from './botClient';
 import { Avatar, CardView, Glyph } from './common';
 import { Medal, TitlePlate } from './Achievements';
 import { PlayerModal } from './PlayerModal';
+import { EMOTES } from '../economy/emotes';
 import { ACHIEVEMENT_BY_ID } from '../economy/achievements';
 import { t, tr } from '../i18n';
 
@@ -73,6 +74,10 @@ export interface RemoteGame {
   onStatus?: (cb: (s: LiveStatus) => void) => () => void;
   /** Link to this game, for the opponent or spectators. */
   shareUrl?: string;
+  /** Send a reaction (players of a live game). */
+  emote?: (e: string) => void;
+  /** Reactions as they come: whose side and which emoji. */
+  onEmote?: (cb: (color: Color, e: string) => void) => () => void;
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -227,6 +232,48 @@ export function Game({ start, playerName, playerAvatar, playerTitle, trophies, o
   const [shared, setShared] = useState(false);
   // A player's profile opened from the player bar.
   const [viewing, setViewing] = useState<string | null>(null);
+  // Reactions: the bubble over each side's bar, the picker, and muting the opponent's.
+  const [bubbles, setBubbles] = useState<Partial<Record<Color, { e: string; n: number }>>>({});
+  const [picker, setPicker] = useState(false);
+  const [muted, setMuted] = useState(() => {
+    try {
+      return localStorage.getItem('uc.emotes.muted') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const mutedRef = useRef(muted);
+  mutedRef.current = muted;
+  useEffect(() => {
+    if (!remote?.onEmote) return;
+    const timers = new Set<ReturnType<typeof setTimeout>>();
+    const off = remote.onEmote((color, e) => {
+      if (color !== human && mutedRef.current) return;
+      const n = Date.now();
+      setBubbles((b) => ({ ...b, [color]: { e, n } }));
+      if (color !== human) play('click');
+      const timer = setTimeout(() => setBubbles((b) => (b[color]?.n === n ? { ...b, [color]: undefined } : b)), 2600);
+      timers.add(timer);
+    });
+    return () => {
+      off();
+      timers.forEach(clearTimeout);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remote]);
+  const sendEmote = (e: string) => {
+    remote?.emote?.(e);
+    setPicker(false);
+  };
+  const toggleMute = () => {
+    const next = !muted;
+    setMuted(next);
+    try {
+      localStorage.setItem('uc.emotes.muted', next ? '1' : '0');
+    } catch {
+      // Remembered for this game only.
+    }
+  };
   // Player ladder: a stalled opponent can be timed out.
   const [quietSince, setQuietSince] = useState(() => Date.now());
   const [clock, setClock] = useState(() => Date.now());
@@ -537,6 +584,11 @@ export function Game({ start, playerName, playerAvatar, playerTitle, trophies, o
             </span>
           </span>
           <Captured types={lostPieces(match, human)} color={human} />
+          {bubbles[bot] && (
+            <span key={bubbles[bot]!.n} className="emote-bubble">
+              {bubbles[bot]!.e}
+            </span>
+          )}
           {(thinking || (remote && match.turn === bot && !match.result)) && (
             <span className="thinking" aria-live="polite">
               {remote ? t('ходить…') : t('думає…')}
@@ -609,6 +661,30 @@ export function Game({ start, playerName, playerAvatar, playerTitle, trophies, o
           </span>
           <Captured types={lostPieces(match, bot)} color={bot} />
           <span className="muted small pb-move">{t('Хід')}{' '}{fullMoves(match.ply) + (match.turn === 'w' ? 1 : 0)}</span>
+          {bubbles[human] && (
+            <span key={bubbles[human]!.n} className="emote-bubble mine">
+              {bubbles[human]!.e}
+            </span>
+          )}
+          {remote?.emote && !spectator && (
+            <span className="emote-wrap">
+              <button type="button" className="emote-btn" onClick={() => setPicker(!picker)} aria-label={t('Реакції')} title={t('Реакції')}>
+                🙂
+              </button>
+              {picker && (
+                <span className="emote-picker" role="menu">
+                  {EMOTES.map((e) => (
+                    <button key={e} type="button" onClick={() => sendEmote(e)} role="menuitem">
+                      {e}
+                    </button>
+                  ))}
+                  <button type="button" className="emote-mute" onClick={toggleMute} title={muted ? t('Показувати реакції суперника') : t('Сховати реакції суперника')}>
+                    {muted ? '🔈' : '🔇'}
+                  </button>
+                </span>
+              )}
+            </span>
+          )}
           {myAbilityPieces.some(({ c }) => !ability(c!).passive) && (
             <span className="quick-abilities">
               {myAbilityPieces.map(({ c }) => {

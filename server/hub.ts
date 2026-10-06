@@ -6,15 +6,17 @@
 // actually changed, so a hidden action (Безсмертна) is not even noticed.
 //
 // Client → server:  watch / unwatch {id}, act {id, req, action, v},
-//                   resign {id, req}, claim {id, req}
+//                   resign {id, req}, claim {id, req}, emote {id, e}
 // Server → client:  game {game, watchers, req?}, error {id, req?, status, error},
-//                   matched {id} (a game was found for you), nudge (refresh the inbox)
+//                   matched {id} (a game was found for you), nudge (refresh the inbox),
+//                   emote {id, color, e} (a player's reaction)
 
 import type { IncomingMessage, Server } from 'node:http';
 import type { Duplex } from 'node:stream';
 import { type WebSocket, WebSocketServer } from 'ws';
 import { ApiError, type GameService, type PvpState, type ServiceEvent } from '../src/economy/service';
 import type { Action } from '../src/engine/match';
+import { EMOTE_GAP_MS, isEmote } from '../src/economy/emotes';
 
 interface Conn {
   ws: WebSocket;
@@ -25,12 +27,15 @@ interface Conn {
   alive: boolean;
   /** Messages in the current rate window. */
   budget: number;
+  /** When this connection last sent an emote. */
+  lastEmote: number;
 }
 
 type ClientMsg =
   | { t: 'watch' | 'unwatch'; id: string }
   | { t: 'act'; id: string; req: number; action: Action; v: string }
-  | { t: 'resign' | 'claim'; id: string; req: number };
+  | { t: 'resign' | 'claim'; id: string; req: number }
+  | { t: 'emote'; id: string; e: string };
 
 const HEARTBEAT_MS = 25_000;
 /** Messages a connection may send per heartbeat window (a game needs a handful). */
@@ -82,7 +87,7 @@ export class Hub {
   }
 
   private accept(ws: WebSocket, token: string, userId: string): void {
-    const conn: Conn = { ws, token, userId, games: new Map(), alive: true, budget: MSG_BUDGET };
+    const conn: Conn = { ws, token, userId, games: new Map(), alive: true, budget: MSG_BUDGET, lastEmote: 0 };
     this.conns.add(conn);
     this.index(this.byUser, userId, conn);
     ws.on('pong', () => (conn.alive = true));
@@ -125,6 +130,12 @@ export class Hub {
         this.reply(conn, req, await this.svc.pvpResign(conn.token, id));
       } else if (msg.t === 'claim') {
         this.reply(conn, req, await this.svc.pvpClaim(conn.token, id));
+      } else if (msg.t === 'emote') {
+        // Players only, from the fixed set, not too often; passed on to everyone watching the game.
+        if (!isEmote(msg.e) || Date.now() - conn.lastEmote < EMOTE_GAP_MS) return;
+        const color = await this.svc.pvpColor(conn.token, id);
+        conn.lastEmote = Date.now();
+        for (const c of this.byGame.get(id) ?? []) this.send(c, { t: 'emote', id, color, e: msg.e });
       }
     } catch (e) {
       const status = e instanceof ApiError ? e.status : 500;

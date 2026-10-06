@@ -1601,5 +1601,8 @@ const dict: Record<string, string> = {
   "Ви отримаєте її, коли запрошений друг зіграє {0} партій. Видається лише під час акції.": "La ricevi quando l'amico invitato ha giocato {0} partite. Solo durante la promozione.",
   "Акцію завершено, плашку більше не видають.": "La promozione è finita, la targhetta non viene più assegnata.",
   "Оберіть лінію: натисніть стрілку біля краю дошки, куди її зсунути.": "Scegli una linea: tocca la freccia sul bordo nella direzione in cui spostarla.",
+  "Реакції": "Reazioni",
+  "Показувати реакції суперника": "Mostra le reazioni dell'avversario",
+  "Сховати реакції суперника": "Nascondi le reazioni dell'avversario",
 };
 export default dict;

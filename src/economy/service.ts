@@ -2599,6 +2599,12 @@ export class GameService {
     return this.pvpView({ ...row, ...patch }, color);
   }
 
+  /** Your side in a game with people (only its players send emotes). */
+  async pvpColor(token: string, id: string): Promise<Color> {
+    const me = await this.auth(token);
+    return (await this.pvpFor(me.id, id)).color;
+  }
+
   /** The game for a player, or for a spectator (anyone signed in who has the game's link). */
   async pvpState(token: string, id: string): Promise<PvpState> {
     const me = await this.auth(token);

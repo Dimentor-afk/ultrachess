@@ -20,7 +20,8 @@ type ServerMsg =
   | { t: 'game'; game: PvpState; watchers: number; req?: number }
   | { t: 'error'; id: string; req?: number; status: number; error: string }
   | { t: 'matched'; id: string }
-  | { t: 'nudge' };
+  | { t: 'nudge' }
+  | { t: 'emote'; id: string; color: 'w' | 'b'; e: string };
 
 /** No answer to a request after this long: the caller falls back to HTTP. */
 const REQUEST_TIMEOUT_MS = 10_000;
@@ -37,6 +38,7 @@ export class LiveSocket {
   private statusListeners = new Set<(s: LiveStatus) => void>();
   private matchedListeners = new Set<(id: string) => void>();
   private nudgeListeners = new Set<() => void>();
+  private emoteListeners = new Set<(id: string, color: 'w' | 'b', e: string) => void>();
 
   constructor(private url: string) {
     this.connect();
@@ -77,6 +79,16 @@ export class LiveSocket {
   }
   claim(id: string): Promise<LiveGame> {
     return this.request({ t: 'claim', id });
+  }
+
+  /** Send a reaction in a game you play (dropped while offline: it is only a reaction). */
+  emote(id: string, e: string): void {
+    this.raw({ t: 'emote', id, e });
+  }
+  /** Reactions in the games this tab watches. */
+  onEmote(cb: (id: string, color: 'w' | 'b', e: string) => void): () => void {
+    this.emoteListeners.add(cb);
+    return () => void this.emoteListeners.delete(cb);
   }
 
   onStatus(cb: (s: LiveStatus) => void): () => void {
@@ -181,6 +193,8 @@ export class LiveSocket {
       for (const cb of this.matchedListeners) cb(msg.id);
     } else if (msg.t === 'nudge') {
       for (const cb of this.nudgeListeners) cb();
+    } else if (msg.t === 'emote') {
+      for (const cb of this.emoteListeners) cb(msg.id, msg.color, msg.e);
     }
   }
 

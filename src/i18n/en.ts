@@ -1601,5 +1601,8 @@ const dict: Record<string, string> = {
   "Ви отримаєте її, коли запрошений друг зіграє {0} партій. Видається лише під час акції.": "You get it when your invited friend has played {0} games. Given only during the campaign.",
   "Акцію завершено, плашку більше не видають.": "The campaign is over, this plate is no longer given.",
   "Оберіть лінію: натисніть стрілку біля краю дошки, куди її зсунути.": "Pick a line: tap the arrow at the board's edge in the direction to shift it.",
+  "Реакції": "Reactions",
+  "Показувати реакції суперника": "Show the opponent's reactions",
+  "Сховати реакції суперника": "Hide the opponent's reactions",
 };
 export default dict;

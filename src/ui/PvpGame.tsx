@@ -86,6 +86,9 @@ export function PvpGame({ pvp, onExit, onRematch }: { pvp: PvpState; onExit: () 
           }
         : undefined,
       onStatus: live ? (cb) => live.onStatus(cb) : undefined,
+      // Reactions need the live connection (the demo has none).
+      emote: live && pvp.color ? (e: string) => live.emote(id, e) : undefined,
+      onEmote: live ? (cb) => live.onEmote((gid, color, e) => gid === id && cb(color, e)) : undefined,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
