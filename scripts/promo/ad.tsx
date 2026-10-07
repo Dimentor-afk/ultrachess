@@ -37,7 +37,9 @@ async function main() {
   ]);
 
   /** Length of a shot in ms. */
-  const shotMs = (s: Shot) => (s.kind === 'board' ? (s.lead ?? 600) + s.steps.length * (s.gap ?? 1500) + (s.tail ?? 900) : s.ms);
+  /** Time after step i of a board shot (its own entry in `gaps`, else `gap`). */
+  const gapAt = (s: Extract<Shot, { kind: 'board' }>, i: number) => s.gaps?.[i] ?? s.gap ?? 1500;
+  const shotMs = (s: Shot) => (s.kind === 'board' ? (s.lead ?? 600) + s.steps.reduce((t, _, i) => t + gapAt(s, i), 0) + (s.tail ?? 900) : s.ms);
 
   function Caption({ text, pos = 'top' }: { text: string; pos?: 'top' | 'bottom' | 'mid' }) {
     return (
@@ -52,7 +54,7 @@ async function main() {
     const [i, setI] = useState(0);
     useEffect(() => {
       if (i >= states.length - 1) return;
-      const t = setTimeout(() => setI(i + 1), i === 0 ? (s.lead ?? 600) : (s.gap ?? 1500));
+      const t = setTimeout(() => setI(i + 1), i === 0 ? (s.lead ?? 600) : gapAt(s, i - 1));
       return () => clearTimeout(t);
     }, [i]);
     const view = engine.view(states[i]);

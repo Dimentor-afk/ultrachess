@@ -21,6 +21,8 @@ export type Shot = (
       /** Before the first step, between steps, after the last one (ms). */
       lead?: number;
       gap?: number;
+      /** Time after each step, when the steps need different times (else `gap`). */
+      gaps?: number[];
       tail?: number;
       /** The camera pushes in on this square. */
       focus?: string;
@@ -569,20 +571,62 @@ const FINE: Shot[] = [
   { kind: 'text', text: 'anyway. rematch?', ms: 2000 },
 ].map((x) => (x.kind === 'board' ? { ...x, flip: true } : x)) as Shot[];
 
+// "Rating every move" (EN, effects only): one position, one game, twelve moves normal chess does not
+// have, each with its line and a chess.com style grade. Ends on a real mate.
+const GAME_STEPS: [string, string, number][] = [
+  ['f1e6', 'my bishop goes\nthrough the WALL 🌀 !!', 2400],
+  ['e5e4', 'their pawn swaps places\nwith my knight ?!', 1700],
+  ['e5b8~', 'my knight takes\nTWO pieces 🔪 !!', 1900],
+  ['a4c3', 'they take my rook…\nit EXPLODES 💥', 1800],
+  ['b3d4', 'my queen jumps like a knight !', 1400],
+  ['!queen-immortal:arm', '(they pressed some button 👀)', 1100],
+  ['d6e5', 'free queen?? ??', 1200],
+  ['d4e5', 'I take her… she RESPAWNS 😭', 2000],
+  ['a7a5', 'their pawn stabs\nfrom 2 squares away 🗡️', 1600],
+  ['c5d8', 'my rook turns the corner: MATE!!\n…a pawn just SPAWNED??', 2900],
+  ['a6a5', '(ok they’re out of tricks)', 1200],
+  ['e5f6', 'queen checks like a KNIGHT.\nCHECKMATE 👑', 2600],
+];
+const GAME: Shot[] = [
+  {
+    kind: 'board',
+    crowd: false,
+    pos: {
+      g1: 'w:king-classic', f2: 'w:pawn-classic', g2: 'w:pawn-classic', h2: 'w:pawn-classic', a2: 'w:pawn-sprinter',
+      f1: 'w:bishop-portal', e4: 'w:knight-berserk', c3: 'w:rook-kamikaze', b3: 'w:queen-amazon', c5: 'w:rook-corner', a5: 'w:knight-galloper',
+      g8: 'b:king-barricade', h8: 'b:rook-fortress', f7: 'b:pawn-classic', g6: 'b:pawn-classic', h7: 'b:pawn-classic',
+      d6: 'b:queen-immortal', e5: 'b:pawn-stubborn', d7: 'b:bishop-sniper', b8: 'b:rook-castle', a4: 'b:knight-squire',
+      d4: 'b:bishop-chain', a7: 'b:pawn-spearman', e6: 'b:knight-mirage', b7: 'b:pawn-phantom',
+    },
+    caption: 'my last game. white to move',
+    capPos: 'bottom',
+    zoom: 1,
+    lead: 1300,
+    steps: GAME_STEPS.map(([m, line]) => `${m}|${line}`),
+    gaps: GAME_STEPS.map(([, , ms]) => ms),
+    tail: 0,
+    win: true,
+    music: 'tense',
+  },
+  { kind: 'text', text: 'rate this game\n1–10 👇', ms: 2000 },
+];
+
 /** A line that stays over the whole video (it does not pop again on each cut). */
 export const PINNED: Record<string, string> = {
   nobody: 'Розробив класну гру як проєкт\nі поділився з усіма знайомими',
   illegal: 'my chess friend\nwatching me play:',
   fine: 'me after the game:\n“gg, close one 🙂”',
+  game: 'rating every move\nof my last game',
 };
 
-export const NATIVE = new Set(['satisfying', 'memes', 'cardofday', 'nobody', 'illegal', 'fine', ...Object.keys(SERIES)]);
+export const NATIVE = new Set(['satisfying', 'memes', 'cardofday', 'nobody', 'illegal', 'fine', 'game', ...Object.keys(SERIES)]);
 
 export const ADS: Record<string, Shot[]> = {
   satisfying: SATISFYING,
   nobody: NOBODY,
   illegal: ILLEGAL,
   fine: FINE,
+  game: GAME,
   memes: MEMES,
   cardofday: CARD_OF_DAY,
   ...SERIES,
