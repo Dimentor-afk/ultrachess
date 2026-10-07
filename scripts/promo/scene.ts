@@ -15,8 +15,8 @@ export interface SceneSpec {
   /** Pieces: { e1: 'w:king-classic', d8: 'b:queen-immortal', ... }. */
   pos: Record<string, string>;
   turn?: Color;
-  /** Background pieces (CROWD) unless false; `clear`: crowd squares to leave empty. */
-  crowd?: boolean;
+  /** Background pieces (CROWD, or the ones given) unless false; `clear`: crowd squares to leave empty. */
+  crowd?: boolean | Record<string, string>;
   clear?: string[];
   /** "e2e4", "e2e4~" (the longest of the moves there), "f1>levitate" (a move of that kind),
    *  "*card" (that card's move, a capture if it has one), "!queen-immortal:arm" or
@@ -39,7 +39,8 @@ export function startState(spec: SceneSpec): MatchState {
   const pos = emptyPosition();
   let n = 1;
   const clear = new Set(spec.clear ?? []);
-  const pieces = { ...(spec.crowd === false ? {} : Object.fromEntries(Object.entries(CROWD).filter(([q]) => !clear.has(q)))), ...spec.pos };
+  const crowd = spec.crowd === false ? {} : spec.crowd === true || !spec.crowd ? CROWD : spec.crowd;
+  const pieces = { ...(Object.fromEntries(Object.entries(crowd).filter(([q]) => !clear.has(q)))), ...spec.pos };
   for (const [name, def] of Object.entries(pieces)) {
     const [color, cardId] = def.split(':') as [Color, string];
     const s = parseSquare(name);

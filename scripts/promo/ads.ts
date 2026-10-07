@@ -25,6 +25,10 @@ export type Shot = (
       /** The camera pushes in on this square. */
       focus?: string;
       zoom?: number;
+      /** Seen from Black's side (the player at the bottom is the one it happens to). */
+      flip?: boolean;
+      /** Seen from Black's side. */
+      flip?: boolean;
       /** Fireworks at the end (a won game). */
       win?: boolean;
       /** A 3-2-1 countdown before the first step (the lead is count × countMs). */
@@ -497,16 +501,88 @@ const NOBODY: Shot[] = [
   bare({ ...KAMIKAZE, gap: 1300 }, 1900),
 ];
 
+// ── Two meme videos (EN, effects only, no music) on positions of their own, full of card pieces. ──
+
+/** The background for them: card pieces rather than classic ones, so every frame looks wild. */
+const WILD: Record<string, string> = {
+  a2: 'w:pawn-sprinter', b3: 'w:pawn-spearman', c2: 'w:pawn-ram', g2: 'w:pawn-marathoner', h3: 'w:pawn-stormer',
+  b1: 'w:knight-galloper', c1: 'w:bishop-ricochet', a1: 'w:rook-kamikaze',
+  a7: 'b:pawn-spearman', b6: 'b:pawn-phantom', g7: 'b:pawn-sprinter', h6: 'b:pawn-stubborn', f7: 'b:pawn-marathoner',
+  b8: 'b:knight-wallrunner', h8: 'b:rook-battering', c8: 'b:bishop-portal',
+};
+const KG = { g1: 'w:king-classic', g8: 'b:king-classic' };
+/** A move (or a few) with no caption, then `line` at the bottom on the last one, landing on a boom. */
+const react = (s: Omit<Board, 'kind'>, line: string, ms: number): Board => ({
+  ...onBeatAt(
+    { kind: 'board', crowd: WILD, lead: 700, gap: 1400, ...s, capPos: 'bottom', zoom: 1, steps: s.steps.map((x, i) => (i === s.steps.length - 1 ? `${x}|${line}` : x)) },
+    1,
+    ms,
+  ),
+  music: 'tense',
+});
+
+// "That's illegal": a chess player reacts to every move, louder each time, and in the end asks for one more game.
+const ILLEGAL: Shot[] = [
+  { kind: 'text', text: 'me showing my\nchess friend\nthe game I made', ms: 2200 },
+  // A pawn jumps over a knight.
+  react({ pos: { ...KG, e4: 'w:pawn-phantom', e5: 'b:knight-berserk', f2: 'w:pawn-shieldbearer', f4: 'w:knight-rider', d1: 'w:queen-amazon', d8: 'b:queen-levitation', c5: 'b:bishop-chain' }, steps: ['e4e6'] }, '“that’s illegal”', 3200),
+  // A knight takes its pawn for a ride; they take the knight and only the pawn dies.
+  react({ pos: { ...KG, d2: 'w:knight-rider', e4: 'w:pawn-duelist', f2: 'w:pawn-classic', c6: 'b:bishop-sniper', e8: 'b:rook-fortress', f6: 'b:knight-camel', c4: 'w:bishop-portal' }, steps: ['d2e4', 'c6e4'], gap: 1300 }, '“that’s ALSO illegal”', 4000),
+  // A pawn swaps places with the queen in front of it.
+  react({ pos: { ...KG, d4: 'w:pawn-stubborn', d5: 'b:queen-immortal', e3: 'w:bishop-sentinel', c3: 'w:knight-squire', f6: 'b:knight-camel', e7: 'b:bishop-flanker', f3: 'w:rook-displacer' }, steps: ['d4d5'] }, '“BRO WHAT 😭”', 3200),
+  // A queen bounces off the edge into g7.
+  react({ pos: { ...KG, a3: 'w:queen-ricochet', e5: 'w:knight-brother', d5: 'w:knight-brother', e6: 'b:pawn-shieldbearer', d7: 'b:bishop-martyr', c3: 'w:rook-displacer', a6: 'b:knight-rider' }, steps: ['a3g7~'] }, '“I’m calling FIDE 📞”', 3400),
+  // A pawn takes the queen and steps back.
+  react({ pos: { ...KG, e5: 'w:pawn-duelist', d6: 'b:queen-levitation', f4: 'w:knight-springboard', c4: 'w:bishop-chameleon', e8: 'b:rook-fortress', c7: 'b:knight-rider', d3: 'w:rook-corner' }, steps: ['e5d6~'] }, '“…that’s a PAWN??”', 3300),
+  { kind: 'text', text: '3 hours later', ms: 1600 },
+  // Mate with a rook that turns the corner.
+  react(
+    { pos: { ...KG, c6: 'w:rook-corner', h7: 'b:pawn-shieldbearer', d4: 'w:queen-amazon', e5: 'w:knight-mirage', a5: 'b:bishop-eclipse', a4: 'b:knight-galloper' }, clear: ['c8', 'h6'], steps: ['c6e8'], win: true },
+    '“ok one more game”',
+    3800,
+  ),
+];
+
+// "I'm fine": what I say after the game stays on top, what really happened comes up under it.
+// Seen from Black: the player at the bottom is me.
+const FINE: Shot[] = [
+  // I take their bishop, my queen freezes, they take her.
+  react({ pos: { ...KG, e5: 'w:bishop-martyr', c7: 'b:queen-levitation', e1: 'w:rook-sniper', d3: 'w:knight-rider', f8: 'b:bishop-chameleon', d7: 'b:knight-mirage' }, turn: 'b', steps: ['c7e5', 'e1e5'], gap: 1300 }, '(I took their bishop.\nmy queen froze.\nthen they took her)', 4000),
+  // I take their rook and it just steps back.
+  react({ pos: { ...KG, d5: 'w:rook-fortress', f6: 'b:knight-berserk', e3: 'w:knight-squire', c6: 'b:bishop-sniper', e7: 'b:rook-corner', c4: 'w:queen-ricochet' }, turn: 'b', steps: ['f6d5'] }, '(I took their rook.\nit just stepped back)', 3300),
+  // Mate in one, and a pawn appears out of nowhere.
+  react(
+    { pos: { g1: 'w:king-barricade', g8: 'b:king-classic', b1: 'w:knight-classic', f2: 'w:pawn-ram', h2: 'w:pawn-shieldbearer', d8: 'b:rook-castle', e4: 'w:knight-mirage', a4: 'w:bishop-levitation', e5: 'b:knight-brother', f5: 'b:knight-brother' }, clear: ['h3'], turn: 'b', steps: ['d8d1'] },
+    '(I had mate in 1.\na pawn just spawned)',
+    3500,
+  ),
+  // Their bishop hits my queen through my pawn.
+  react({ pos: { ...KG, a3: 'w:bishop-piercer', d6: 'b:pawn-duelist', e7: 'b:queen-ricochet', e4: 'w:knight-wallrunner', f3: 'w:rook-tunnel', c6: 'b:knight-rider' }, steps: ['a3e7'] }, '(their bishop killed my queen\nTHROUGH my pawn)', 3400),
+  // Their king runs five squares and takes my rook.
+  react({ pos: { h1: 'w:king-comet', g8: 'b:king-classic', c6: 'b:rook-jumper', d3: 'w:bishop-sentinel', e2: 'w:knight-camel', a4: 'b:knight-squire', f6: 'b:bishop-chain' }, clear: ['g2', 'b8', 'c8'], steps: ['h1c6'] }, '(their KING ran across\nthe board and took my rook)', 3500),
+  // Smothered by a queen that jumps like a knight.
+  react(
+    { pos: { ...KG, f8: 'b:rook-castle', h8: 'b:rook-fortress', f7: 'b:pawn-classic', g7: 'b:pawn-classic', h7: 'b:pawn-classic', c6: 'w:queen-amazon', d4: 'w:knight-mirage', b5: 'b:knight-galloper', a6: 'b:bishop-portal' }, clear: ['h6'], steps: ['c6e7'] },
+    '(mated by a queen\nthat jumps like a knight)',
+    3600,
+  ),
+  { kind: 'text', text: 'anyway. rematch?', ms: 2000 },
+].map((x) => (x.kind === 'board' ? { ...x, flip: true } : x)) as Shot[];
+
 /** A line that stays over the whole video (it does not pop again on each cut). */
 export const PINNED: Record<string, string> = {
   nobody: 'Розробив класну гру як проєкт\nі поділився з усіма знайомими',
+  illegal: 'my chess friend\nwatching me play:',
+  fine: 'me after the game:\n“gg, close one 🙂”',
 };
 
-export const NATIVE = new Set(['satisfying', 'memes', 'cardofday', 'nobody', ...Object.keys(SERIES)]);
+export const NATIVE = new Set(['satisfying', 'memes', 'cardofday', 'nobody', 'illegal', 'fine', ...Object.keys(SERIES)]);
 
 export const ADS: Record<string, Shot[]> = {
   satisfying: SATISFYING,
   nobody: NOBODY,
+  illegal: ILLEGAL,
+  fine: FINE,
   memes: MEMES,
   cardofday: CARD_OF_DAY,
   ...SERIES,

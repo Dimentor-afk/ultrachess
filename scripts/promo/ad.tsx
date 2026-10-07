@@ -81,7 +81,7 @@ async function main() {
         >
           <Board
             view={view}
-            orientation="w"
+            orientation={s.flip ? 'b' : 'w'}
             selected={null}
             marks={new Map()}
             lastMove={new Set()}
@@ -312,7 +312,7 @@ async function main() {
           {n > 0 && !native && <div className="ad-flash" />}
           {native && <span className="ad-mark">ultrachess.app</span>}
         </div>
-        {pin && (
+        {pin && s.kind !== 'text' && (
           <div className="ad-cap ad-cap-top">
             <span>{pin}</span>
           </div>

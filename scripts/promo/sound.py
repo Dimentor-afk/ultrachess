@@ -409,7 +409,6 @@ if MUSIC:
             k += 1
     for d in drops:
         if BOOM:
-            put(music, d, vine_boom(), 1.1)
             continue
         put(music, d, crash(), 0.8)
         put(music, d, impact(), 1.0)
@@ -426,6 +425,11 @@ if MUSIC:
         c = crackle(N)
         music += np.stack([c, np.roll(c, 97)], 1) * 0.8
     music *= side[:, None]
+
+# The punchline boom plays with or without music.
+if BOOM:
+    for d in drops:
+        put(sfx, d, vine_boom(), 1.1 * 0.7 / 0.9)
 
 # ── Effects on the marks ──
 SFX = {

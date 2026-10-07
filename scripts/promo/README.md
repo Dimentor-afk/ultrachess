@@ -19,6 +19,7 @@ pack opening, directed shot by shot. Nothing here ships with the game.
 ## Videos
 
 - Ads: `promo`, `tierlist`, `puzzle`, `versus`, `plot`, `packs`, `chaos`.
+- Meme videos in English with sound effects only (`--native --boom --no-music`), on positions of their own full of card pieces: `illegal` (a chess friend reacts to every move) and `fine` ("gg, close one" over what really happened, seen from Black).
 - Native (look like ordinary TikToks: white-box captions, plain cuts, still camera, watermark
   ultrachess.app; listed in `NATIVE`): `satisfying`, `memes`, and the "Card of the day" series
   `cardofday` (#1 Mirage), `cardofday2`…`cardofday7` (Immortal, Portal, Earthquake, Berserk,
