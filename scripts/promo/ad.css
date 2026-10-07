@@ -47,6 +47,8 @@ html, body, #root { margin: 0; height: 100%; background: #05070f; overflow: hidd
 
 /* Battle: the board fills the width, the camera slowly pushes in on the action. */
 .ad-board-shot { position: absolute; inset: 0; display: grid; place-items: center; padding: 120px 8px 70px; }
+/* The reveal mark (a cue for the sound) stays out of the grid: as a second row it pushed the board down. */
+.ad-board-shot > .ad-reveal { position: absolute; }
 .ad-camera { width: 100%; transform-origin: var(--fx) var(--fy); animation-name: ad-push; animation-timing-function: cubic-bezier(0.4, 0, 0.3, 1); animation-fill-mode: both; }
 @keyframes ad-push { from { transform: scale(1); } to { transform: scale(var(--z)); } }
 .ad-board-shot .board { box-shadow: 0 18px 50px rgba(0, 0, 0, 0.6); }
