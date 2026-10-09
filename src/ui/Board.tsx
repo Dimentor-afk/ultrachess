@@ -1,7 +1,7 @@
 import { type CSSProperties, type ReactNode, memo, useLayoutEffect, useRef } from 'react';
 import { getCard } from '../engine/cards';
 import { fileOf, isBoardSquare, rankOf, sq } from '../engine/coords';
-import type { FxMove } from '../engine/fx';
+import type { FxMove, MatchFx } from '../engine/fx';
 import type { Color, Leg, PieceType, Square } from '../engine/types';
 import type { PlayerView, ViewPiece } from '../engine/view';
 import { Emblem } from './art';
@@ -83,6 +83,36 @@ export function timeLegs(from: Square, legs: Leg[]): Timed[] {
 interface Glide {
   timed: Timed[];
   delay: number;
+}
+
+// ── Мат ──
+// The mating move plays in slow motion, the board dims around it; then the king
+// shakes, a red wave runs out from it, it tips over, and "Мат" lands on the board.
+
+/** The mating move runs this many times slower. */
+const MATE_SLOW = 2.4;
+/** After the mating move lands, a beat before the king reacts. */
+const MATE_BEAT = 260;
+/** The king's shake and fall and the stamp settling. */
+const MATE_FALL = 1600;
+
+function slowed(timed: Timed[], k: number): Timed[] {
+  return k === 1 ? timed : timed.map((x) => ({ ...x, start: x.start * k, end: x.end * k }));
+}
+
+/** How long a move's own animation runs: the mover and whatever moves with it. */
+function moverMsOf(fx: MatchFx): number {
+  let ms = 0;
+  fx.moves.forEach((m, i) => {
+    if (i === 0 || !m.after) ms = Math.max(ms, legsMs(m.from, m.legs));
+  });
+  return ms;
+}
+
+/** When the mated king starts to fall, and when it all has settled (ms from the mating move). */
+export function mateTimes(fx: MatchFx | null): { fall: number; end: number } {
+  const fall = (fx ? moverMsOf(fx) * MATE_SLOW : 0) + MATE_BEAT;
+  return { fall, end: fall + MATE_FALL };
 }
 
 function GlidePiece({ glide, orientation, ring, children }: { glide: Glide; orientation: Color; ring: number; children: ReactNode }) {
@@ -196,6 +226,8 @@ interface Props {
   onSquare: (s: Square) => void;
   /** Fireworks over the board (a won game). */
   celebrate?: boolean;
+  /** The mated king's square: the mating move plays slowly, then the king falls. */
+  mated?: Square | null;
   /** Each side's capture effect sprite. */
   captureFx?: Partial<Record<Color, FxName>>;
   /** Match intro: pieces not placed yet, and the ones landing right now. */
@@ -205,7 +237,7 @@ interface Props {
 
 const FILES = 'abcdefgh';
 
-export function Board({ view, orientation, selected, marks, lastMove, hint, preview, checkSquare, onSquare, celebrate = false, captureFx, introHidden, introLanding }: Props) {
+export function Board({ view, orientation, selected, marks, lastMove, hint, preview, checkSquare, onSquare, celebrate = false, mated = null, captureFx, introHidden, introLanding }: Props) {
   const barrier = new Set(view.barriers.flatMap((b) => b.squares));
   const ranks = orientation === 'w' ? [8, 7, 6, 5, 4, 3, 2, 1, 0, -1] : [-1, 0, 1, 2, 3, 4, 5, 6, 7, 8];
   const files = orientation === 'w' ? [-1, 0, 1, 2, 3, 4, 5, 6, 7, 8] : [8, 7, 6, 5, 4, 3, 2, 1, 0, -1];
@@ -239,6 +271,9 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
     anim.current.seen.add(sig);
   }
   const live = fx && anim.current.sig === sig ? fx : null;
+  // The mating move, seen as it happens (a finished game opened later shows the king already down).
+  const mating = !!live && mated !== null && getSettings().animations;
+  const slow = mating ? MATE_SLOW : 1;
   const glides = new Map<Square, Glide>();
   // The quake waits for the rook's leap (a replay of an old action has none).
   const quakeAt = live?.leap !== undefined && getSettings().animations ? LEAP_MS : 0;
@@ -249,7 +284,7 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
     live.moves.forEach((m, i) => {
       const skip = anim.current.skip.get(m.from) ?? 0;
       const start = skip ? m.legs[skip - 1].to : m.from;
-      const timed = timeLegs(start, m.legs.slice(skip));
+      const timed = slowed(timeLegs(start, m.legs.slice(skip)), slow);
       if (i === 0 || !m.after) {
         if (i === 0) {
           moverTimed = timed;
@@ -322,12 +357,19 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
     if (quakeAt && live.leap !== undefined) {
       sprites.push({ name: 'impact', square: live.leap, delay: quakeAt - 90 }, { name: 'dust', square: live.leap, delay: quakeAt - 60 });
     }
-    if (checkSquare !== null) sprites.push({ name: 'check', square: checkSquare, delay: 250 });
+    if (checkSquare !== null && !mating) sprites.push({ name: 'check', square: checkSquare, delay: 250 });
+  }
+  const mateAt = moverMs + MATE_BEAT;
+  if (mating && live) {
+    // The blow lands hard, then the king takes it.
+    const to = live.moves[0]?.to;
+    if (to !== undefined) sprites.push({ name: 'impact', square: to, delay: Math.max(0, moverMs - 40) }, { name: 'dust', square: to, delay: moverMs });
+    sprites.push({ name: 'check', square: mated!, delay: mateAt - 120 }, { name: 'burst', square: mated!, delay: mateAt + 380 }, { name: 'dust', square: mated!, delay: mateAt + 720 });
   }
   if (celebrate) {
     [27, 34, 64, 73, 45, 56].forEach((s, i) => sprites.push({ name: 'win', square: s, delay: i * 220 }));
   }
-  const jolt = !live?.shake && debris.length > 0;
+  const jolt = !live?.shake && (debris.length > 0 || mating);
   // Затемнювач: the barrier grows square by square behind the wave of light.
   const barrierIn = new Map<Square, number>();
   live?.sprites.forEach((x, i) => {
@@ -365,7 +407,11 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
       const content = (
         <>
           {piece &&
-            (quakeAt && s === live?.leap ? (
+            (s === mated && !glides.has(s) ? (
+              <span key={`mate-${anim.current.n}`} className={`mated-king ${mating ? '' : 'down'}`} style={{ '--mate': `${mateAt}ms` } as CSSProperties}>
+                <PieceView piece={piece} />
+              </span>
+            ) : quakeAt && s === live?.leap ? (
               <span key={`leap-${anim.current.n}`} className="quake-leap" style={{ '--leap': `${LEAP_MS}ms` } as CSSProperties}>
                 {glides.has(s) ? (
                   <GlidePiece glide={glides.get(s)!} orientation={orientation} ring={ring}>
@@ -423,20 +469,35 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
   }
   return (
     <div
-      className={`board ${live?.shake ? 'shake' : ''} ${jolt ? 'jolt' : ''} ${ring > THIN_RING ? 'wide-ring' : ''}`}
+      className={`board ${live?.shake ? 'shake' : ''} ${jolt ? 'jolt' : ''} ${mating ? 'mating' : ''} ${ring > THIN_RING ? 'wide-ring' : ''}`}
       key={live?.shake || jolt ? `shake-${anim.current.n}` : 'board'}
       style={
         {
           gridTemplateColumns: `${ring}fr repeat(8, 1fr) ${ring}fr`,
           gridTemplateRows: `${ring}fr repeat(8, 1fr) ${ring}fr`,
           '--platform': `${(0.9 / TOTAL) * 100}cqw`,
-          // The shake starts when the rook lands.
-          ...(live?.shake && quakeAt ? { animationDelay: `${quakeAt}ms` } : {}),
+          ...(mating ? { '--slow': `${moverMs}ms`, '--mate': `${mateAt}ms` } : {}),
+          // The shake starts when the rook lands; the knock of a mate when the king takes it.
+          ...(live?.shake && quakeAt ? { animationDelay: `${quakeAt}ms` } : mating ? { animationDelay: `${mateAt + 300}ms` } : {}),
         } as CSSProperties
       }
     >
       {cells}
       <div className="fx-layer" aria-hidden="true">
+        {mating && mated !== null && (
+          <>
+            <span key={`veil-${anim.current.n}`} className="mate-veil" style={{ '--slow': `${moverMs}ms`, '--mate': `${mateAt}ms` } as CSSProperties} />
+            <span
+              key={`ring-${anim.current.n}`}
+              className="mate-ring"
+              style={{ left: `${squareCenter(mated, orientation, ring).x}%`, top: `${squareCenter(mated, orientation, ring).y}%`, '--mate': `${mateAt}ms` } as CSSProperties}
+            />
+            {/* Longer words ("Scacco matto") get a smaller stamp, so it always fits across the board. */}
+            <span key={`stamp-${anim.current.n}`} className="mate-stamp" style={{ '--mate': `${mateAt}ms`, fontSize: `${Math.min(13, 110 / t('Мат').length)}cqw` } as CSSProperties}>
+              {t('Мат')}
+            </span>
+          </>
+        )}
         {cracks.map((x, i) => {
           const c = squareCenter(x.square, orientation, ring);
           return <span key={`crack-${anim.current.n}-${i}`} className={`crack crack-${i % 3} ${crackVertical ? 'crack-v' : ''}`} style={{ left: `${c.x}%`, top: `${c.y}%`, width: `${100 / TOTAL}cqw`, animationDelay: `${x.delay}ms` }} />;

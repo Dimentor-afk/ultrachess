@@ -375,7 +375,7 @@ export const CARD_SCRIPTS: Record<string, ClipScript> = {
     pieces: { d4: 'hero!', g7: 'b:knight', d8: 'b:pawn' },
     kings: { b: 'h8' },
     steps: [
-      { marks: 'd4', say: t('Ходить ще й по діагоналі, але не далі 4 клітинок') },
+      { marks: 'd4', say: t('Ходить ще й по діагоналі, але не далі 3 клітинок') },
       { move: 'd4 g7', say: t('Б\'є по діагоналі') },
     ],
   },

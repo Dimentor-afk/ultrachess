@@ -10,9 +10,7 @@ import { errorText, useSession } from './state';
 import { t, tr, locale } from '../i18n';
 import { LangSelect } from './LangSelect';
 import { AchievementsPanel, TitlePlate } from './Achievements';
-
-const KIND: Record<HistoryRow['kind'], string> = { ranked: t('Ліга гравців'), bot: t('Ліга ботів'), training: t('Тренування'), friend: t('Друг'), trial: t('Випробування') };
-const OUTCOME: Record<HistoryRow['outcome'], string> = { win: t('Перемога'), loss: t('Поразка'), draw: t('Нічия') };
+import { HistoryList } from './HistoryList';
 
 export function ProfilePage() {
   const s = useSession();
@@ -202,27 +200,7 @@ export function ProfilePage() {
           <p className="muted">{t('Ще немає зіграних партій.')}</p>
         </div>
       ) : (
-        <div className="history-list">
-          {history.map((h) => (
-            <a key={h.id} className={`history-row out-${h.outcome}`} href={`#/replay/${h.kind === 'ranked' || h.kind === 'friend' ? 'p' : 'm'}/${h.id}`} title={t('Переглянути партію')}>
-              <span className="history-outcome">{OUTCOME[h.outcome]}</span>
-              <span className="history-main">
-                <b>{tr(h.opponent)}</b>
-                <small className="muted">
-                  {KIND[h.kind]} · {tr(h.reason)} · {t('{0} ход.', h.moves)}
-                </small>
-              </span>
-              {h.kind === 'ranked' && (
-                <span className={`history-delta ${h.trophiesDelta >= 0 ? 'up' : 'down'}`}>
-                  🏆 {h.trophiesDelta >= 0 ? '+' : ''}
-                  {h.trophiesDelta}
-                </span>
-              )}
-              <span className="muted tiny history-date">{new Date(h.at).toLocaleString(locale(), { dateStyle: 'short', timeStyle: 'short' })}</span>
-              <span className="history-open" aria-hidden="true">▶</span>
-            </a>
-          ))}
-        </div>
+        <HistoryList rows={history} />
       )}
     </section>
   );

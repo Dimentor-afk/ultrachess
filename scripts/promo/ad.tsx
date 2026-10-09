@@ -92,6 +92,7 @@ async function main() {
             checkSquare={engine.checkSquare(states[i])}
             onSquare={() => {}}
             celebrate={!!s.win && i === states.length - 1}
+            mated={states[i].status === 'checkmate' ? engine.checkSquare(states[i]) : null}
           />
         </div>
         {caption && <Caption text={caption} pos={s.capPos ?? 'top'} />}

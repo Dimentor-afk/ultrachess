@@ -11,7 +11,7 @@ import type { GameView, MatchFinish, MatchStart, PlayerCard } from '../api/clien
 import type { LiveStatus } from '../api/live';
 import { packArt, pieceSprite } from './cardArt';
 import { playerView } from '../engine/view';
-import { Board, type Mark, boardRing, legsMs, squareCenter } from './Board';
+import { Board, type Mark, boardRing, legsMs, mateTimes, squareCenter } from './Board';
 import { type MatchFx, moveLegs } from '../engine/fx';
 import { type Stage, advanceStage, nextStops, stageAt, startStage, stayMoves, stopsOf } from './stage';
 import { getSettings, play } from './settings';
@@ -230,6 +230,18 @@ export function Game({ start, playerName, playerAvatar, playerTitle, trophies, o
   // Підказка's answer, worked out here on our own view; it holds for this ply only.
   const [hintMove, setHintMove] = useState<{ ply: number; move: Move } | null>(null);
   const [showSummary, setShowSummary] = useState(true);
+  // The result waits until the last move has played out on the board (a mate: until the king is down).
+  // A game opened already finished shows it at once.
+  const [summaryReady, setSummaryReady] = useState(() => !!start.view.state.result);
+  const timers = useRef(new Set<ReturnType<typeof setTimeout>>());
+  const later = (fn: () => void, ms: number) => {
+    const id = setTimeout(() => {
+      timers.current.delete(id);
+      fn();
+    }, ms);
+    timers.current.add(id);
+  };
+  useEffect(() => () => timers.current.forEach(clearTimeout), []);
   const [confirmResign, setConfirmResign] = useState(false);
   const [shared, setShared] = useState(false);
   // A player's profile opened from the player bar.
@@ -445,7 +457,14 @@ export function Game({ start, playerName, playerAvatar, playerTitle, trophies, o
     const prev = soundRef.current;
     const pieces = countPieces(match);
     if (match.history.length !== prev.plies) {
-      if (match.result) play(spectator || match.result.winner === human ? 'win' : 'loss');
+      const final = match.result && (spectator || match.result.winner === human) ? 'win' : 'loss';
+      if (match.result && match.status === 'checkmate' && getSettings().animations) {
+        // The mate plays out first: the blow as the king falls, the fanfare with the result.
+        const { fall, end } = mateTimes(playerView(match, human).fx);
+        play('whoosh');
+        later(() => play('mate'), fall + 300);
+        later(() => play(final), end);
+      } else if (match.result) play(final);
       else if (match.status === 'check') play('check');
       else play(pieces < prev.pieces ? 'capture' : 'move');
     }
@@ -455,6 +474,10 @@ export function Game({ start, playerName, playerAvatar, playerTitle, trophies, o
 
   useEffect(() => {
     if (match.result && !spectator) report(false);
+    if (!match.result) return setSummaryReady(false);
+    if (summaryReady) return;
+    const mate = match.status === 'checkmate' && getSettings().animations;
+    later(() => setSummaryReady(true), mate ? mateTimes(playerView(match, human).fx).end + 300 : 500);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [match.result]);
 
@@ -621,7 +644,8 @@ export function Game({ start, playerName, playerAvatar, playerTitle, trophies, o
             preview={new Set(linePreview)}
             checkSquare={checkSquare}
             onSquare={onSquare}
-            celebrate={!!match.result && match.result.winner === human}
+            celebrate={!!match.result && match.result.winner === human && summaryReady}
+            mated={match.status === 'checkmate' ? checkSquare : null}
             captureFx={captureFx}
             introHidden={intro ? new Set(introPlan.slice(landed).flatMap((x) => x.squares)) : undefined}
             introLanding={intro && landed > 0 ? new Set(introPlan[landed - 1].squares) : undefined}
@@ -949,8 +973,8 @@ export function Game({ start, playerName, playerAvatar, playerTitle, trophies, o
         />
       )}
 
-      {match.result && showSummary && (
-        <div className="modal-backdrop">
+      {match.result && showSummary && summaryReady && (
+        <div className="modal-backdrop summary-backdrop">
           <div className="modal summary" role="dialog" aria-label={t('Підсумок партії')}>
             <h2 className={`outcome outcome-${match.result.winner === null ? 'draw' : spectator || match.result.winner === human ? 'win' : 'loss'}`}>
               {match.result.winner === null

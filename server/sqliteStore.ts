@@ -200,6 +200,7 @@ const USER_COLS: Record<keyof UserRow, string> = {
   referredBy: 'referred_by',
   refStage: 'ref_stage',
   refGames: 'ref_games',
+  patchSeen: 'patch_seen',
 };
 
 /** Columns added after the first release, for databases created before them. */
@@ -237,6 +238,7 @@ const USER_MIGRATIONS: [string, string][] = [
   ['referred_by', "TEXT NOT NULL DEFAULT ''"],
   ['ref_stage', 'INTEGER NOT NULL DEFAULT 0'],
   ['ref_games', 'INTEGER NOT NULL DEFAULT 0'],
+  ['patch_seen', "TEXT NOT NULL DEFAULT ''"],
 ];
 
 /** Columns added to other tables after the first release. */
@@ -311,6 +313,7 @@ function user(r: Row | undefined): UserRow | null {
     referredBy: (r.referred_by as string | null) ?? '',
     refStage: Number(r.ref_stage ?? 0),
     refGames: Number(r.ref_games ?? 0),
+    patchSeen: (r.patch_seen as string | null) ?? '',
   };
 }
 

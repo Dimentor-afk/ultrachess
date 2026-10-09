@@ -212,7 +212,7 @@ export function featsFrom(first: MatchState, actions: Action[], me: Color, won: 
     let worst = 0;
     for (const a of actions) {
       const before = st;
-      st = performAction(st, a);
+      st = performAction(st, a, true);
       if (a.type === 'move') {
         const m = a.move;
         const mover = before.board[m.from];

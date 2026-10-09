@@ -79,6 +79,8 @@ export interface UserRow {
   refStage: number;
   /** Games counted towards the invite's second reward. */
   refGames: number;
+  /** The patch notes the player has seen (PATCH_ID; '' none yet). */
+  patchSeen: string;
 }
 
 export interface SessionRow {

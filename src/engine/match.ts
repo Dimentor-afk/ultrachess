@@ -250,14 +250,21 @@ export function isOver(state: MatchState): boolean {
   return state.result !== null;
 }
 
-export function performAction(state: MatchState, action: Action): MatchState {
+/**
+ * `recorded`: the action comes from a stored game, where the server checked it when it was played.
+ * A move a card no longer allows (its rule changed since) is then applied as it was recorded, so
+ * games in progress and the archive still replay. Never set it for a move a player sends.
+ */
+export function performAction(state: MatchState, action: Action, recorded = false): MatchState {
   if (isOver(state)) throw new Error('Партію завершено');
   const color = state.turn;
   switch (action.type) {
     case 'move': {
       // Only the moving piece's moves need generating to check the chosen one.
       const from = action.move?.from;
-      const legal = typeof from === 'number' ? legalMoves(state, false, { from }).find((m) => sameMove(m, action.move)) : undefined;
+      const found = typeof from === 'number' ? legalMoves(state, false, { from }).find((m) => sameMove(m, action.move)) : undefined;
+      const mover = typeof from === 'number' ? state.board[from] : null;
+      const legal = found ?? (recorded && mover && mover.id === action.move.pieceId && mover.color === color ? action.move : undefined);
       if (!legal) throw new Error('Нелегальний хід');
       const { pos, events } = applyMoveWithEvents(state, legal);
       const realText = moveText(state, legal);

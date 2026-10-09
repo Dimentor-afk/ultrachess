@@ -79,6 +79,7 @@ export type Sound =
   | 'tease3'
   | 'riser'
   | 'whoosh'
+  | 'mate'
   | 'click';
 
 let ctx: AudioContext | null = null;
@@ -151,6 +152,14 @@ const NOTES: Record<Sound, [number, number, number, OscillatorType, number][]> =
     [900, 0.3, 0.3, 'sawtooth', 0.03],
   ],
   click: [[700, 0, 0.04, 'sine', 0.05]],
+  // The mated king falls: a deep blow and a low bell under it.
+  mate: [
+    [55, 0, 0.9, 'sine', 0.34],
+    [82, 0.02, 0.6, 'sine', 0.22],
+    [140, 0, 0.12, 'square', 0.05],
+    [220, 0.05, 1.1, 'triangle', 0.07],
+    [277, 0.05, 1.1, 'triangle', 0.05],
+  ],
   // An achievement pops up: a soft two-note chime with a sparkle on top.
   trophy: [
     [784, 0, 0.16, 'sine', 0.16],

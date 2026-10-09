@@ -4,6 +4,9 @@ import { sq } from '../coords';
 import { applyMove } from '../apply';
 import { legalMoves } from '../legal';
 import { hasAnyLegalTurn, inCheck } from '../status';
+import { classicDeck } from '../deck';
+import { type MatchState, performAction } from '../match';
+import type { Move } from '../types';
 import { S, at, build, findMove, kingShuffle, movesFrom, play, targets } from './helpers';
 
 describe('jumpers', () => {
@@ -183,10 +186,22 @@ describe('bishop cards', () => {
 describe('rook cards', () => {
   const K = { e1: 'w:king-classic', e8: 'b:king-classic' };
 
-  it('Маневрова тура moves in 8 directions up to 4 squares', () => {
+  it('Маневрова тура moves in 8 directions up to 3 squares', () => {
     const t = targets(build({ ...K, d4: 'w:rook-maneuver' }), 'd4');
-    expect(t).toEqual(expect.arrayContaining(['h8', 'd8', 'a1', 'h4']));
-    expect(targets(build({ ...K, a1: 'w:rook-maneuver' }), 'a1')).not.toContain('a6');
+    expect(t).toEqual(expect.arrayContaining(['g7', 'd7', 'a1', 'g4', 'a4', 'd1']));
+    for (const far of ['h8', 'd8', 'h4']) expect(t).not.toContain(far);
+    expect(targets(build({ ...K, a1: 'w:rook-maneuver' }), 'a1')).not.toContain('a5');
+  });
+
+  it('a stored game keeps a move the card no longer allows (Маневрова тура went 4 squares before)', () => {
+    const pos = build({ ...K, d4: 'w:rook-maneuver' });
+    const state: MatchState = { ...pos, decks: { w: classicDeck(), b: classicDeck() }, history: [], repetition: {}, status: 'playing', result: null, lastMove: null, fx: null };
+    const three = findMove(pos, 'd4', 'd7');
+    const old: Move = { ...three, to: S('d8'), target: S('d8'), path: [...three.path, S('d8')] };
+    expect(() => performAction(state, { type: 'move', move: old })).toThrow();
+    expect(at(performAction(state, { type: 'move', move: old }, true), 'd8')).toBe('w:rook-maneuver');
+    // Only the piece that is really there, and only on its own turn.
+    expect(() => performAction(state, { type: 'move', move: { ...old, pieceId: 'b-e8' } }, true)).toThrow();
   });
 
   it('Десантна тура jumps on its first move', () => {

@@ -144,12 +144,16 @@ export interface Api {
   adminRename(userId: string, name: string, reason: string): Promise<void>;
   /** The player has read profile.notice. */
   dismissNotice(): Promise<Profile>;
+  /** The player has read the latest patch notes. */
+  seePatch(): Promise<Profile>;
   adminLogout(userId: string): Promise<void>;
   adminDeleteUser(userId: string): Promise<void>;
   updateProfile(patch: { name?: string; avatar?: string }): Promise<Profile>;
   playerProfile(userId: string): Promise<PublicProfile>;
   history(): Promise<HistoryRow[]>;
-  /** A finished game of mine ('m': with the bot, 'p': with a player), to replay. */
+  /** Admin: a player's finished games. */
+  adminHistory(userId: string): Promise<HistoryRow[]>;
+  /** A finished game of mine ('m': with the bot, 'p': with a player), to replay; an admin opens anyone's. */
   gameRecord(kind: 'm' | 'p', id: string): Promise<GameRecord>;
   inbox(): Promise<Inbox>;
   claimQuest(id: string): Promise<Profile>;
@@ -268,11 +272,13 @@ class HttpApi implements Api {
   adminUnban = (userId: string) => this.call<void>('POST', `admin/users/${userId}/unban`, {});
   adminRename = (userId: string, name: string, reason: string) => this.call<void>('POST', `admin/users/${userId}/rename`, { name, reason });
   dismissNotice = () => this.call<Profile>('POST', 'profile/notice', {});
+  seePatch = () => this.call<Profile>('POST', 'profile/patch', {});
   adminLogout = (userId: string) => this.call<void>('POST', `admin/users/${userId}/logout`, {});
   adminDeleteUser = (userId: string) => this.call<void>('POST', `admin/users/${userId}/delete`, {});
   updateProfile = (patch: { name?: string; avatar?: string }) => this.call<Profile>('POST', 'profile', patch);
   playerProfile = (userId: string) => this.call<PublicProfile>('GET', `players/${userId}`);
   history = () => this.call<HistoryRow[]>('GET', 'history');
+  adminHistory = (userId: string) => this.call<HistoryRow[]>('GET', `admin/users/${userId}/history`);
   gameRecord = (kind: 'm' | 'p', id: string) => this.call<GameRecord>('GET', `games/${kind}/${id}`);
   inbox = () => this.call<Inbox>('GET', 'inbox');
   claimQuest = (id: string) => this.call<Profile>('POST', `quests/${id}/claim`, {});
@@ -469,11 +475,13 @@ class LocalApi implements Api {
   adminUnban = async (userId: string) => this.svc.adminUnban(await this.t(), userId);
   adminRename = async (userId: string, name: string, reason: string) => this.svc.adminRename(await this.t(), userId, name, reason);
   dismissNotice = async () => this.svc.dismissNotice(await this.t());
+  seePatch = async () => this.svc.seePatch(await this.t());
   adminLogout = async (userId: string) => this.svc.adminLogout(await this.t(), userId);
   adminDeleteUser = async (userId: string) => this.svc.adminDeleteUser(await this.t(), userId);
   updateProfile = async (patch: { name?: string; avatar?: string }) => this.svc.updateProfile(await this.t(), patch);
   playerProfile = async (userId: string) => this.svc.playerProfile(await this.t(), userId);
   history = async () => this.svc.history(await this.t());
+  adminHistory = async (userId: string) => this.svc.adminHistory(await this.t(), userId);
   gameRecord = async (kind: 'm' | 'p', id: string) => this.svc.gameRecord(await this.t(), kind, id);
   inbox = async () => this.svc.inbox(await this.t());
   claimQuest = async (id: string) => this.svc.claimQuest(await this.t(), id);

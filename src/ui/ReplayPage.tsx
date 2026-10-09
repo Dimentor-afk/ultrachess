@@ -37,7 +37,7 @@ function replay(decks: Record<Color, Deck>, actions: Action[]): { turns: Turn[];
       if (last) states.push(state);
       turns.push({ from: i, to: i + 1, color: state.turn, ply: state.ply });
     }
-    state = performAction(state, actions[i]);
+    state = performAction(state, actions[i], true);
   }
   if (turns.length) states.push(state);
   return { turns, states };
@@ -149,6 +149,7 @@ export function ReplayPage({ kind, id }: { kind: 'm' | 'p'; id: string }) {
             preview={new Set()}
             checkSquare={checkSquare}
             onSquare={() => {}}
+            mated={state.status === 'checkmate' ? checkSquare : null}
           />
           <PlayerLine p={rec.players[me]} color={me} />
           <div className="rp-controls">

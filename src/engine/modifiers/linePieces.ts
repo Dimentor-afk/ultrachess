@@ -49,7 +49,7 @@ export const linePieceGenerators: Record<string, Generator> = {
     ...rook(ctx, p, from),
     ...(p.moveCount === 0 ? jumpOverMoves(ctx, p, from, ORTHO, { skip: 1, label: 'Десант через фігуру' }) : []),
   ],
-  'rook-maneuver': (ctx, p, from) => slideMoves(ctx, p, from, ALL_DIRS, { max: 4 }),
+  'rook-maneuver': (ctx, p, from) => slideMoves(ctx, p, from, ALL_DIRS, { max: 3 }),
   'rook-jumper': (ctx, p, from) => [...rook(ctx, p, from), ...jumpOverMoves(ctx, p, from, ORTHO, {}, 1)],
   'rook-ricochet': (ctx, p, from) => dedupe([...rook(ctx, p, from), ...ricochetMoves(ctx, p, from, ORTHO)]),
   'rook-illusionist': rook,

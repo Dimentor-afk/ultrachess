@@ -1,6 +1,7 @@
 import { AdminStatsTab } from './AdminStats';
 import { useEffect, useMemo, useState } from 'react';
-import type { AdminUser } from '../api/client';
+import type { AdminUser, HistoryRow } from '../api/client';
+import { HistoryList } from './HistoryList';
 import { PACKS, type PackType, packName } from '../economy/packs';
 import { packArt } from './cardArt';
 import { errorText, useSession } from './state';
@@ -268,6 +269,9 @@ function PlayerSheet({ u, run, onClose }: { u: AdminUser; run: (fn: () => Promis
           {u.emailVerified ? t('пошту підтверджено') : t('пошту не підтверджено')}
         </p>
 
+        <h3>{t('Партії')}</h3>
+        <AdminGames userId={u.id} />
+
         <h3>{t('Валюта')}</h3>
         <p className="muted small">{t('Зараз: {0} 🪙 і {1} 💎. Від’ємне число забирає (не нижче нуля).', u.gold, u.shards)}</p>
         <div className="admin-row">
@@ -382,6 +386,26 @@ function PlayerSheet({ u, run, onClose }: { u: AdminUser; run: (fn: () => Promis
         )}
       </div>
     </Sheet>
+  );
+}
+
+/** A player's finished games: each opens its replay, to see what really happened in a report. */
+function AdminGames({ userId }: { userId: string }) {
+  const s = useSession();
+  const [rows, setRows] = useState<HistoryRow[] | null>(null);
+  useEffect(() => {
+    s.api.adminHistory(userId).then(setRows, (e) => {
+      s.toast(errorText(e), 'error');
+      setRows([]);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+  if (!rows) return <p className="muted small">{t('Завантаження…')}</p>;
+  if (!rows.length) return <p className="muted small">{t('Ще немає зіграних партій.')}</p>;
+  return (
+    <div className="admin-games">
+      <HistoryList rows={rows} />
+    </div>
   );
 }
 

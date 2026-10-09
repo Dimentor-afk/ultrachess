@@ -13,6 +13,7 @@ import { ErrorBoundary } from './ErrorBoundary';
 import { Icon } from './icons';
 import { Sheet } from './Sheet';
 import { AchievementPopups } from './Achievements';
+import { PatchNotes } from './PatchNotes';
 import { REF_KEY, ReferralPrompt, ReferralSheet } from './Referral';
 import { currentPath, navigate, onNavigate, useRoutePath } from './router';
 import { LeaguesPage } from './LeaguesPage';
@@ -293,6 +294,8 @@ function Shell() {
         </ErrorBoundary>
       </main>
       {s.profile.notice && <NoticeSheet />}
+      {/* What changed in the game: once, and not over a game in progress. */}
+      {s.profile.newPatch && !s.profile.notice && route !== 'game' && route !== 'replay' && <PatchNotes />}
       <AchievementPopups />
       <ReferralPrompt />
     </div>

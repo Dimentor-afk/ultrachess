@@ -6,6 +6,9 @@ author in Ukrainian. Stack: Vite + React 19 + TypeScript client, Node 22 server
 game service in `src/economy` (same service runs on the server and, over localStorage,
 in the browser demo). Tests: `npx vitest run`; typecheck: `npm run typecheck`.
 Rule decisions that differ from `docs/spec.md` go to `docs/engine-decisions.md`.
+Patch notes for players: `src/ui/PatchNotes.tsx` (one change per page); bump `PATCH_ID` in
+`src/economy/patch.ts` to show new notes once to every account. Stored games replay with
+`performAction(…, true)`, so a card change does not break games in progress or the archive.
 
 Languages: uk (source), en, de, it, es (`src/i18n`). UI text is written in Ukrainian inside
 `t('…')` (placeholders `{0}`); the Ukrainian string is the dictionary key in `src/i18n/{en,de,it,es}.ts`.

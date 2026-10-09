@@ -29,7 +29,7 @@ const RARITY_BONUS: Record<Rarity, number> = {
 const CARD_ADJUST: Record<string, number> = {
   'knight-camel': -20,
   'bishop-sentinel': 10,
-  'rook-maneuver': 40,
+  'rook-maneuver': 25,
   'pawn-spearman': 20,
   'queen-amazon': 20,
 };

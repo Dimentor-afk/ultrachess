@@ -36,6 +36,7 @@ import { FOUNDER_PLATE, REFERRAL_DAILY_CAP, REFERRAL_GAMES, REFERRAL_MIN_MOVES, 
 import { type AdminStats, computeAdminStats } from './adminStats';
 import { NAME_CHANGE_MS, cleanName, nameProblem, passwordProblem, sha256 } from './account';
 import { type PaymentProvider, type ProviderState, type PurchaseRow, type PurchaseView, SHARD_PRODUCTS, type ShardOffer, formatPrice, productById } from './payments';
+import { PATCH_ID } from './patch';
 
 /** Short public code for finding a player (first 6 hex digits of the id). */
 const tagOf = (u: UserRow) => u.id.slice(0, 6).toUpperCase();
@@ -83,6 +84,8 @@ export interface Profile {
   owner: boolean;
   /** Something an admin did to the account, shown once (null: nothing to show). */
   notice: Notice | null;
+  /** The latest patch notes are not seen yet. */
+  newPatch: boolean;
   trophies: number;
   wins: number;
   losses: number;
@@ -613,6 +616,7 @@ export class GameService {
       referredBy: '',
       refStage: 0,
       refGames: 0,
+      patchSeen: PATCH_ID,
     };
   }
 
@@ -909,6 +913,7 @@ export class GameService {
       role: u.role,
       owner: this.isOwner(u),
       notice: u.notice ? (JSON.parse(u.notice) as Notice) : null,
+      newPatch: u.patchSeen !== PATCH_ID,
       trophies: u.trophies,
       wins: u.wins,
       losses: u.losses,
@@ -1377,6 +1382,13 @@ export class GameService {
   /** The signed-in user's id (the WebSocket hub checks a connection's session with it). */
   async userIdOf(token: string): Promise<string> {
     return (await this.auth(token)).id;
+  }
+
+  /** The player has read the latest patch notes: they are not shown again. */
+  async seePatch(token: string): Promise<Profile> {
+    const u = await this.auth(token);
+    if (u.patchSeen !== PATCH_ID) await this.store.updateUser(u.id, { patchSeen: PATCH_ID });
+    return this.profileOf(u.id);
   }
 
   /** The player has read the notice: it is not shown again. */
@@ -1951,7 +1963,7 @@ export class GameService {
     const cached = this.replays.get(key);
     const hit = cached && cached.n <= actions.length && cached.sig === sig ? cached : null;
     let state = hit ? hit.state : fresh();
-    for (let i = hit ? hit.n : 0; i < actions.length; i++) state = performAction(state, actions[i]);
+    for (let i = hit ? hit.n : 0; i < actions.length; i++) state = performAction(state, actions[i], true);
     // Most recently used last; the oldest entries go first.
     this.replays.delete(key);
     this.replays.set(key, { n: actions.length, state, sig });
@@ -2217,7 +2229,18 @@ export class GameService {
   }
 
   async history(token: string): Promise<HistoryRow[]> {
-    const u = await this.auth(token);
+    return this.historyOf(await this.auth(token));
+  }
+
+  /** A player's finished games, for the admin panel: to look into a report ("it's a bug!"). */
+  async adminHistory(token: string, userId: string): Promise<HistoryRow[]> {
+    await this.admin(token);
+    const u = await this.store.getUser(userId);
+    if (!u) throw new ApiError(404, 'Гравця не знайдено.');
+    return this.historyOf(u);
+  }
+
+  private async historyOf(u: UserRow): Promise<HistoryRow[]> {
     const out: HistoryRow[] = [];
     for (const m of await this.store.listMatches(u.id, 60)) {
       if (m.status !== 'finished' || !m.result) continue;
@@ -2254,16 +2277,18 @@ export class GameService {
 
   // ── Game archive ──
 
-  /** A finished game of mine, whole: decks and every action, to replay. */
+  /** A finished game of mine, whole: decks and every action, to replay. An admin opens anyone's. */
   async gameRecord(token: string, kind: string, id: string): Promise<GameRecord> {
     const u = await this.auth(token);
+    const admin = u.role === 'admin';
     if (kind === 'm') {
       const m = await this.store.getMatch(id);
-      if (!m || m.userId !== u.id) throw new ApiError(404, 'Партію не знайдено.');
+      if (!m || (m.userId !== u.id && !admin)) throw new ApiError(404, 'Партію не знайдено.');
       if (m.status !== 'finished' || !m.result) throw new ApiError(409, 'Партія ще триває.');
       const r = JSON.parse(m.result) as { outcome: 'win' | 'loss' | 'draw'; reason: string; moves: number };
       const bot = m.color === 'w' ? 'b' : 'w';
-      const me = { name: u.name, avatar: u.avatar };
+      const player = m.userId === u.id ? u : await this.store.getUser(m.userId);
+      const me = { name: player?.name ?? 'Гравець', avatar: player?.avatar ?? null };
       const them = { name: `Бот · ${botLevel(m.botLevel).name}`, avatar: null };
       return {
         kind: 'm',
@@ -2277,7 +2302,9 @@ export class GameService {
       };
     }
     if (kind === 'p') {
-      const { row, color } = await this.pvpFor(u.id, id);
+      const any = admin ? await this.store.getPvp(id) : null;
+      // An admin who did not play it sees it from White's side.
+      const { row, color } = any && any.whiteId !== u.id && any.blackId !== u.id ? { row: any, color: 'w' as Color } : await this.pvpFor(u.id, id);
       if (row.status !== 'finished' || !row.result) throw new ApiError(409, 'Партія ще триває.');
       const r = JSON.parse(row.result) as GameRecord['result'];
       const who = async (userId: string) => {

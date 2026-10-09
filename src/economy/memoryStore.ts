@@ -84,6 +84,7 @@ export function withUserDefaults(u: UserRow): UserRow {
     referredBy: u.referredBy ?? '',
     refStage: u.refStage ?? 0,
     refGames: u.refGames ?? 0,
+    patchSeen: u.patchSeen ?? '',
   };
 }
 
