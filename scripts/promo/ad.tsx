@@ -293,15 +293,20 @@ async function main() {
       (window as unknown as { __length: number }).__length = ad.reduce((t, s) => t + shotMs(s), 0);
       document.body.dataset.ready = '1';
     }, []);
+    // Every cut is timed from the start, not from the cut before: chained timers each round up to a
+    // frame and the edit would drift off the beat of its music.
     useEffect(() => {
-      if (n < 0) return;
-      if (n >= ad.length) {
-        document.body.dataset.done = '1';
-        return;
-      }
-      const t = setTimeout(() => setN(n + 1), shotMs(ad[n]));
-      return () => clearTimeout(t);
-    }, [n, run]);
+      if (run === 0) return;
+      let at = 0;
+      const timers = ad.map((s, k) => {
+        at += shotMs(s);
+        return setTimeout(() => setN(k + 1), at);
+      });
+      return () => timers.forEach(clearTimeout);
+    }, [run]);
+    useEffect(() => {
+      if (n >= ad.length) document.body.dataset.done = '1';
+    }, [n]);
     const i = Math.min(Math.max(n, 0), ad.length - 1);
     const s = ad[i];
     // Cuts alternate: a zoom through the frame, then a whip pan one way or the other.

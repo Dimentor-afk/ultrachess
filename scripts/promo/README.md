@@ -25,6 +25,11 @@ pack opening, directed shot by shot. Nothing here ships with the game.
   every hit (`bumps`), hero inserts (`kind: 'hero'`). Cut to the author's own track (not in the
   repo): `ffmpeg -i out/onlypiece.mp4 -i <track> -map 0:v -map 1:a -t 15.6 -af afade=t=out:st=15:d=0.6 -c:v libx264 -crf 21 -c:a aac out.mp4`.
   Board shots also take `red` (per step), `gold` and `cam` (`push`, `tilt-l`, `tilt-r`, `punch`, `spin`).
+- `portaledit`: a phonk edit of the Portal Bishop ("The board has edges. He doesn't."), cut to the grid of
+  our own phonk: `python3 scripts/promo/phonk.py phonk.wav --bpm 130 --intro 3 --drop 5` (synthesised:
+  cowbell riff, 808, claps, hats; prints the drop time and the beat). The game's effect sounds go on
+  top: `sound.py out/portaledit.marks.json 15.6 sfx.wav --native --no-music`, mixed with ffmpeg `amix`.
+  Cuts are timed from the start of the ad, so an edit never drifts off its music.
 - `patchmate`: the clip in the patch notes (`public/assets/patch/mate-<lang>.mp4/.webm`, poster
   `mate.webp`): rendered in every language with `AD_LANG=uk|en|de|it|es` and the site's fonts
   (`FONTS_CSS`: the Google Fonts CSS with the font files inlined), then cropped to the board:

@@ -672,6 +672,36 @@ const ONLY_PIECE: Shot[] = [
   { kind: 'end', text: 'Every piece has a superpower', ms: 2020, bumps: [330, 1000] },
 ];
 
+// Portal edit on our own phonk (scripts/promo/phonk.py: 130 BPM, beat 461.5 ms, intro 3 bars, drop at
+// 5538 ms, 5 bars, ends 15.57 s). The queen hides in a ring of guards; on the drop the Portal Bishop
+// walks off the edge, comes out on the other side and takes her.
+const PB_W = {
+  g1: 'w:king-classic', f2: 'w:pawn-classic', g2: 'w:pawn-classic', h2: 'w:pawn-classic', a2: 'w:pawn-spearman', b2: 'w:pawn-spearman', c2: 'w:pawn-classic', d2: 'w:pawn-classic', e4: 'w:pawn-classic',
+  a1: 'w:rook-kamikaze', e1: 'w:rook-fortress', b1: 'w:knight-galloper', c1: 'w:bishop-ricochet', d1: 'w:queen-classic',
+};
+const PB_B = {
+  g8: 'b:king-classic', f7: 'b:pawn-classic', g7: 'b:pawn-classic', h7: 'b:pawn-classic', a7: 'b:pawn-classic', b7: 'b:pawn-phantom', c7: 'b:pawn-classic', d6: 'b:pawn-classic',
+  a8: 'b:rook-classic', d8: 'b:rook-castle', c6: 'b:knight-mirage', e7: 'b:bishop-chain',
+};
+const PB_RING = ['c8', 'e8', 'c7', 'e7', 'c6', 'd6', 'e6', 'd8'];
+const PB_HIDING = { ...PB_W, ...PB_B, f1: 'w:bishop-portal', f5: 'b:queen-classic' };
+const PB_HIDDEN = { ...PB_W, ...PB_B, f1: 'w:bishop-portal', d7: 'b:queen-classic' };
+const PB_TAKEN = { ...PB_W, ...PB_B, d7: 'w:bishop-portal' };
+const PB_LINE = 'The board has edges. *He* doesn’t.';
+const PORTAL_EDIT: Shot[] = [
+  // Intro (muffled cowbell): the queen runs into her ring of guards.
+  { kind: 'board', crowd: false, pos: PB_HIDING, turn: 'b', steps: ['f5d7'], caption: PB_LINE, red: [[], PB_RING], focus: 'd5', zoom: 1.12, lead: 1385, gap: 1384, tail: 0 },
+  { kind: 'board', crowd: false, pos: PB_HIDDEN, steps: [], caption: PB_LINE, red: [PB_RING], gold: ['f1'], cam: 'tilt-l', focus: 'e4', zoom: 1.1, lead: 2769, tail: 0, bumps: [1846, 2308] },
+  // The drop: off the edge at a6, out at h3, and the queen is gone.
+  { kind: 'board', crowd: false, pos: PB_HIDDEN, steps: ['f1d7~'], red: [PB_RING], cam: 'punch', focus: 'd4', zoom: 1.04, lead: 390, gap: 1918, tail: 0, bumps: [923, 1846] },
+  { kind: 'board', crowd: false, pos: PB_TAKEN, turn: 'b', steps: [], gold: ['d7'], cam: 'tilt-r', focus: 'd7', zoom: 1.45, lead: 923, tail: 0, bumps: [461] },
+  { kind: 'hero', id: 'bishop-portal', text: 'Portal', sub: 'Legendary bishop', ms: 923, bumps: [461] },
+  { kind: 'card', id: 'bishop-portal', ms: 923, bumps: [461] },
+  { kind: 'board', crowd: false, pos: PB_HIDDEN, steps: ['f1d7~'], red: [PB_RING], cam: 'spin', focus: 'd4', zoom: 1.12, lead: 0, gap: 1846, tail: 0, bumps: [461, 923, 1384] },
+  { kind: 'hero', id: 'bishop-portal', text: 'No walls', sub: 'Through the edge', ms: 923, bumps: [230, 461, 692] },
+  { kind: 'end', text: 'Every piece has a superpower', ms: 2186, bumps: [461, 923, 1385] },
+];
+
 /** A line that stays over the whole video (it does not pop again on each cut). */
 export const PINNED: Record<string, string> = {
   nobody: 'Розробив класну гру як проєкт\nі поділився з усіма знайомими',
@@ -690,6 +720,7 @@ export const ADS: Record<string, Shot[]> = {
   game: GAME,
   patchmate: PATCH_MATE,
   onlypiece: ONLY_PIECE,
+  portaledit: PORTAL_EDIT,
   memes: MEMES,
   cardofday: CARD_OF_DAY,
   ...SERIES,
