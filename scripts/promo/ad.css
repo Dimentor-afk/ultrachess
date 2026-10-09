@@ -153,3 +153,53 @@ html, body, #root { margin: 0; height: 100%; background: #05070f; overflow: hidd
 .native .ad-card-shot { justify-content: flex-start; padding-top: 178px; }
 .native .ad-card-slam { width: 210px; }
 .native .ad-card-name { display: none; }
+
+/* ── Edits (onlypiece): hits on the beat, a tilted turning board, danger squares, hero inserts ── */
+/* The whole frame kicks on a hit in the music, with a white flash. */
+.ad-kicker { position: absolute; inset: 0; }
+@keyframes ad-kick { from { scale: 1.06; filter: brightness(1.18) blur(0.8px); } to { scale: 1; filter: none; } }
+.ad-bump { position: absolute; inset: 0; z-index: 55; pointer-events: none; opacity: 0; background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.26), rgba(255, 255, 255, 0) 65%); animation: ad-bump 0.2s ease-out both; }
+@keyframes ad-bump { from { opacity: 1; } to { opacity: 0; } }
+/* Danger squares: red, pulsing on the beat; the hero's square gold. */
+.ad .cell.preview::after { background: rgba(255, 36, 72, 0.62); animation: ad-danger 0.673s ease-in-out infinite; }
+@keyframes ad-danger { 50% { background: rgba(255, 36, 72, 0.3); } }
+.ad .cell.hint::after { background: rgba(255, 196, 64, 0.55); box-shadow: inset 0 0 0 0.6cqw #ffd76a; }
+/* Camera moves (the shot's length is the animation's). */
+.ad-camera { position: relative; }
+.ad-camera.cam-tilt-l { animation-name: ad-tilt-l; }
+.ad-camera.cam-tilt-r { animation-name: ad-tilt-r; }
+.ad-camera.cam-punch { animation-name: ad-punch; animation-timing-function: linear; }
+.ad-camera.cam-spin { animation-name: ad-spin-cam; }
+@keyframes ad-tilt-l {
+  from { transform: perspective(1200px) rotateX(36deg) rotateZ(-16deg) scale(calc(var(--z) * 1.18)); }
+  to { transform: perspective(1200px) rotateX(28deg) rotateZ(-4deg) scale(var(--z)); }
+}
+@keyframes ad-tilt-r {
+  from { transform: perspective(1200px) rotateX(34deg) rotateZ(14deg) scale(calc(var(--z) * 1.22)); }
+  to { transform: perspective(1200px) rotateX(26deg) rotateZ(3deg) scale(var(--z)); }
+}
+@keyframes ad-punch {
+  0% { transform: scale(calc(var(--z) * 1.6)) rotate(-6deg); filter: blur(8px) brightness(1.7); }
+  12% { transform: scale(calc(var(--z) * 1.04)) rotate(-1deg); filter: none; }
+  100% { transform: scale(calc(var(--z) * 1.12)) rotate(2deg); }
+}
+@keyframes ad-spin-cam {
+  from { transform: rotate(9deg) scale(calc(var(--z) * 1.3)); filter: blur(3px); }
+  15% { filter: none; }
+  to { transform: rotate(-5deg) scale(var(--z)); }
+}
+/* Hero insert: the piece huge on a dark glow of its rarity, closing in, the name stamped over it. */
+.ad-hero { --r: var(--r-legendary); position: absolute; inset: 0; display: grid; place-items: center; overflow: hidden; background: radial-gradient(70% 45% at 50% 46%, color-mix(in srgb, var(--r) 55%, #12070a), #030308 74%); }
+.ad-hero.r-mythological { --r: var(--r-mythological); }
+.ad-hero.r-epic { --r: var(--r-epic); }
+.ad-hero.r-rare { --r: var(--r-rare); }
+.ad-hero-art { position: relative; width: 74%; aspect-ratio: 1; object-fit: contain; image-rendering: pixelated; filter: drop-shadow(0 0 18px color-mix(in srgb, var(--r) 80%, transparent)) drop-shadow(0 14px 0 rgba(0, 0, 0, 0.6)) brightness(1.05); animation: ad-hero-in var(--d) cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+@keyframes ad-hero-in {
+  0% { transform: scale(1.45) rotate(-8deg); filter: blur(10px) brightness(2); }
+  10% { transform: scale(1.02) rotate(-2deg); filter: drop-shadow(0 0 18px color-mix(in srgb, var(--r) 80%, transparent)) drop-shadow(0 14px 0 rgba(0, 0, 0, 0.6)); }
+  100% { transform: scale(1.16) rotate(2deg); filter: drop-shadow(0 0 26px color-mix(in srgb, var(--r) 90%, transparent)) drop-shadow(0 14px 0 rgba(0, 0, 0, 0.6)); }
+}
+.ad-hero-text { position: absolute; left: 0; right: 0; bottom: 15%; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+.ad-hero-text b { font-family: var(--font-display); font-weight: 400; font-size: 64px; line-height: 1; letter-spacing: 0.06em; text-transform: uppercase; color: #fff; text-shadow: -3px 0 0 rgba(255, 40, 80, 0.85), 3px 0 0 rgba(60, 220, 255, 0.75), 0 6px 0 rgba(0, 0, 0, 0.6); animation: ad-stamp 0.35s cubic-bezier(0.2, 1.5, 0.4, 1) 0.08s both; }
+.ad-hero-text span { font-weight: 800; font-size: 18px; letter-spacing: 0.22em; text-transform: uppercase; color: color-mix(in srgb, var(--r) 60%, #fff); animation: ad-cap-in 0.35s ease-out 0.25s both; }
+@keyframes ad-stamp { from { opacity: 0; transform: scale(2.4); letter-spacing: 0.4em; } }

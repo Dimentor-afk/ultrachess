@@ -95,6 +95,7 @@ export function playScene(spec: SceneSpec): MatchState[] {
 }
 
 export const view = (m: MatchState) => playerView(m, 'w');
+export { parseSquare };
 
 export function squareXY(name: string): { x: number; y: number } {
   return squareCenter(parseSquare(name), 'w');

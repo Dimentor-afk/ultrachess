@@ -20,6 +20,11 @@ pack opening, directed shot by shot. Nothing here ships with the game.
 
 - Ads: `promo`, `tierlist`, `puzzle`, `versus`, `plot`, `packs`, `chaos`.
 - Meme videos in English with sound effects only (`--native --boom --no-music`), on positions of their own full of card pieces: `illegal` (a chess friend reacts to every move) and `fine` ("gg, close one" over what really happened, seen from Black).
+- `onlypiece`: a TikTok edit ("He's the only piece that can take two in one move"): danger squares
+  in red, a tilted turning board, the Berserk's double capture on the drop, then a cut and a kick on
+  every hit (`bumps`), hero inserts (`kind: 'hero'`). Cut to the author's own track (not in the
+  repo): `ffmpeg -i out/onlypiece.mp4 -i <track> -map 0:v -map 1:a -t 15.6 -af afade=t=out:st=15:d=0.6 -c:v libx264 -crf 21 -c:a aac out.mp4`.
+  Board shots also take `red` (per step), `gold` and `cam` (`push`, `tilt-l`, `tilt-r`, `punch`, `spin`).
 - `patchmate`: the clip in the patch notes (`public/assets/patch/mate-<lang>.mp4/.webm`, poster
   `mate.webp`): rendered in every language with `AD_LANG=uk|en|de|it|es` and the site's fonts
   (`FONTS_CSS`: the Google Fonts CSS with the font files inlined), then cropped to the board:

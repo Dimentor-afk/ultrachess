@@ -29,7 +29,7 @@ async function main() {
   const lang = q.get('lang');
   await loadLang(lang === 'uk' || lang === 'de' || lang === 'it' || lang === 'es' ? lang : 'en');
   localizeData();
-  const [{ Board }, { PackOpening }, { CardView }, engine, { CARD_BY_ID, RARITY_NAMES }, { cardArt }] = await Promise.all([
+  const [{ Board }, { PackOpening }, { CardView }, engine, { CARD_BY_ID, RARITY_NAMES }, { cardArt, pieceSprite }] = await Promise.all([
     import('../../src/ui/Board'),
     import('../../src/ui/PackOpening'),
     import('../../src/ui/common'),
@@ -80,7 +80,7 @@ async function main() {
         {!!s.count && count === 0 && <i className="ad-reveal" />}
         {!s.count && s.music === 'tense' && i === states.length - 1 && i > 0 && <i className="ad-reveal" />}
         <div
-          className="ad-camera"
+          className={`ad-camera cam-${s.cam ?? 'push'}`}
           style={{ '--fx': `${focus.x}%`, '--fy': `${focus.y}%`, '--z': s.zoom ?? 1.25, animationDuration: `${shotMs(s)}ms` } as CSSProperties}
         >
           <Board
@@ -89,8 +89,9 @@ async function main() {
             selected={null}
             marks={new Map()}
             lastMove={new Set()}
-            hint={new Set()}
-            preview={new Set()}
+            // Edits: the squares in danger glow red (drawn as the board's line preview), the hero's gold.
+            hint={new Set((s.gold ?? []).map(engine.parseSquare))}
+            preview={new Set((s.red?.[Math.min(i, s.red.length - 1)] ?? []).map(engine.parseSquare))}
             checkSquare={engine.checkSquare(states[i])}
             onSquare={() => {}}
             celebrate={!!s.win && i === states.length - 1}
@@ -209,6 +210,21 @@ async function main() {
     );
   }
 
+  /** Edit insert: the piece huge on a dark glow, slowly closing in, its name stamped over it. */
+  function HeroShot({ s }: { s: Extract<Shot, { kind: 'hero' }> }) {
+    const card = CARD_BY_ID[s.id];
+    return (
+      <div className={`ad-hero r-${card.rarity}`} style={{ '--d': `${s.ms}ms` } as CSSProperties}>
+        <div className="ad-rays" />
+        <img className="ad-hero-art pixel" src={pieceSprite(card.id, card.pieceType, 'w').src} alt="" />
+        <div className="ad-hero-text">
+          <b>{s.text}</b>
+          {s.sub && <span>{s.sub}</span>}
+        </div>
+      </div>
+    );
+  }
+
   function Hook({ s }: { s: Extract<Shot, { kind: 'hook' }> }) {
     return (
       <div className="ad-hook">
@@ -301,6 +317,12 @@ async function main() {
           style={{ '--d': `${shotMs(s)}ms` } as CSSProperties}
         >
           <div className="ad-frame">
+          <div
+            className="ad-kicker"
+            // Hits in the music: the whole frame kicks on each (one animation per hit).
+            style={s.bumps?.length ? { animation: s.bumps.map((b) => `ad-kick 0.32s cubic-bezier(0.2, 0.8, 0.3, 1) ${b}ms`).join(', ') } : undefined}
+          >
+            {s.kind === 'hero' && <HeroShot s={s} />}
             {s.kind === 'hook' && <Hook s={s} />}
             {s.kind === 'board' && <BoardShot s={s} />}
             {s.kind === 'pack' && <PackShot s={s} />}
@@ -314,7 +336,9 @@ async function main() {
               </div>
             )}
           </div>
+          </div>
           {n > 0 && !native && <div className="ad-flash" />}
+          {s.bumps?.map((b) => <i key={b} className="ad-bump" style={{ animationDelay: `${b}ms` }} />)}
           {native && <span className="ad-mark">ultrachess.app</span>}
         </div>
         {pin && s.kind !== 'text' && (

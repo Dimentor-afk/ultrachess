@@ -31,6 +31,12 @@ export type Shot = (
       flip?: boolean;
       /** Seen from Black's side. */
       flip?: boolean;
+      /** Danger squares lit red, pulsing: one list per state (after 0, 1, … steps; the last one holds). */
+      red?: string[][];
+      /** Squares lit gold (the hero of the shot). */
+      gold?: string[];
+      /** Camera move: a slow push (default), a tilted 3D board turning one way or the other, or a punch in. */
+      cam?: 'push' | 'tilt-l' | 'tilt-r' | 'punch' | 'spin';
       /** Fireworks at the end (a won game). */
       win?: boolean;
       /** A 3-2-1 countdown before the first step (the lead is count × countMs). */
@@ -46,7 +52,13 @@ export type Shot = (
   | { kind: 'text'; text: string; ms: number }
   /** A tier list filling up: `rows` already placed, `add` drops into its row now. */
   | { kind: 'tier'; rows: Partial<Record<Tier, string[]>>; add?: { tier: Tier; id: string }; caption?: string; ms: number }
-) & { music?: Music };
+  /** An edit insert: one piece huge on a dark glow, its name stamped over it. */
+  | { kind: 'hero'; id: string; text: string; sub?: string; ms: number }
+) & {
+  music?: Music;
+  /** Hits in the music (ms from the shot's start): the frame kicks and flashes on each. */
+  bumps?: number[];
+};
 
 type Board = Extract<Shot, { kind: 'board' }>;
 
@@ -627,6 +639,39 @@ const PATCH_MATE: Shot[] = [
   },
 ];
 
+// "He's the only piece that can handle this situation" (a TikTok edit, on its own track): everything
+// is on fire, the music holds back; on the drop the Berserk takes the queen AND the rook in one move
+// and every red square goes out, then a cut on every hit. Times are the track's hits (ms): drop 6410, then
+// 7010, 7520, 7850, 8200, 8520, 9200, 9710, 9870, 10220, 10540, 10890, 11220, 11560, 11890,
+// 12400, 12560, 12910, 13070, 13240, 13580, 13910, 14580; the track ends at about 15.3 s.
+const OP_W = {
+  g1: 'w:king-classic', f2: 'w:pawn-classic', g2: 'w:pawn-classic', h2: 'w:pawn-classic', a2: 'w:pawn-spearman', b2: 'w:pawn-spearman', c2: 'w:pawn-classic',
+  a1: 'w:rook-kamikaze', f1: 'w:rook-fortress', c1: 'w:bishop-ricochet',
+};
+const OP_B = { g8: 'b:king-classic', f7: 'b:pawn-classic', g7: 'b:pawn-classic', h7: 'b:pawn-classic', a7: 'b:pawn-classic', b6: 'b:pawn-phantom', a8: 'b:rook-classic' };
+/** The situation: a mate on g2 (queen and bishop on one diagonal) and a rook on the f-file. */
+const OP_BEFORE = { ...OP_W, ...OP_B, c3: 'w:knight-berserk', c8: 'b:bishop-sniper', d5: 'b:queen-classic', f6: 'b:rook-battering' };
+const OP_SITUATION = { ...OP_BEFORE, c8: undefined, b7: 'b:bishop-sniper' } as unknown as Record<string, string>;
+delete OP_SITUATION.c8;
+/** After the move: queen and rook gone, nothing left in danger. */
+const OP_AFTER = { ...OP_W, ...OP_B, b7: 'b:bishop-sniper', f6: 'w:knight-berserk' };
+const FILE_F = ['f5', 'f4', 'f3', 'f2'];
+const DIAG = ['c6', 'e4', 'f3', 'g2', 'h1'];
+const OP_LINE = 'He’s the only piece that can take *two* in one move';
+const ONLY_PIECE: Shot[] = [
+  // Intro (the music holds back): the rook on the file, then the bishop lines up behind the queen.
+  { kind: 'board', crowd: false, pos: OP_BEFORE, turn: 'b', steps: ['c8b7'], caption: OP_LINE, red: [FILE_F, [...FILE_F, ...DIAG]], focus: 'e5', zoom: 1.12, lead: 1690, gap: 1350, tail: 0 },
+  { kind: 'board', crowd: false, pos: OP_SITUATION, steps: [], caption: OP_LINE, red: [[...FILE_F, ...DIAG]], gold: ['c3'], cam: 'tilt-l', focus: 'e4', zoom: 1.15, lead: 3370, tail: 0, bumps: [470] },
+  // The drop: queen, then rook, and the danger is gone.
+  { kind: 'board', crowd: false, pos: OP_SITUATION, steps: ['c3f6~'], red: [[...FILE_F, ...DIAG]], cam: 'punch', focus: 'e4', zoom: 1.45, lead: 210, gap: 1580, tail: 0, bumps: [600, 1110, 1440] },
+  { kind: 'board', crowd: false, pos: OP_AFTER, turn: 'b', steps: [], gold: ['f6'], cam: 'tilt-r', focus: 'f6', zoom: 1.45, lead: 1000, tail: 0, bumps: [320] },
+  { kind: 'hero', id: 'knight-berserk', text: 'Berserker', sub: 'Legendary knight', ms: 1020, bumps: [510, 670] },
+  { kind: 'card', id: 'knight-berserk', ms: 1000, bumps: [320, 670] },
+  { kind: 'board', crowd: false, pos: OP_SITUATION, steps: ['c3f6~'], red: [[...FILE_F, ...DIAG]], cam: 'spin', focus: 'e4', zoom: 1.5, lead: 100, gap: 1080, tail: 0, bumps: [340, 670] },
+  { kind: 'hero', id: 'knight-berserk', text: '2 kills', sub: '1 move', ms: 1180, bumps: [160, 510, 670, 840] },
+  { kind: 'end', text: 'Every piece has a superpower', ms: 2020, bumps: [330, 1000] },
+];
+
 /** A line that stays over the whole video (it does not pop again on each cut). */
 export const PINNED: Record<string, string> = {
   nobody: 'Розробив класну гру як проєкт\nі поділився з усіма знайомими',
@@ -644,6 +689,7 @@ export const ADS: Record<string, Shot[]> = {
   fine: FINE,
   game: GAME,
   patchmate: PATCH_MATE,
+  onlypiece: ONLY_PIECE,
   memes: MEMES,
   cardofday: CARD_OF_DAY,
   ...SERIES,
