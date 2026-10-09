@@ -25,7 +25,9 @@ function gold(text: string) {
 }
 
 async function main() {
-  await loadLang('en');
+  // Ads are in English; ?lang= renders another language (the patch notes clip comes in all five).
+  const lang = q.get('lang');
+  await loadLang(lang === 'uk' || lang === 'de' || lang === 'it' || lang === 'es' ? lang : 'en');
   localizeData();
   const [{ Board }, { PackOpening }, { CardView }, engine, { CARD_BY_ID, RARITY_NAMES }, { cardArt }] = await Promise.all([
     import('../../src/ui/Board'),

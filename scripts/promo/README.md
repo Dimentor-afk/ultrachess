@@ -20,6 +20,11 @@ pack opening, directed shot by shot. Nothing here ships with the game.
 
 - Ads: `promo`, `tierlist`, `puzzle`, `versus`, `plot`, `packs`, `chaos`.
 - Meme videos in English with sound effects only (`--native --boom --no-music`), on positions of their own full of card pieces: `illegal` (a chess friend reacts to every move) and `fine` ("gg, close one" over what really happened, seen from Black).
+- `patchmate`: the clip in the patch notes (`public/assets/patch/mate-<lang>.mp4/.webm`, poster
+  `mate.webp`): rendered in every language with `AD_LANG=uk|en|de|it|es` and the site's fonts
+  (`FONTS_CSS`: the Google Fonts CSS with the font files inlined), then cropped to the board:
+  `ffmpeg -i out/patchmate-uk.mp4 -vf "crop=1040:1040:20:504,scale=480:480,fade=t=in:st=0:d=0.25,fade=t=out:st=4.7:d=0.3" -an -c:v libx264 -crf 27 -movflags +faststart mate-uk.mp4`
+  (and `-c:v libvpx-vp9 -b:v 0 -crf 38` for the .webm).
 - `game`: one position, one 12-move game with a card trick on every move and a line with a chess-style grade for each, ending on a real mate (per-step times in `gaps`).
 - Native (look like ordinary TikToks: white-box captions, plain cuts, still camera, watermark
   ultrachess.app; listed in `NATIVE`): `satisfying`, `memes`, and the "Card of the day" series

@@ -611,6 +611,22 @@ const GAME: Shot[] = [
   { kind: 'text', text: 'rate this game\n1–10 👇', ms: 2000 },
 ];
 
+// The clip in the patch notes (public/assets/patch/mate.mp4): a queen that jumps like a knight
+// smothers the king, in the game's own mate animation. Board only, cropped after rendering.
+const PATCH_MATE: Shot[] = [
+  {
+    kind: 'board',
+    crowd: WILD,
+    pos: { ...KG, f8: 'b:rook-castle', h8: 'b:rook-fortress', f7: 'b:pawn-classic', g7: 'b:pawn-classic', h7: 'b:pawn-classic', c6: 'w:queen-amazon', d4: 'w:knight-mirage', b5: 'b:knight-galloper', a6: 'b:bishop-portal' },
+    clear: ['h6'],
+    steps: ['c6e7'],
+    zoom: 1,
+    lead: 700,
+    gap: 4300,
+    tail: 0,
+  },
+];
+
 /** A line that stays over the whole video (it does not pop again on each cut). */
 export const PINNED: Record<string, string> = {
   nobody: 'Розробив класну гру як проєкт\nі поділився з усіма знайомими',
@@ -619,7 +635,7 @@ export const PINNED: Record<string, string> = {
   game: 'rating every move\nof my last game',
 };
 
-export const NATIVE = new Set(['satisfying', 'memes', 'cardofday', 'nobody', 'illegal', 'fine', 'game', ...Object.keys(SERIES)]);
+export const NATIVE = new Set(['satisfying', 'memes', 'cardofday', 'nobody', 'illegal', 'fine', 'game', 'patchmate', ...Object.keys(SERIES)]);
 
 export const ADS: Record<string, Shot[]> = {
   satisfying: SATISFYING,
@@ -627,6 +643,7 @@ export const ADS: Record<string, Shot[]> = {
   illegal: ILLEGAL,
   fine: FINE,
   game: GAME,
+  patchmate: PATCH_MATE,
   memes: MEMES,
   cardofday: CARD_OF_DAY,
   ...SERIES,

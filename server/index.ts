@@ -401,6 +401,8 @@ const MIME: Record<string, string> = {
   '.png': 'image/png',
   '.svg': 'image/svg+xml',
   '.webp': 'image/webp',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
   '.json': 'application/json',
   '.webmanifest': 'application/manifest+json',
   '.ico': 'image/x-icon',
@@ -433,13 +435,27 @@ function serveStatic(req: IncomingMessage, res: ServerResponse): void {
   const cache = /[\\/]assets[\\/][\w.]+-[\w-]{8}\.(js|css)$/.test(file);
   const ext = extname(file);
   const gzip = COMPRESSIBLE.has(ext) && /\bgzip\b/.test(String(req.headers['accept-encoding'] ?? ''));
-  res.writeHead(200, {
+  const headers = {
     ...SECURITY_HEADERS,
     'Content-Type': MIME[ext] ?? 'application/octet-stream',
     'Cache-Control': cache ? 'public, max-age=31536000, immutable' : 'no-cache',
     Vary: 'Accept-Encoding',
-    ...(gzip ? { 'Content-Encoding': 'gzip' } : {}),
-  });
+    ...(gzip ? { 'Content-Encoding': 'gzip' } : { 'Accept-Ranges': 'bytes' }),
+  };
+  // A part of the file ("Range: bytes=a-b"): Safari plays a video only if the server gives it in parts.
+  const size = statSync(file).size;
+  const range = gzip ? null : /^bytes=(\d*)-(\d*)$/.exec(String(req.headers.range ?? ''));
+  if (range && (range[1] || range[2])) {
+    const start = range[1] ? Number(range[1]) : Math.max(0, size - Number(range[2]));
+    const end = range[1] && range[2] ? Math.min(Number(range[2]), size - 1) : size - 1;
+    if (start > end || start >= size) return void res.writeHead(416, { ...headers, 'Content-Range': `bytes */${size}` }).end();
+    res.writeHead(206, { ...headers, 'Content-Range': `bytes ${start}-${end}/${size}`, 'Content-Length': String(end - start + 1) });
+    if (req.method === 'HEAD') return void res.end();
+    const part = createReadStream(file, { start, end });
+    part.on('error', () => res.destroy());
+    return void part.pipe(res);
+  }
+  res.writeHead(200, { ...headers, ...(gzip ? {} : { 'Content-Length': String(size) }) });
   if (req.method === 'HEAD') return void res.end();
   const stream = createReadStream(file);
   // A file removed mid-read (a deploy) must not crash the server.

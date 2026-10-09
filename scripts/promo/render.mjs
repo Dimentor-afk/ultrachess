@@ -13,6 +13,9 @@ import { chromium } from 'playwright';
 
 const [name, fpsArg] = process.argv.slice(2);
 const FPS = Number(fpsArg ?? 30);
+// AD_LANG=uk|de|it|es renders the ad in that language into out/<name>-<lang>.mp4 (English by default).
+const LANG = process.env.AD_LANG;
+const base = LANG ? `${name}-${LANG}` : name;
 const site = process.env.PROMO_URL ?? 'http://localhost:5173';
 const out = new URL('./out/', import.meta.url).pathname;
 fs.mkdirSync(out, { recursive: true });
@@ -85,7 +88,7 @@ await page.addInitScript(() => {
   // React renders through MessageChannel, which the fake clock does not hold: let it flush.
   w.__flush = () => new Promise((r) => { const c = new MessageChannel(); c.port1.onmessage = () => r(); c.port2.postMessage(0); });
 });
-await page.goto(`${site}/scripts/promo/ad.html?ad=${name}&zoom=2.5`);
+await page.goto(`${site}/scripts/promo/ad.html?ad=${name}&zoom=2.5${LANG ? `&lang=${LANG}` : ''}`);
 await page.waitForSelector('body[data-ready="1"]', { timeout: 60_000 });
 const total = await page.evaluate(() => window.__length);
 
@@ -99,7 +102,7 @@ await page.waitForTimeout(1500);
 
 // Record.
 const frames = Math.ceil((total / 1000) * FPS);
-const enc = spawn(ffmpeg, ['-loglevel', 'error', '-y', '-f', 'image2pipe', '-framerate', String(FPS), '-i', '-', '-c:v', 'libx264', '-preset', 'slow', '-crf', '17', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', `${out}${name}.mp4`]);
+const enc = spawn(ffmpeg, ['-loglevel', 'error', '-y', '-f', 'image2pipe', '-framerate', String(FPS), '-i', '-', '-c:v', 'libx264', '-preset', 'slow', '-crf', '17', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', `${out}${base}.mp4`]);
 await page.evaluate(() => { window.__T = 0; window.__born = new WeakMap(); window.__anims = new Set(); window.__marks = []; window.__start(); });
 let clock = 0;
 for (let f = 0; f < frames; f++) {
@@ -112,7 +115,7 @@ for (let f = 0; f < frames; f++) {
   if (f % 150 === 0) console.log(`${name}: ${f}/${frames}`);
 }
 enc.stdin.end();
-fs.writeFileSync(`${out}${name}.marks.json`, JSON.stringify(await page.evaluate(() => window.__marks)));
+fs.writeFileSync(`${out}${base}.marks.json`, JSON.stringify(await page.evaluate(() => window.__marks)));
 await new Promise((r) => enc.on('close', r));
 await browser.close();
-console.log(`${out}${name}.mp4 (${(total / 1000).toFixed(1)} s)`);
+console.log(`${out}${base}.mp4 (${(total / 1000).toFixed(1)} s)`);

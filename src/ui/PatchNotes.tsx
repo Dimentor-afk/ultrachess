@@ -3,7 +3,7 @@ import { Emblem } from './art';
 import { pieceSprite } from './cardArt';
 import { getSettings } from './settings';
 import { errorText, useSession } from './state';
-import { t } from '../i18n';
+import { getLang, t } from '../i18n';
 
 /** One page of the notes: a picture, a heading, a few plain lines. */
 interface Page {
@@ -14,13 +14,17 @@ interface Page {
 
 function pages(): Page[] {
   const style = getSettings().blackStyle;
+  // With animations off the clip waits for a tap instead of playing by itself.
+  const animate = getSettings().animations;
   return [
     {
+      // The real thing, recorded from the game (scripts/promo, ad "patchmate"), in the player's language.
       art: (
-        <div className="patch-art patch-mate">
-          <img className="patch-king pixel" src={pieceSprite('king-classic', 'king', 'b', style).src} alt="" />
-          <span className="patch-stamp">{t('Мат')}</span>
-        </div>
+        <video className="patch-clip" poster="assets/patch/mate.webp" autoPlay={animate} controls={!animate} muted loop playsInline aria-label={t('Анімація мату')}>
+          {/* H.264 for most browsers; VP9 where H.264 is missing (Chromium, some Linux Firefox). */}
+          <source src={`assets/patch/mate-${getLang()}.mp4`} type="video/mp4" />
+          <source src={`assets/patch/mate-${getLang()}.webm`} type="video/webm" />
+        </video>
       ),
       title: t('Анімація мату'),
       text: t('Матовий хід тепер іде повільно, король падає, а на дошці з’являється напис «Мат». Підсумок партії відкривається вже після цього.'),

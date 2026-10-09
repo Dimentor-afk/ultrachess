@@ -10806,33 +10806,14 @@ html.no-anim .summary-backdrop, html.no-anim .summary-backdrop .summary { animat
   background: radial-gradient(circle at 50% 60%, rgba(255, 255, 255, 0.07), transparent 65%), linear-gradient(180deg, #1a2547, #0c1226);
   border: 1px solid var(--line);
 }
-.patch-king { width: 92px; height: 92px; object-fit: contain; transform-origin: 35% 85%; animation: patch-king 3.2s ease-in-out infinite; }
-@keyframes patch-king {
-  0%, 12% { transform: none; filter: none; }
-  16% { transform: rotate(-6deg); filter: drop-shadow(0 0 10px #ff4d4d); }
-  20% { transform: rotate(6deg); }
-  24% { transform: rotate(-4deg); }
-  30% { transform: none; filter: drop-shadow(0 0 14px #ff4d4d); }
-  44%, 88% { transform: translate(-6%, 10%) rotate(-80deg); filter: grayscale(0.7) brightness(0.75); }
-  100% { transform: none; filter: none; }
-}
-.patch-stamp {
-  position: absolute;
-  font-family: var(--font-display);
-  font-size: 2.6rem;
-  text-transform: uppercase;
-  color: #ff4d4d;
-  -webkit-text-stroke: 2px #1a0508;
-  paint-order: stroke fill;
-  text-shadow: 0 4px 0 rgba(0, 0, 0, 0.5);
-  opacity: 0;
-  animation: patch-stamp 3.2s cubic-bezier(0.2, 1.4, 0.4, 1) infinite;
-}
-@keyframes patch-stamp {
-  0%, 44% { opacity: 0; transform: scale(2.4) rotate(-14deg); }
-  52% { opacity: 1; transform: scale(0.95) rotate(-8deg); }
-  56%, 86% { opacity: 1; transform: scale(1) rotate(-8deg); }
-  96%, 100% { opacity: 0; transform: scale(1) rotate(-8deg); }
+.patch-clip {
+  display: block;
+  width: min(100%, 300px);
+  aspect-ratio: 1;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: #0c1226;
+  object-fit: cover;
 }
 .patch-nerf { display: flex; justify-content: center; align-items: center; gap: 1.6rem; }
 .patch-rook { position: relative; width: 96px; height: 96px; }
@@ -10847,5 +10828,3 @@ html.no-anim .summary-backdrop, html.no-anim .summary-backdrop .summary { animat
 .patch-dots { display: flex; gap: 6px; }
 .patch-dots i { width: 8px; height: 8px; border-radius: 50%; background: rgba(255, 255, 255, 0.25); }
 .patch-dots i.on { background: var(--gold); }
-html.no-anim .patch-king, html.no-anim .patch-stamp { animation: none; }
-html.no-anim .patch-stamp { opacity: 1; transform: rotate(-8deg); }
