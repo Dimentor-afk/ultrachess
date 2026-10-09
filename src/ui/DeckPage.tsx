@@ -207,11 +207,15 @@ function DeckHub({ deck }: { deck: Deck }) {
   // Tapping a card opens its details; "Використати" then arms it for a square.
   const tapCard = (cardId: string) => setDetail(cardId);
   const armCard = (cardId: string) => {
+    const type = CARD_BY_ID[cardId].pieceType;
     setDetail(null);
-    setArmed(cardId);
-    setFilter(CARD_BY_ID[cardId].pieceType);
+    setFilter(type);
     setMessage(null);
-    // Straight to the board: the squares for it light up there.
+    // A queen or a king has one square: it goes straight there, no second tap.
+    const slots = [0, 1, 2, 3, 4, 5, 6, 7].filter((i) => slotType(i) === type);
+    if (slots.length === 1) place(slots[0], cardId);
+    else setArmed(cardId);
+    // Straight to the board: the squares for it light up there (or the card already stands on it).
     setTimeout(() => boardRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 50);
   };
 

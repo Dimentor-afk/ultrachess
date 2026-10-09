@@ -12,13 +12,20 @@ if (embedded) document.documentElement.classList.add('embedded');
 
 // iOS Safari can keep the page as short as it was with the keyboard open, leaving
 // an empty band under the tab bar. A scroll on the spot after the keyboard goes
-// makes it measure the page again.
+// makes it measure the page again. Only then: at any other time that scroll would
+// stop a smooth scroll on its way (the deck's "Використати" scrolling to the board).
+const typing = (el: EventTarget | null) => el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement;
+let keyboardClosedAt = 0;
+const remeasure = () => window.scrollTo(window.scrollX, window.scrollY);
 window.visualViewport?.addEventListener('resize', () => {
-  const el = document.activeElement;
-  if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) return;
-  setTimeout(() => window.scrollTo(window.scrollX, window.scrollY), 60);
+  if (typing(document.activeElement) || Date.now() - keyboardClosedAt > 1500) return;
+  setTimeout(remeasure, 60);
 });
-document.addEventListener('focusout', () => setTimeout(() => window.scrollTo(window.scrollX, window.scrollY), 120));
+document.addEventListener('focusout', (e) => {
+  if (!typing(e.target)) return;
+  keyboardClosedAt = Date.now();
+  setTimeout(remeasure, 120);
+});
 
 // The language loads first: screens translate some texts as their modules load.
 void loadLang()
