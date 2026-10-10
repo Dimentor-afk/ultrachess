@@ -41,8 +41,9 @@ pack opening, directed shot by shot. Nothing here ships with the game.
 - `freerook`: the meme "Black: yeah, FREE ROOK‼️ … oh wait 😢" as a split screen (`kind: 'meme'`). The board on
   top plays its steps at set times (`lands`, one per state) with chess-site grades and their word in a pill
   (`grades`: "Brilliant", "Good"), a gold pill under the piece that did the trick (`tag`: "Fortress Rook"), a
-  piece picked up with its moves dotted (`select`). The Fortress Rook goes under the knight, the knight takes it,
-  the Fortress steps back alive, and the knight has left h7 unguarded: mate. The reaction under the board is the
+  piece picked up with its moves dotted (`select`). Nothing threatens Black: the Fortress Rook checks on d8 and
+  the bishop has to take it (a free rook in ordinary chess), but the Fortress steps back alive to d7, guards g7,
+  and the queen mates there; with a plain rook the same Qxg7 would just lose the queen. The reaction under the board is the
   reference's own clip, cut out with ffmpeg below its caption and clear of its watermark, with our captions
   (`caption.mjs`: a caption as a transparent PNG) and its sound (none of it is in the repo):
   `ffmpeg -i out/freerook.mp4 -i ref.mp4 -i cap-free.png -i cap-wait.png -i ref-audio.wav -filter_complex
@@ -50,9 +51,10 @@ pack opening, directed shot by shot. Nothing here ships with the game.
   [v1][2:v]overlay=0:1205:enable='lt(t,5.567)'[v2];[v2][3:v]overlay=0:1205:enable='gte(t,5.567)'[v]" -map "[v]" -map 4:a …`.
   The panel can also be our own reaction (`panels`: `cheer`, black pieces laughing; `sad`, `sad-close`, the king
   in the rain). `d8d5^` shows a piece's travel into an Ambusher before the blast (the game shows only the blast).
-- `closeup`: a close-up edit on mythic and legendary cards (the Comet king takes a checking rook from four
-  squares away, the Eclipse bars the long diagonal, the Chameleon steps onto the other colour with check, and
-  the rook's mate meets the Barricade), every move on a hit of the reference's sound (87 BPM). Every move plays
+- `closeup`: a close-up edit, one race on mythic and legendary cards: the Comet king flies four squares to take
+  the back rank's guard, Black's Sprinter runs to queen, the rook's mate meets the Barricade (a pawn appears on
+  f8), Black queens, and the rook takes the Barricade's pawn for mate (a Barricade works once). Every move lands
+  on a hit of the reference's sound (87 BPM) and plays
   in a still shot, whole in the frame, and the cuts come only between moves: `cam: 'roll'` (the focus square in
   the middle, turning a little from `roll[0]` to `roll[1]`), `cam: 'still'`, `held` (the badge of the move just
   played, rings pulsing), `article` (blurred pages about the game while nothing moves), `fade` (grey and the

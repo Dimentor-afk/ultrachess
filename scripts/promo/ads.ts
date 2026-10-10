@@ -833,14 +833,15 @@ const CHESSFX2: Shot[] = [
 
 // "Black: yeah, FREE ROOK‼️ … oh wait 😢" (EN), a meme split screen on the reference's sound. The board is ours;
 // the reaction under it is the reference's own clip, cut out and laid in with ffmpeg (see README), so the panel
-// here is left black. The Fortress Rook goes under the knight; the knight takes it, but the Fortress does not die
-// (it steps back to d4), and the knight has left f6: nothing guards h7 any more. Times follow the clip: the cut
-// to "oh wait" at 5.57 s, the end at 12.95 s.
+// here is left black. Nothing threatens Black: the Fortress Rook checks on d8 and the bishop has to take it, a free
+// rook in ordinary chess. But the Fortress does not die: it steps back to d7, and from there it guards g7, so the
+// queen mates there. The card is the whole point: with a plain rook taken, Qxg7 just loses the queen.
+// Times follow the clip: the cut to "oh wait" at 5.57 s, the end at 12.95 s.
 const FR_POS = {
-  g1: 'w:king-classic', b1: 'w:queen-classic', d1: 'w:rook-fortress', g5: 'w:knight-classic',
+  g1: 'w:king-classic', c3: 'w:queen-classic', d1: 'w:rook-fortress',
   a2: 'w:pawn-classic', b2: 'w:pawn-classic', f2: 'w:pawn-classic', g2: 'w:pawn-classic', h2: 'w:pawn-classic',
-  g8: 'b:king-classic', f8: 'b:rook-classic', f6: 'b:knight-classic', b6: 'b:queen-classic',
-  a7: 'b:pawn-classic', b7: 'b:pawn-classic', f7: 'b:pawn-classic', g7: 'b:pawn-classic', h7: 'b:pawn-classic',
+  h8: 'b:king-classic', b6: 'b:bishop-classic', b8: 'b:knight-classic',
+  a7: 'b:pawn-classic', b7: 'b:pawn-classic', g7: 'b:pawn-classic', h7: 'b:pawn-classic',
 };
 const FREE_ROOK: Shot[] = [
   {
@@ -848,53 +849,45 @@ const FREE_ROOK: Shot[] = [
     board: {
       crowd: false,
       pos: FR_POS,
-      steps: ['d1d5', 'f6d5', 'b1h7'],
+      steps: ['d1d8', 'b6d8', 'c3g7'],
       lands: [900, 4000, 6100],
       grades: [
-        { sq: 'd5', g: '!!', paint: ['d1', 'd5'], name: 'Brilliant' },
-        { sq: 'd5', g: 'good', paint: ['f6', 'd5'], name: 'Good', tag: { sq: 'd4', text: 'Fortress Rook' } },
-        { sq: 'h7', g: '#', paint: ['b1', 'h7'] },
+        { sq: 'd8', g: '!!', paint: ['d1', 'd8'], name: 'Brilliant' },
+        { sq: 'd8', g: 'good', paint: ['b6', 'd8'], name: 'Good', tag: { sq: 'd7', text: 'Fortress Rook' } },
+        { sq: 'g7', g: '#', paint: ['c3', 'g7'] },
       ],
-      select: { sq: 'f6', from: 2400, to: 3700 },
+      // The bishop picked up: taking the rook is its only move.
+      select: { sq: 'b6', from: 2400, to: 3700 },
     },
     panels: [],
     ms: 12950,
   },
 ];
 
-// A close-up edit (EN) on the reference's sound (87 BPM, its hits at 1138, 1823, 5050, 5608, 6641, 7326, 8348,
-// 10077, 11099, 13502, 14536 ms; the music ends at 15.35 s), on mythic and legendary cards: the Comet king flies
-// four squares and takes the rook that checks it, the Eclipse bars the long diagonal (the rook cannot go to b8
-// through it), the Chameleon steps onto the other colour with check, the king has to go to f8, and the rook's
-// mate meets the Barricade: a pawn of its own appears on e8 and blocks it. Every move plays in a still shot,
-// whole in the frame; the cuts come only between moves.
+// A close-up edit (EN) on the reference's sound (87 BPM, its hits at 1138, 3889, 6641, 9381, 13166 ms; the music
+// ends at 15.35 s): one race. The Comet king flies four squares and takes the bishop that guarded the back rank;
+// Black's Sprinter runs two squares to queen; the rook's mate on b8 meets the Barricade (a pawn of Black's own
+// appears on f8 and blocks it); Black queens; and the rook takes the Barricade's pawn: mate, the king on e7 guards
+// it and a Barricade works once. Every move plays in a still shot, whole in the frame; the cuts come only between
+// moves.
 const CU_POS = {
-  d3: 'w:king-comet', b1: 'w:rook-classic', c3: 'w:bishop-chameleon', f2: 'w:pawn-classic', g2: 'w:pawn-classic', h2: 'w:pawn-classic',
-  g8: 'b:king-barricade', h8: 'b:bishop-eclipse', d7: 'b:rook-classic', a7: 'b:pawn-classic', g7: 'b:pawn-classic', h7: 'b:pawn-classic',
+  e3: 'w:king-comet', b1: 'w:rook-classic', a3: 'w:pawn-classic', f2: 'w:pawn-classic', g2: 'w:pawn-classic', h2: 'w:pawn-classic',
+  g8: 'b:king-barricade', e7: 'b:bishop-classic', c4: 'b:pawn-sprinter', a6: 'b:pawn-classic', f7: 'b:pawn-classic', g7: 'b:pawn-classic', h7: 'b:pawn-classic',
 };
-const CU_MOVES = ['d3d7', '!bishop-eclipse:diag:1:0', 'a7a6', 'c3c4', 'g8f8', 'b1b8'];
-const CU_BARRICADE: StepGrade = { sq: 'e8', g: '!!', paint: ['b1', 'b8', 'e8'], label: 'Barricade' };
+const CU_MOVES = ['e3e7', 'c4c2', 'b1b8', 'c2c1', 'b8f8'];
 const cuShot = (k: number, o: Omit<Board, 'kind' | 'pos' | 'steps'> & { steps?: string[] }): Board => ({
   kind: 'board', crowd: false, pos: CU_POS, cam: 'roll', pre: CU_MOVES.slice(0, k), steps: [], ...o,
 });
+const CU_MATE: StepGrade = { sq: 'f8', g: '#', paint: ['b8', 'f8'] };
 const CLOSEUP: Shot[] = [
-  cuShot(0, { steps: [CU_MOVES[0]], lands: [1138], grades: [{ sq: 'd7', g: '!!', paint: ['d3', 'd7'], label: 'Comet' }], focus: 'd5', zoom: 1.65, roll: [-5, 3], ms: 2300 }),
-  // The whole board, flat: the page about the game over it while nothing moves, then the Eclipse and a pawn.
-  cuShot(1, {
-    steps: CU_MOVES.slice(1, 3),
-    lands: [2350, 2750],
-    grades: [{ sq: 'h8', g: '!', paint: ['h8'], label: 'Eclipse' }, null],
-    cam: 'still',
-    zoom: 1,
-    article: { from: 350, to: 1850 },
-    cut: 'pull',
-    ms: 3260,
-  }),
-  cuShot(3, { steps: CU_MOVES.slice(3, 5), lands: [1081, 1766], grades: [{ sq: 'c4', g: '!', paint: ['c3', 'c4'], label: 'Chameleon' }, { sq: 'f8', g: 'best', paint: ['g8', 'f8'] }], focus: 'e6', zoom: 1.6, roll: [4, -3], cut: 'vwhip', ms: 2740 }),
-  cuShot(5, { steps: [CU_MOVES[5]], lands: [1777], grades: [CU_BARRICADE], cam: 'still', focus: 'd6', zoom: 1.12, cut: 'vwhip', ms: 2750 }),
-  cuShot(6, { held: CU_BARRICADE, focus: 'e8', zoom: 2.3, roll: [-4, 3], cut: 'vwhip', ms: 2450 }),
-  cuShot(6, { held: { ...CU_BARRICADE, label: undefined }, cam: 'still', zoom: 1, cut: 'vwhip', ms: 1040 }),
-  cuShot(6, { held: { ...CU_BARRICADE, label: undefined }, cam: 'still', zoom: 1, fade: 810, cut: 'cut', ms: 810 }),
+  cuShot(0, { steps: [CU_MOVES[0]], lands: [1138], grades: [{ sq: 'e7', g: '!!', paint: ['e3', 'e7'], label: 'Comet' }], focus: 'e5', zoom: 1.6, roll: [-4, 3], ms: 2300 }),
+  // The whole board, flat: the page about the game over it while nothing moves, then the Sprinter.
+  cuShot(1, { steps: [CU_MOVES[1]], lands: [1589], grades: [{ sq: 'c2', g: '!', paint: ['c4', 'c2'], label: 'Sprinter' }], cam: 'still', zoom: 1, article: { from: 300, to: 1150 }, cut: 'pull', ms: 3260 }),
+  cuShot(2, { steps: [CU_MOVES[2]], lands: [1081], grades: [{ sq: 'f8', g: '!!', paint: ['b1', 'b8', 'f8'], label: 'Barricade' }], cam: 'still', focus: 'd6', zoom: 1.1, cut: 'vwhip', ms: 2740 }),
+  cuShot(3, { steps: [CU_MOVES[3]], lands: [1081], grades: [{ sq: 'c1', g: 'best', paint: ['c2', 'c1'] }], focus: 'c2', zoom: 2, roll: [5, -2], cut: 'vwhip', ms: 2750 }),
+  // The mate shot is wide: the stamp fits.
+  cuShot(4, { steps: [CU_MOVES[4]], lands: [2116], grades: [CU_MATE], cam: 'still', focus: 'e6', zoom: 1.08, cut: 'vwhip', ms: 3490 }),
+  cuShot(5, { held: CU_MATE, cam: 'still', zoom: 1, fade: 810, cut: 'cut', ms: 810 }),
 ];
 
 /** An ad's page class (`meme`: the split screen; `edit`: quiet labels and badges) and the watermark. */
