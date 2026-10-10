@@ -25,8 +25,35 @@ export const GRADES: Record<Grade, { c: string; t: string }> = {
   '#': { c: '#81b64c', t: '#' },
 };
 
+/** The grade of one step of a shot: its badge on `sq` when the move lands, its squares in the grade's colour,
+ *  the chess-site word for it in a pill for a moment ("Brilliant"), the card's name under the board. */
+export type StepGrade = { sq: string; g: Grade; paint?: string[]; name?: string; label?: string };
+
+/** How a shot comes in (edits): a vertical whip with motion blur, a pull back from a close-up, a plain cut. */
+export type Cut = 'vwhip' | 'pull' | 'cut';
+
+/** The reaction under the board in a meme split screen. */
+export type Mood = 'cheer' | 'sad' | 'sad-close';
+
 export type Shot = (
   | { kind: 'hook'; text: string; sub?: string; art?: string; ms: number }
+  /** Meme split screen: the board on top playing its steps at set times, a reaction panel under it
+   *  that cuts on its own (`panels`), and the card that did it, slammed over the board at `card.at`. */
+  | {
+      kind: 'meme';
+      board: SceneSpec & {
+        /** When each state lands, ms from the start (a step marked ^ makes two: the travel, then the blast). */
+        lands: number[];
+        grades?: (StepGrade | null)[];
+        /** A piece picked up and thinking: its square selected, its moves dotted, from `from` to `to`. */
+        select?: { sq: string; from: number; to: number };
+        red?: string[][];
+        theme?: string;
+      };
+      panels: { at: number; mood: Mood; text?: string }[];
+      card?: { at: number; id: string };
+      ms: number;
+    }
   | (SceneSpec & {
       kind: 'board';
       caption?: string;
@@ -42,14 +69,13 @@ export type Shot = (
       zoom?: number;
       /** Seen from Black's side (the player at the bottom is the one it happens to). */
       flip?: boolean;
-      /** Seen from Black's side. */
-      flip?: boolean;
       /** Danger squares lit red, pulsing: one list per state (after 0, 1, … steps; the last one holds). */
       red?: string[][];
       /** Squares lit gold (the hero of the shot). */
       gold?: string[];
-      /** Camera move: a slow push (default), a tilted 3D board turning one way or the other, or a punch in. */
-      cam?: 'push' | 'tilt-l' | 'tilt-r' | 'punch' | 'spin';
+      /** Camera move: a slow push (default), a tilted 3D board turning one way or the other, or a punch in;
+       *  `roll` a flat close-up turning slowly (see `roll`), `still` none. */
+      cam?: 'push' | 'tilt-l' | 'tilt-r' | 'punch' | 'spin' | 'roll' | 'still';
       /** The shot's length (else lead + steps + tail). */
       ms?: number;
       /** When the (one) move lands, ms from the shot's start: the lead is worked out from the move's own
@@ -65,6 +91,19 @@ export type Shot = (
       /** A 3-2-1 countdown before the first step (the lead is count × countMs). */
       count?: number;
       countMs?: number;
+      /** Edits: when each step lands (ms from the shot's start), each with its own grade. */
+      lands?: number[];
+      grades?: (StepGrade | null)[];
+      /** A move played just before the shot: its badge already there, rings pulsing (a close-up on it). */
+      held?: StepGrade;
+      /** Board colours (a theme from the shop) for this shot. */
+      theme?: string;
+      /** The `roll` camera: a close-up centred on `focus`, turning from one angle to the other (deg). */
+      roll?: [number, number];
+      /** Blurred pages of an article over the board, the word "Ultrachess" lit in each, between `from` and `to`. */
+      article?: { from: number; to: number };
+      /** Fade to grey over the last ms of the shot, a quiet title on it. */
+      fade?: number;
     })
   | { kind: 'pack'; pack: PackType; packName?: string; cards: string[]; caption?: string; after?: string; hold?: number; pace?: number; ms: number }
   /** Split screen: the same idea in normal chess (top) and in Ultrachess (bottom, plays `delay` ms later). */
@@ -81,6 +120,8 @@ export type Shot = (
   music?: Music;
   /** Hits in the music (ms from the shot's start): the frame kicks and flashes on each. */
   bumps?: number[];
+  /** How the shot comes in (edits); the shot before it leaves the same way. */
+  cut?: Cut;
 };
 
 type Board = Extract<Shot, { kind: 'board' }>;
@@ -788,6 +829,75 @@ const CHESSFX2: Shot[] = [
   { kind: 'end', text: 'Every piece has a superpower', ms: fb(6) + 1050, bumps: [fb(2), fb(4), fb(6) + 220] },
 ];
 
+// "Black: yeah, FREE ROOK‼️ … oh wait 😟" (EN), a meme split screen on the reference's sound: the rook lands at
+// 0.6 s, the reaction cuts at 5.57 s, the sound ends at 12.95 s. The rook looks free: the pawn on e4 is pinned
+// to its king. But the Ambusher does not move to take: it goes off by itself when an enemy piece steps
+// diagonally in front of it, pinned or not. The queen's travel is shown before the blast (`^`).
+const FR_POS = {
+  e1: 'w:king-classic', d1: 'w:rook-classic', e4: 'w:pawn-ambusher', a2: 'w:pawn-classic', b2: 'w:pawn-classic', f2: 'w:pawn-classic', g2: 'w:pawn-classic', h2: 'w:pawn-classic',
+  g8: 'b:king-classic', d8: 'b:queen-classic', e8: 'b:rook-classic', a7: 'b:pawn-classic', b7: 'b:pawn-classic', f7: 'b:pawn-classic', g7: 'b:pawn-classic', h7: 'b:pawn-classic',
+};
+const FREE_ROOK: Shot[] = [
+  {
+    kind: 'meme',
+    board: {
+      crowd: false,
+      pos: FR_POS,
+      theme: 'ocean',
+      steps: ['d1d5', 'd8d5^'],
+      lands: [600, 5100, 5570],
+      grades: [
+        { sq: 'd5', g: '!!', paint: ['d1', 'd5'], name: 'Brilliant' },
+        { sq: 'd5', g: 'good', paint: ['d8', 'd5'], name: 'Good' },
+        { sq: 'd5', g: '??', paint: ['d8', 'd5'], name: 'Blunder', label: 'Ambusher' },
+      ],
+      select: { sq: 'd8', from: 2900, to: 4850 },
+      red: [[], [], ['e4', 'd5'], []],
+    },
+    panels: [
+      { at: 0, mood: 'cheer', text: 'Black: yeah, FREE ROOK‼️' },
+      { at: 5570, mood: 'sad', text: 'Black: oh wait… 😟' },
+      { at: 8170, mood: 'sad-close', text: 'Black: oh wait… 😟' },
+    ],
+    card: { at: 8170, id: 'pawn-ambusher' },
+    ms: 12950,
+  },
+];
+
+// A close-up edit (EN) on the reference's sound (87 BPM, its hits at 1138, 1823, 5050, 5608, 8348, 8812,
+// 10077, 11099, 13502, 14536 ms; the music ends at 15.35 s): five quiet moves with cards no video had shown,
+// the camera close and turning, whips between shots, a blurred page about Ultrachess over the board.
+// The Ricochet Rook checks off the edge, the Wanderer steps away two squares, the Rotator swaps with its pawn
+// and is taken from two squares away, and the Diagonal Pawn promotes with check.
+const CU_POS = {
+  g1: 'w:king-classic', f2: 'w:pawn-classic', g2: 'w:pawn-classic', h2: 'w:pawn-classic',
+  h3: 'w:rook-ricochet', e7: 'w:knight-rotator', d6: 'w:pawn-diagonal',
+  f8: 'b:king-wanderer', g7: 'b:pawn-classic', b6: 'b:pawn-classic', a7: 'b:pawn-classic',
+};
+const CU_MOVES = ['h3g8', 'f8f6', 'e7d6', 'f6d6', 'e7d8'];
+const CU_RICOCHET: StepGrade = { sq: 'g8', g: '!', paint: ['h3', 'h8', 'g8'], label: 'Ricochet Rook' };
+const CU_ROTATOR: StepGrade = { sq: 'e7', g: '!!', paint: ['e7', 'd6'], label: 'Rotator' };
+const CU_PROMOTE: StepGrade = { sq: 'd8', g: '!', paint: ['e7', 'd8'], label: 'Diagonal Pawn' };
+const cuShot = (k: number, o: Omit<Board, 'kind' | 'pos' | 'steps'> & { steps?: string[] }): Board => ({
+  kind: 'board', crowd: false, pos: CU_POS, theme: 'marble', cam: 'roll', pre: CU_MOVES.slice(0, k), steps: [], ...o,
+});
+const CLOSEUP: Shot[] = [
+  cuShot(0, { steps: CU_MOVES.slice(0, 2), lands: [1138, 1823], grades: [CU_RICOCHET, { sq: 'f6', g: 'best', paint: ['f8', 'f6'], label: 'Wanderer' }], focus: 'g7', zoom: 2.3, roll: [-12, 5], ms: 2300 }),
+  // Pulled back to the whole board, flat; the page about the game over it, then the Rotator's swap.
+  cuShot(2, { steps: [CU_MOVES[2]], lands: [2750], grades: [CU_ROTATOR], cam: 'still', zoom: 1, article: { from: 450, to: 2560 }, cut: 'pull', ms: 3260 }),
+  cuShot(3, { held: CU_ROTATOR, focus: 'e7', zoom: 3, roll: [9, -5], cut: 'vwhip', ms: 2740 }),
+  cuShot(3, { steps: CU_MOVES.slice(3), lands: [512, 1777], grades: [{ sq: 'd6', g: 'best', paint: ['f6', 'd6'], label: 'Wanderer' }, CU_PROMOTE], focus: 'e7', zoom: 2.3, roll: [-9, 6], cut: 'vwhip', ms: 2750 }),
+  cuShot(5, { held: CU_PROMOTE, focus: 'd8', zoom: 3, roll: [11, -4], cut: 'vwhip', ms: 2450 }),
+  cuShot(5, { held: CU_PROMOTE, cam: 'still', focus: 'e6', zoom: 1.5, cut: 'vwhip', ms: 1040 }),
+  cuShot(5, { held: CU_PROMOTE, cam: 'still', focus: 'e6', zoom: 1.5, fade: 810, cut: 'cut', ms: 810 }),
+];
+
+/** How an ad's board looks: dark sprites for Black, coordinates, a class on the page (`meme`, `edit`). */
+export const LOOK: Record<string, { blackStyle?: 'team' | 'dark'; coordinates?: boolean; cls?: string }> = {
+  freerook: { blackStyle: 'dark', cls: 'meme' },
+  closeup: { blackStyle: 'dark', coordinates: false, cls: 'edit' },
+};
+
 /** A line that stays over the whole video (it does not pop again on each cut). */
 export const PINNED: Record<string, string> = {
   nobody: 'Розробив класну гру як проєкт\nі поділився з усіма знайомими',
@@ -809,6 +919,8 @@ export const ADS: Record<string, Shot[]> = {
   portaledit: PORTAL_EDIT,
   chessfx: CHESSFX,
   chessfx2: CHESSFX2,
+  freerook: FREE_ROOK,
+  closeup: CLOSEUP,
   memes: MEMES,
   cardofday: CARD_OF_DAY,
   ...SERIES,

@@ -7,7 +7,7 @@ pack opening, directed shot by shot. Nothing here ships with the game.
 
 | File | What it does |
 | --- | --- |
-| `ads.ts` | The scripts: every video is a list of shots (`hook`, `board`, `pack`, `card`, `tier`, `versus`, `text`, `end`). `ADS` maps a name to its shots. |
+| `ads.ts` | The scripts: every video is a list of shots (`hook`, `board`, `meme`, `pack`, `card`, `hero`, `tier`, `versus`, `text`, `end`). `ADS` maps a name to its shots. |
 | `ad.tsx`, `ad.css`, `ad.html` | The page that plays a script: `ad.html#<name>`. Transitions, captions, countdown, tier list, versus, native TikTok style. |
 | `scene.ts` | Builds board positions and moves for `board` shots. |
 | `check-ads.ts` | Checks every move in every script is legal for the engine (`npx vite-node scripts/promo/check-ads.ts`). |
@@ -37,6 +37,21 @@ pack opening, directed shot by shot. Nothing here ships with the game.
   cowbell riff, 808, claps, hats; prints the drop time and the beat). The game's effect sounds go on
   top: `sound.py out/portaledit.marks.json 15.6 sfx.wav --native --no-music`, mixed with ffmpeg `amix`.
   Cuts are timed from the start of the ad, so an edit never drifts off its music.
+- `freerook`: the meme "Black: yeah, FREE ROOK‼️ … oh wait 😟" as a split screen (`kind: 'meme'`): the board on
+  top plays its steps at set times (`lands`, one per state), each with a chess-site grade and its word in a pill
+  (`grades`: "Brilliant", "Blunder"), a piece picked up with its moves dotted (`select`); under it a reaction of
+  our own (`panels`: `cheer`, a crowd of black pieces laughing; `sad` and `sad-close`, the king alone in the rain),
+  then the card that did it over the board (`card`). The rook looks free because the e4 pawn is pinned, but the
+  Ambusher goes off by itself; `d8d5^` shows the queen's travel before the blast (the game shows only the blast).
+  Cut to the reference's sound (not in the repo): the rook at 0.6 s, the cut at 5.57 s, the end at 12.95 s.
+- `closeup`: a quiet close-up edit of five moves with cards no video had shown (Ricochet Rook, Wanderer,
+  Rotator, Diagonal Pawn) on the reference's sound (87 BPM, every move on one of its hits): `cam: 'roll'`
+  (the focus square in the middle, turning from `roll[0]` to `roll[1]`), `cam: 'still'`, `held` (the badge of
+  the move just played, rings pulsing), a board `theme` from the shop, `article` (blurred pages about the game
+  flicking past, the name lit), `fade` (grey and the name), and cuts per shot (`cut`: `vwhip` with motion blur,
+  `pull` out of a close-up, `cut`). `LOOK` gives an ad dark sprites for Black, coordinates on or off, a page class.
+- Stills to check a shot without a whole render: `STILLS=1000,5600 node scripts/promo/render.mjs closeup`
+  (→ `out/closeup-1000.jpg`, …).
 - `patchmate`: the clip in the patch notes (`public/assets/patch/mate-<lang>.mp4/.webm`, poster
   `mate.webp`): rendered in every language with `AD_LANG=uk|en|de|it|es` and the site's fonts
   (`FONTS_CSS`: the Google Fonts CSS with the font files inlined), then cropped to the board:

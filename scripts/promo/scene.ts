@@ -20,7 +20,8 @@ export interface SceneSpec {
   clear?: string[];
   /** "e2e4", "e2e4~" (the longest of the moves there), "f1>levitate" (a move of that kind),
    *  "*card" (that card's move, a capture if it has one), "!queen-immortal:arm" or
-   *  "!rook-earthquake:*" (an ability, it does not use the turn); "…|caption" changes the caption. */
+   *  "!rook-earthquake:*" (an ability, it does not use the turn); "…|caption" changes the caption;
+   *  "d8d5^": a move into an Ambusher, in two states: the piece travels and takes, then the blast. */
   steps: string[];
   /** Played at once before the shot: a shot can start in the middle of a game. */
   pre?: string[];
@@ -94,7 +95,45 @@ function step(m: MatchState, raw: string): MatchState {
 export function playScene(spec: SceneSpec): MatchState[] {
   let m = startState(spec);
   const out = [m];
-  for (const s of spec.steps) out.push((m = step(m, s)));
+  for (const raw of spec.steps) {
+    if (!raw.split('|')[0].trim().endsWith('^')) {
+      out.push((m = step(m, raw)));
+      continue;
+    }
+    const s = raw.replace('^', '');
+    out.push(travel(m, s));
+    out.push((m = blast(m, step(m, s))));
+  }
+  return out;
+}
+
+/** The game shows a piece that dies on arrival only as the blast where it went: here it first travels
+ *  and takes, as if the Ambusher were a plain pawn (it is drawn as itself). */
+function travel(m: MatchState, raw: string): MatchState {
+  const ambushers = new Set(m.board.filter((p) => p?.cardId === 'pawn-ambusher').map((p) => p!.id));
+  const plain = { ...m, board: m.board.map((p) => (p && ambushers.has(p.id) ? { ...p, cardId: 'pawn-classic' } : p)) };
+  const r = step(plain, raw);
+  return { ...r, board: r.board.map((p) => (p && ambushers.has(p.id) ? { ...p, cardId: 'pawn-ambusher' } : p)) };
+}
+
+/** Then only the blast: the piece and the Ambusher stay drawn until it goes off. */
+function blast(before: MatchState, after: MatchState): MatchState {
+  if (!after.fx) return after;
+  const gone = before.board.flatMap((p, s) => (p?.cardId === 'pawn-ambusher' && !after.board.some((q) => q?.id === p.id) ? [{ p, s }] : []));
+  const sprites = after.fx.sprites.filter((x, i) => !(x.kind === 'capture' && i === after.fx!.sprites.findIndex((y) => y.kind === 'capture')));
+  for (const { p, s } of gone) sprites.push({ kind: 'capture', square: s, by: p.color === 'w' ? 'b' : 'w', victim: { type: p.type, color: p.color, cardId: p.cardId } });
+  return { ...after, fx: { ...after.fx, sprites } };
+}
+
+/** The squares a piece can go to, for a piece picked up: a dot or a capture ring on each. */
+export function targets(m: MatchState, name: string): Map<number, 'move' | 'capture'> {
+  const from = parseSquare(name);
+  const out = new Map<number, 'move' | 'capture'>();
+  for (const x of legalMoves(m)) {
+    if (x.from !== from) continue;
+    const t = x.target ?? x.to;
+    if (t !== null && t !== undefined) out.set(t, x.captures.length ? 'capture' : 'move');
+  }
   return out;
 }
 

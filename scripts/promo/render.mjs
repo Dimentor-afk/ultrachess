@@ -100,6 +100,23 @@ for (let t = 0; t < total + 500; t += 100) {
 }
 await page.waitForTimeout(1500);
 
+// STILLS=1000,5600: only those moments, as out/<name>-<ms>.jpg (to check a shot without a whole render).
+if (process.env.STILLS) {
+  const at = process.env.STILLS.split(',').map(Number).sort((a, b) => a - b);
+  await page.evaluate(() => { window.__T = 0; window.__born = new WeakMap(); window.__anims = new Set(); window.__marks = []; window.__start(); });
+  let t = 0;
+  for (const ms of at) {
+    for (; t + 1000 / FPS <= ms; t += 1000 / FPS) {
+      await page.clock.runFor(Math.round(1000 / FPS));
+      await page.evaluate(async (dt) => { await window.__flush(); await window.__flush(); window.__step(dt); }, Math.round(1000 / FPS));
+    }
+    await page.screenshot({ path: `${out}${base}-${ms}.jpg`, type: 'jpeg', quality: 85 });
+  }
+  await browser.close();
+  console.log(`stills: ${at.map((ms) => `${out}${base}-${ms}.jpg`).join(' ')}`);
+  process.exit(0);
+}
+
 // Record.
 const frames = Math.ceil((total / 1000) * FPS);
 const enc = spawn(ffmpeg, ['-loglevel', 'error', '-y', '-f', 'image2pipe', '-framerate', String(FPS), '-i', '-', '-c:v', 'libx264', '-preset', 'slow', '-crf', '17', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', `${out}${base}.mp4`]);
