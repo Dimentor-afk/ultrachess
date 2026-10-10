@@ -32,8 +32,9 @@ const GamePage = lazy(() => import('./GamePage').then((m) => ({ default: m.GameP
 const TestPayPage = lazy(() => import('./Payments').then((m) => ({ default: m.TestPayPage })));
 const ReplayPage = lazy(() => import('./ReplayPage').then((m) => ({ default: m.ReplayPage })));
 const PaddlePayPage = lazy(() => import('./Payments').then((m) => ({ default: m.PaddlePayPage })));
+const DraftPage = lazy(() => import('./DraftPage').then((m) => ({ default: m.DraftPage })));
 
-type Route = 'play' | 'leagues' | 'weekly' | 'trials' | 'deck' | 'shop' | 'friends' | 'top' | 'admin' | 'profile' | 'help' | 'game' | 'pay' | 'replay';
+type Route = 'play' | 'leagues' | 'weekly' | 'trials' | 'deck' | 'shop' | 'friends' | 'top' | 'admin' | 'profile' | 'help' | 'game' | 'pay' | 'replay' | 'draft';
 
 const ROUTES: { id: Route; label: string; icon: string; admin?: boolean }[] = [
   { id: 'play', label: t('Грати'), icon: 'play' },
@@ -52,7 +53,7 @@ const TABS: { id: Route; label: string; icon: string; covers?: Route[] }[] = [
   { id: 'shop', label: t('Магазин'), icon: 'shop' },
   { id: 'deck', label: t('Колода'), icon: 'cards' },
   { id: 'play', label: t('Грати'), icon: 'play' },
-  { id: 'friends', label: t('Друзі'), icon: 'users' },
+  { id: 'friends', label: t('Друзі'), icon: 'users', covers: ['draft'] },
   { id: 'leagues', label: t('Ліги'), icon: 'trophy', covers: ['weekly', 'trials', 'top'] },
 ];
 
@@ -67,7 +68,7 @@ const ARENA: { id: Route; label: string }[] = [
 function readRoute(): Route {
   const h = currentPath().replace(/^\/?/, '').split('/')[0];
   if (h === 'cards') return 'deck'; // the old collection page lives on the deck page now
-  if (h === 'profile' || h === 'help' || h === 'game' || h === 'pay' || h === 'replay') return h;
+  if (h === 'profile' || h === 'help' || h === 'game' || h === 'pay' || h === 'replay' || h === 'draft') return h;
   return ROUTES.find((r) => r.id === h)?.id ?? 'play';
 }
 
@@ -288,6 +289,7 @@ function Shell() {
           {route === 'help' && <HelpPage />}
           {route === 'game' && <GamePage />}
           {route === 'replay' && <ReplayRoute />}
+          {route === 'draft' && <DraftRoute />}
           {route === 'pay' && currentPath().split('/')[2] === 'paddle' && (
             <PaddlePayPage purchaseId={currentPath().split('/')[3] ?? ''} transactionId={currentPath().split('/')[4] ?? ''} />
           )}
@@ -308,6 +310,11 @@ function Shell() {
 
 /** What an admin did to the account (a rename), shown once until the player closes it. */
 /** #/replay/<m|p>/<id>: a finished game, move by move. */
+function DraftRoute() {
+  const id = useRoutePath().split('/')[2];
+  return id ? <DraftPage key={id} id={id} /> : <p className="muted">{t('Драфт не знайдено.')}</p>;
+}
+
 function ReplayRoute() {
   const [, , kind, id] = useRoutePath().split('/');
   if ((kind !== 'm' && kind !== 'p') || !id) return <p className="muted">{t('Партію не знайдено.')}</p>;

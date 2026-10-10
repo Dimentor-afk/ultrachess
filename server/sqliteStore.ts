@@ -255,6 +255,8 @@ const OTHER_MIGRATIONS: [string, string, string][] = [
   ['matches', 'actions', "TEXT NOT NULL DEFAULT '[]'"],
   ['matches', 'action_count', 'INTEGER NOT NULL DEFAULT 0'],
   ['pvp', 'ranked', 'INTEGER NOT NULL DEFAULT 0'],
+  ['challenges', 'mode', "TEXT NOT NULL DEFAULT 'classic'"],
+  ['challenges', 'draft', "TEXT NOT NULL DEFAULT ''"],
 ];
 
 const PACK_COLS: Record<keyof PackRow, string> = {
@@ -378,6 +380,8 @@ function challenge(r: Row | undefined): ChallengeRow | null {
     status: r.status as ChallengeRow['status'],
     pvpId: (r.pvp_id as string | null) ?? null,
     createdAt: Number(r.created_at),
+    mode: r.mode === 'draft' ? 'draft' : 'classic',
+    draft: (r.draft as string) ?? '',
   };
 }
 
@@ -419,7 +423,7 @@ function purchase(r: Row | undefined): PurchaseRow | null {
 }
 
 const FRIEND_COLS: Record<string, string> = { status: 'status' };
-const CHALLENGE_COLS: Record<string, string> = { status: 'status', pvpId: 'pvp_id' };
+const CHALLENGE_COLS: Record<string, string> = { status: 'status', pvpId: 'pvp_id', draft: 'draft' };
 const PVP_COLS: Record<string, string> = {
   actions: 'actions',
   status: 'status',
@@ -681,8 +685,8 @@ export class SqliteStore implements Store {
   }
   async insertChallenge(c: ChallengeRow) {
     this.db
-      .prepare('INSERT INTO challenges (id, from_id, to_id, from_deck, status, pvp_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
-      .run(c.id, c.fromId, c.toId, JSON.stringify(c.fromDeck), c.status, c.pvpId, c.createdAt);
+      .prepare('INSERT INTO challenges (id, from_id, to_id, from_deck, status, pvp_id, created_at, mode, draft) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(c.id, c.fromId, c.toId, JSON.stringify(c.fromDeck), c.status, c.pvpId, c.createdAt, c.mode, c.draft);
   }
   async updateChallenge(id: string, patch: Partial<ChallengeRow>) {
     update(this.db, 'challenges', CHALLENGE_COLS, id, patch as Row);

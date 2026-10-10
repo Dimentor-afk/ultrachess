@@ -10,6 +10,8 @@ import {
   ApiError,
   type ChallengeView,
   type Collection,
+  type DraftPage,
+  type DraftSummary,
   type FriendsView,
   type GameView,
   type LiveGame as LiveGameRow,
@@ -53,6 +55,8 @@ export type {
   AdminUser,
   ChallengeView,
   Collection,
+  DraftPage,
+  DraftSummary,
   FriendsView,
   HistoryRow,
   GameRecord,
@@ -80,6 +84,7 @@ export interface ChallengesView {
   incoming: ChallengeView[];
   outgoing: ChallengeView[];
   games: PvpSummary[];
+  drafts: DraftSummary[];
 }
 
 export interface Api {
@@ -177,8 +182,11 @@ export interface Api {
   respondFriend(linkId: string, accept: boolean): Promise<FriendsView>;
   removeFriend(linkId: string): Promise<FriendsView>;
   challenges(): Promise<ChallengesView>;
-  challengeFriend(friendId: string, deckId?: string): Promise<void>;
-  respondChallenge(id: string, accept: boolean, deckId?: string): Promise<{ pvpId: string | null }>;
+  /** `mode: 'draft'`: no deck, both are picked card by card once the friend accepts. */
+  challengeFriend(friendId: string, deckId?: string, mode?: 'classic' | 'draft'): Promise<void>;
+  respondChallenge(id: string, accept: boolean, deckId?: string): Promise<{ pvpId: string | null; draftId?: string }>;
+  draftState(id: string): Promise<DraftPage>;
+  draftPick(id: string, cardId: string): Promise<DraftPage>;
   pvpState(id: string): Promise<PvpState>;
   pvpAction(id: string, action: Action, v: string): Promise<PvpState>;
   pvpResign(id: string): Promise<PvpState>;
@@ -305,9 +313,11 @@ class HttpApi implements Api {
   respondFriend = (linkId: string, accept: boolean) => this.call<FriendsView>('POST', `friends/${linkId}/respond`, { accept });
   removeFriend = (linkId: string) => this.call<FriendsView>('DELETE', `friends/${linkId}`);
   challenges = () => this.call<ChallengesView>('GET', 'challenges');
-  challengeFriend = (friendId: string, deckId?: string) => this.call<void>('POST', 'challenges', { friendId, deckId });
+  challengeFriend = (friendId: string, deckId?: string, mode: 'classic' | 'draft' = 'classic') => this.call<void>('POST', 'challenges', { friendId, deckId, mode });
   respondChallenge = (id: string, accept: boolean, deckId?: string) =>
-    this.call<{ pvpId: string | null }>('POST', `challenges/${id}/respond`, { accept, deckId });
+    this.call<{ pvpId: string | null; draftId?: string }>('POST', `challenges/${id}/respond`, { accept, deckId });
+  draftState = (id: string) => this.call<DraftPage>('GET', `draft/${id}`);
+  draftPick = (id: string, cardId: string) => this.call<DraftPage>('POST', `draft/${id}/pick`, { cardId });
   pvpState = (id: string) => this.call<PvpState>('GET', `pvp/${id}`);
   pvpAction = (id: string, action: Action, v: string) => this.call<PvpState>('POST', `pvp/${id}/action`, { action, v });
   pvpResign = (id: string) => this.call<PvpState>('POST', `pvp/${id}/resign`, {});
@@ -511,8 +521,10 @@ class LocalApi implements Api {
   respondFriend = async (linkId: string, accept: boolean) => this.svc.respondFriend(await this.t(), linkId, accept);
   removeFriend = async (linkId: string) => this.svc.removeFriend(await this.t(), linkId);
   challenges = async () => this.svc.challenges(await this.t());
-  challengeFriend = async (friendId: string, deckId?: string) => this.svc.challengeFriend(await this.t(), friendId, deckId);
+  challengeFriend = async (friendId: string, deckId?: string, mode: 'classic' | 'draft' = 'classic') => this.svc.challengeFriend(await this.t(), friendId, deckId, mode);
   respondChallenge = async (id: string, accept: boolean, deckId?: string) => this.svc.respondChallenge(await this.t(), id, accept, deckId);
+  draftState = async (id: string) => this.svc.draftState(await this.t(), id);
+  draftPick = async (id: string, cardId: string) => this.svc.draftPick(await this.t(), id, cardId);
   pvpState = async (id: string) => this.svc.pvpState(await this.t(), id);
   pvpAction = async (id: string, action: Action, v: string) => this.svc.pvpAction(await this.t(), id, action, v);
   pvpResign = async (id: string) => this.svc.pvpResign(await this.t(), id);

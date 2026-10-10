@@ -50,7 +50,8 @@ import { BOT_LEVELS, botLevel, levelForElo } from '../engine/bot/levels';
 import type { BotOptions, BotTurn } from '../engine/bot/search';
 import { legalMoves } from '../engine/legal';
 import { type QuestEvent, type QuestView, addProgress, parseQuests, questViews } from './quests';
-import { type Hasher, type MatchRow, type PackRow, type PvpRow, type Role, type Store, type TokenRow, type UserRow, randomId } from './store';
+import { type ChallengeRow, type Hasher, type MatchRow, type PackRow, type PvpRow, type Role, type Store, type TokenRow, type UserRow, randomId } from './store';
+import { type DraftState, type DraftView, draftDecks, draftDone, draftView, newDraft, parseDraft, pickCard, settleTimeouts } from './draft';
 import { CREATOR_TITLE, SHOWCASE_SIZE, ACHIEVEMENT_BY_ID, type AchievementState, type AchievementView, type CountedStat, achievementViews, gameFeats, parseAchievements } from './achievements';
 import { FOUNDER_PLATE, REFERRAL_DAILY_CAP, REFERRAL_GAMES, REFERRAL_MIN_MOVES, REFERRAL_PACK, type ReferralView } from './referrals';
 import { type AdminStats, computeAdminStats } from './adminStats';
@@ -292,7 +293,9 @@ export interface GameView {
 export type ServiceEvent =
   | { type: 'game'; id: string; users: string[] }
   | { type: 'matched'; id: string; users: string[] }
-  | { type: 'nudge'; users: string[] };
+  | { type: 'nudge'; users: string[] }
+  /** A draft started or moved on (`start`: it was just accepted). */
+  | { type: 'draft'; id: string; users: string[]; start?: boolean };
 
 export interface MatchStart {
   matchId: string;
@@ -427,6 +430,22 @@ export interface ChallengeView {
   to: PlayerCard;
   incoming: boolean;
   createdAt: number;
+  mode: 'classic' | 'draft';
+}
+
+/** A draft with a friend in progress. */
+export interface DraftSummary {
+  id: string;
+  opponent: PlayerCard;
+  round: number;
+  /** I still have to pick this round. */
+  yourPick: boolean;
+}
+
+/** The draft page: my side of the draft and who I draft against. */
+export interface DraftPage extends DraftView {
+  me: PlayerCard;
+  opponent: PlayerCard;
 }
 
 export interface PvpSummary {
@@ -2704,13 +2723,22 @@ export class GameService {
     return (await this.store.listFriends(a)).some((f) => f.status === 'accepted' && (f.fromId === b || f.toId === b));
   }
 
-  async challenges(token: string): Promise<{ incoming: ChallengeView[]; outgoing: ChallengeView[]; games: PvpSummary[] }> {
+  async challenges(token: string): Promise<{ incoming: ChallengeView[]; outgoing: ChallengeView[]; games: PvpSummary[]; drafts: DraftSummary[] }> {
     const me = await this.auth(token);
     const incoming: ChallengeView[] = [];
     const outgoing: ChallengeView[] = [];
+    const drafts: DraftSummary[] = [];
     for (const c of await this.store.listChallenges(me.id)) {
+      if (c.status === 'drafting') {
+        // Read under the draft's lock: settling a late round may start the game, and only once.
+        const { draft } = await this.withDraft(c.id, async () => this.draftOf((await this.store.getChallenge(c.id)) ?? c));
+        if (draftDone(draft)) continue;
+        const color: Color = draft.white === me.id ? 'w' : 'b';
+        drafts.push({ id: c.id, opponent: await this.cardOf(c.fromId === me.id ? c.toId : c.fromId), round: draft.round, yourPick: !draft.picks[draft.round][color] });
+        continue;
+      }
       if (c.status !== 'pending') continue;
-      const v = { id: c.id, from: await this.cardOf(c.fromId), to: await this.cardOf(c.toId), incoming: c.toId === me.id, createdAt: c.createdAt };
+      const v = { id: c.id, from: await this.cardOf(c.fromId), to: await this.cardOf(c.toId), incoming: c.toId === me.id, createdAt: c.createdAt, mode: c.mode === 'draft' ? 'draft' : 'classic' } as const;
       (v.incoming ? incoming : outgoing).push(v);
     }
     const games: PvpSummary[] = [];
@@ -2732,22 +2760,23 @@ export class GameService {
         ranked: !!p.ranked,
       });
     }
-    return { incoming, outgoing, games };
+    return { incoming, outgoing, games, drafts };
   }
 
-  async challengeFriend(token: string, friendId: string, deckId?: string): Promise<void> {
+  async challengeFriend(token: string, friendId: string, deckId?: string, mode: 'classic' | 'draft' = 'classic'): Promise<void> {
     const me = await this.auth(token);
     if (!(await this.areFriends(me.id, friendId))) throw new ApiError(403, 'Викликати можна лише друзів.');
     const pending = (await this.store.listChallenges(me.id)).find(
       (c) => c.status === 'pending' && ((c.fromId === me.id && c.toId === friendId) || (c.fromId === friendId && c.toId === me.id)),
     );
     if (pending) throw new ApiError(409, pending.fromId === me.id ? 'Виклик уже надіслано.' : 'Цей друг уже викликав вас — прийміть виклик.');
-    const deck = await this.playableDeck(me.id, deckId);
-    await this.store.insertChallenge({ id: randomId(8), fromId: me.id, toId: friendId, fromDeck: deck, status: 'pending', pvpId: null, createdAt: this.now() });
+    // A draft needs no deck: both are picked once the friend accepts.
+    const deck = mode === 'draft' ? classicDeck() : await this.playableDeck(me.id, deckId);
+    await this.store.insertChallenge({ id: randomId(8), fromId: me.id, toId: friendId, fromDeck: deck, status: 'pending', pvpId: null, createdAt: this.now(), mode, draft: '' });
     this.emit({ type: 'nudge', users: [friendId] });
   }
 
-  async respondChallenge(token: string, id: string, accept: boolean, deckId?: string): Promise<{ pvpId: string | null }> {
+  async respondChallenge(token: string, id: string, accept: boolean, deckId?: string): Promise<{ pvpId: string | null; draftId?: string }> {
     const me = await this.auth(token);
     const c = await this.store.getChallenge(id);
     if (!c || c.status !== 'pending' || (c.toId !== me.id && c.fromId !== me.id)) throw new ApiError(404, 'Виклик не знайдено.');
@@ -2755,6 +2784,14 @@ export class GameService {
       await this.store.updateChallenge(c.id, { status: c.fromId === me.id ? 'cancelled' : 'declined' });
       this.emit({ type: 'nudge', users: [c.fromId === me.id ? c.toId : c.fromId] });
       return { pvpId: null };
+    }
+    if (c.mode === 'draft') {
+      // Sides are drawn now: White picks the king, Black the queen.
+      const iAmWhite = this.rng() < 0.5;
+      const draft = newDraft(iAmWhite ? me.id : c.fromId, iAmWhite ? c.fromId : me.id, this.rng, this.now());
+      await this.store.updateChallenge(c.id, { status: 'drafting', draft: JSON.stringify(draft) });
+      this.emit({ type: 'draft', id: c.id, users: [c.fromId], start: true });
+      return { pvpId: null, draftId: c.id };
     }
     const deck = await this.playableDeck(me.id, deckId);
     const iAmWhite = this.rng() < 0.5;
@@ -2776,6 +2813,101 @@ export class GameService {
     await this.store.updateChallenge(c.id, { status: 'accepted', pvpId: row.id });
     this.emit({ type: 'matched', id: row.id, users: [c.fromId] });
     return { pvpId: row.id };
+  }
+
+  // ── Draft ──
+
+  /** One draft operation at a time per draft: both players pick at once. */
+  private draftLocks = new Map<string, Promise<unknown>>();
+  private withDraft<T>(id: string, fn: () => Promise<T>): Promise<T> {
+    const prev = this.draftLocks.get(id) ?? Promise.resolve();
+    const run = prev.then(fn, fn);
+    const tail = run.catch(() => undefined);
+    this.draftLocks.set(id, tail);
+    void tail.then(() => this.draftLocks.get(id) === tail && this.draftLocks.delete(id));
+    return run;
+  }
+
+  /**
+   * A draft as it stands now: rounds whose time ran out are picked at random, and a finished
+   * draft starts its game (once).
+   */
+  private async draftOf(c: ChallengeRow): Promise<{ draft: DraftState; row: ChallengeRow }> {
+    const stored = parseDraft(c.draft);
+    if (!stored) throw new ApiError(404, 'Драфт не знайдено.');
+    const draft = settleTimeouts(stored, this.now(), this.rng);
+    let row = c;
+    if (draft !== stored) {
+      row = { ...c, draft: JSON.stringify(draft) };
+      await this.store.updateChallenge(c.id, { draft: row.draft });
+    }
+    if (draftDone(draft) && !row.pvpId) row = await this.startDraftGame(row, draft);
+    return { draft, row };
+  }
+
+  private async startDraftGame(c: ChallengeRow, draft: DraftState): Promise<ChallengeRow> {
+    const decks = draftDecks(draft);
+    const pvp: PvpRow = {
+      id: randomId(8),
+      whiteId: draft.white,
+      blackId: draft.black,
+      whiteDeck: decks.w,
+      blackDeck: decks.b,
+      actions: '[]',
+      status: 'active',
+      result: null,
+      resignedBy: null,
+      ranked: false,
+      createdAt: this.now(),
+      updatedAt: this.now(),
+    };
+    await this.store.insertPvp(pvp);
+    await this.store.updateChallenge(c.id, { status: 'accepted', pvpId: pvp.id });
+    this.emit({ type: 'draft', id: c.id, users: [draft.white, draft.black] });
+    return { ...c, status: 'accepted', pvpId: pvp.id };
+  }
+
+  private async draftFor(userId: string, id: string): Promise<ChallengeRow> {
+    const c = await this.store.getChallenge(id);
+    if (!c || c.mode !== 'draft' || (c.fromId !== userId && c.toId !== userId) || !c.draft) throw new ApiError(404, 'Драфт не знайдено.');
+    return c;
+  }
+
+  private async draftPage(userId: string, row: ChallengeRow, draft: DraftState): Promise<DraftPage> {
+    const color: Color = draft.white === userId ? 'w' : 'b';
+    return {
+      ...draftView(draft, row.id, color, this.now(), row.pvpId),
+      me: await this.cardOf(userId),
+      opponent: await this.cardOf(row.fromId === userId ? row.toId : row.fromId),
+    };
+  }
+
+  async draftState(token: string, id: string): Promise<DraftPage> {
+    const me = await this.auth(token);
+    return this.withDraft(id, async () => {
+      const { draft, row } = await this.draftOf(await this.draftFor(me.id, id));
+      return this.draftPage(me.id, row, draft);
+    });
+  }
+
+  /** Take one of this round's two cards; the other goes to the opponent. */
+  async draftPick(token: string, id: string, cardId: string): Promise<DraftPage> {
+    const me = await this.auth(token);
+    return this.withDraft(id, async () => {
+      const { draft, row } = await this.draftOf(await this.draftFor(me.id, id));
+      const color: Color = draft.white === me.id ? 'w' : 'b';
+      let next: DraftState;
+      try {
+        next = pickCard(draft, color, cardId, this.now());
+      } catch (e) {
+        throw new ApiError(409, e instanceof Error ? e.message : 'Не вдалося вибрати.');
+      }
+      let saved: ChallengeRow = { ...row, draft: JSON.stringify(next) };
+      await this.store.updateChallenge(row.id, { draft: saved.draft });
+      if (draftDone(next)) saved = await this.startDraftGame(saved, next);
+      else this.emit({ type: 'draft', id: row.id, users: [row.fromId, row.toId] });
+      return this.draftPage(me.id, saved, next);
+    });
   }
 
   private replayPvp(p: PvpRow): MatchState {
@@ -3022,8 +3154,14 @@ export class GameService {
   async inbox(token: string): Promise<Inbox> {
     const me = await this.auth(token);
     const friendRequests = (await this.store.listFriends(me.id)).filter((f) => f.status === 'pending' && f.toId === me.id).length;
-    const challenges = (await this.store.listChallenges(me.id)).filter((c) => c.status === 'pending' && c.toId === me.id).length;
+    const mine = await this.store.listChallenges(me.id);
+    const challenges = mine.filter((c) => c.status === 'pending' && c.toId === me.id).length;
     let yourTurn = 0;
+    // A draft waiting for my pick is my turn too.
+    for (const c of mine.filter((x) => x.status === 'drafting')) {
+      const d = parseDraft(c.draft);
+      if (d && !draftDone(d) && !d.picks[d.round][d.white === me.id ? 'w' : 'b']) yourTurn++;
+    }
     let rankedGame: string | null = null;
     for (const p of await this.store.listPvp(me.id, 30)) {
       if (p.status !== 'active') continue;

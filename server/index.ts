@@ -355,7 +355,9 @@ const routes: [string, RegExp, Handler][] = [
   ['DELETE', /^friends\/(\w+)$/, ({ token, params }) => svc.removeFriend(token, params[0])],
   ['GET', /^challenges$/, ({ token }) => svc.challenges(token)],
   ['POST', /^challenges$/, ({ token, body }) =>
-    svc.challengeFriend(token, String(body.friendId ?? ''), body.deckId ? String(body.deckId) : undefined)],
+    svc.challengeFriend(token, String(body.friendId ?? ''), body.deckId ? String(body.deckId) : undefined, body.mode === 'draft' ? 'draft' : 'classic')],
+  ['GET', /^draft\/(\w+)$/, ({ token, params }) => svc.draftState(token, params[0])],
+  ['POST', /^draft\/(\w+)\/pick$/, ({ token, params, body }) => svc.draftPick(token, params[0], String(body.cardId ?? ''))],
   ['POST', /^challenges\/(\w+)\/respond$/, ({ token, params, body }) =>
     svc.respondChallenge(token, params[0], !!body.accept, body.deckId ? String(body.deckId) : undefined)],
   ['GET', /^pvp\/(\w+)$/, ({ token, params }) => svc.pvpState(token, params[0])],

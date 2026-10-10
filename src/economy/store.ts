@@ -168,9 +168,14 @@ export interface ChallengeRow {
   fromId: string;
   toId: string;
   fromDeck: Deck;
-  status: 'pending' | 'accepted' | 'declined' | 'cancelled';
+  /** 'drafting': a draft accepted and being picked (the game starts when it ends). */
+  status: 'pending' | 'drafting' | 'accepted' | 'declined' | 'cancelled';
   pvpId: string | null;
   createdAt: number;
+  /** A game on the challenger's deck, or a draft (both decks picked card by card). */
+  mode: 'classic' | 'draft';
+  /** JSON DraftState while drafting and after ('' for a classic challenge). */
+  draft: string;
 }
 
 /** A game between two players; the state is rebuilt by replaying `actions`. */

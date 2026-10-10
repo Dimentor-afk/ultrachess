@@ -20,6 +20,7 @@ type ServerMsg =
   | { t: 'game'; game: PvpState; watchers: number; req?: number }
   | { t: 'error'; id: string; req?: number; status: number; error: string }
   | { t: 'matched'; id: string }
+  | { t: 'draft'; id: string; start: boolean }
   | { t: 'nudge' }
   | { t: 'emote'; id: string; color: 'w' | 'b'; e: string };
 
@@ -38,6 +39,7 @@ export class LiveSocket {
   private statusListeners = new Set<(s: LiveStatus) => void>();
   private matchedListeners = new Set<(id: string) => void>();
   private nudgeListeners = new Set<() => void>();
+  private draftListeners = new Set<(id: string, start: boolean) => void>();
   private emoteListeners = new Set<(id: string, color: 'w' | 'b', e: string) => void>();
 
   constructor(private url: string) {
@@ -99,6 +101,11 @@ export class LiveSocket {
   onMatched(cb: (id: string) => void): () => void {
     this.matchedListeners.add(cb);
     return () => void this.matchedListeners.delete(cb);
+  }
+  /** A draft moved on (`start`: a friend just accepted ours). */
+  onDraft(cb: (id: string, start: boolean) => void): () => void {
+    this.draftListeners.add(cb);
+    return () => void this.draftListeners.delete(cb);
   }
   /** Something for the inbox changed (a challenge, a friend request, a move). */
   onNudge(cb: () => void): () => void {
@@ -194,6 +201,9 @@ export class LiveSocket {
       if (msg.req !== undefined) this.settle(msg.req, (p) => p.reject(new ApiError(msg.status, tr(msg.error))));
     } else if (msg.t === 'matched') {
       for (const cb of this.matchedListeners) cb(msg.id);
+    } else if (msg.t === 'draft') {
+      for (const cb of this.draftListeners) cb(msg.id, msg.start);
+      for (const cb of this.nudgeListeners) cb();
     } else if (msg.t === 'nudge') {
       for (const cb of this.nudgeListeners) cb();
     } else if (msg.t === 'emote') {

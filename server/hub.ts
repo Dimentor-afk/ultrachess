@@ -165,7 +165,8 @@ export class Hub {
   private onEvent(e: ServiceEvent): void {
     if (e.type === 'game') void this.broadcast(e.id);
     for (const u of e.users) {
-      for (const c of this.byUser.get(u) ?? []) this.send(c, e.type === 'matched' ? { t: 'matched', id: e.id } : { t: 'nudge' });
+      for (const c of this.byUser.get(u) ?? [])
+        this.send(c, e.type === 'matched' ? { t: 'matched', id: e.id } : e.type === 'draft' ? { t: 'draft', id: e.id, start: !!e.start } : { t: 'nudge' });
     }
   }
 

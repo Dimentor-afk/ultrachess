@@ -44,13 +44,15 @@ export function FriendsPage() {
     const onShow = () => !document.hidden && void load();
     document.addEventListener('visibilitychange', onShow);
     const offNudge = s.api.live?.onNudge(() => void load());
-    // A challenge we sent was accepted: straight into the game.
+    // A challenge we sent was accepted: straight into the game (or the draft).
     const offMatched = s.api.live?.onMatched((id) => navigate(`/game/${id}`));
+    const offDraft = s.api.live?.onDraft((id, start) => start && navigate(`/draft/${id}`));
     return () => {
       clearInterval(t);
       document.removeEventListener('visibilitychange', onShow);
       offNudge?.();
       offMatched?.();
+      offDraft?.();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [load]);
@@ -133,12 +135,14 @@ export function FriendsPage() {
           <div className="player-list">
             {ch!.incoming.map((c) => (
               <PlayerRow key={c.id} p={c.from} onOpen={() => setViewing(c.from.id)} highlight>
+                {c.mode === 'draft' && <span className="pill pill-draft">{t('драфт')}</span>}
                 <button
                   className="btn btn-sm btn-primary"
                   onClick={() =>
                     run(async () => {
                       const r = await s.api.respondChallenge(c.id, true, s.profile.activeDeckId ?? undefined);
                       if (r.pvpId) open(r.pvpId);
+                      if (r.draftId) navigate(`/draft/${r.draftId}`);
                     })
                   }
                 >
@@ -146,6 +150,24 @@ export function FriendsPage() {
                 </button>
                 <button className="btn btn-sm" onClick={() => run(() => s.api.respondChallenge(c.id, false))}>
                   {t('Відхилити')}
+                </button>
+              </PlayerRow>
+            ))}
+          </div>
+        </>
+      )}
+
+      {(ch?.drafts.length ?? 0) > 0 && (
+        <>
+          <div className="section-head">
+            <h2>{t('Драфти')}</h2>
+          </div>
+          <div className="player-list">
+            {ch!.drafts.map((d) => (
+              <PlayerRow key={d.id} p={d.opponent} onOpen={() => setViewing(d.opponent.id)} highlight={d.yourPick}>
+                <span className={`pill ${d.yourPick ? 'pill-ok' : ''}`}>{d.yourPick ? t('ваш вибір') : t('раунд {0}/5', d.round + 1)}</span>
+                <button className="btn btn-sm btn-primary" onClick={() => navigate(`/draft/${d.id}`)}>
+                  {d.yourPick ? t('Вибрати') : t('Відкрити')}
                 </button>
               </PlayerRow>
             ))}
@@ -235,17 +257,28 @@ export function FriendsPage() {
               <PlayerRow key={f.linkId} p={f} onOpen={() => setViewing(f.id)}>
                 {sent ? (
                   <button className="btn btn-sm" onClick={() => run(() => s.api.respondChallenge(sent.id, false), t('Виклик скасовано'))}>
-                    {t('Скасувати виклик')}
+                    {sent.mode === 'draft' ? t('Скасувати драфт') : t('Скасувати виклик')}
                   </button>
                 ) : (
-                  <button
-                    className="btn btn-sm btn-primary"
-                    onClick={() =>
-                      run(() => s.api.challengeFriend(f.id, s.profile.activeDeckId ?? undefined), t('Виклик надіслано: {0}. Гра почнеться, коли друг прийме.', f.name))
-                    }
-                  >
-                    {t('⚔ Викликати')}
-                  </button>
+                  <>
+                    <button
+                      className="btn btn-sm btn-draft"
+                      title={t('Колоди збираєте по черзі: одна картка з двох')}
+                      onClick={() =>
+                        run(() => s.api.challengeFriend(f.id, undefined, 'draft'), t('Драфт запропоновано: {0}. Почнемо, коли друг прийме.', f.name))
+                      }
+                    >
+                      🃏 {t('Драфт')}
+                    </button>
+                    <button
+                      className="btn btn-sm btn-primary"
+                      onClick={() =>
+                        run(() => s.api.challengeFriend(f.id, s.profile.activeDeckId ?? undefined), t('Виклик надіслано: {0}. Гра почнеться, коли друг прийме.', f.name))
+                      }
+                    >
+                      {t('⚔ Викликати')}
+                    </button>
+                  </>
                 )}
               </PlayerRow>
             );
