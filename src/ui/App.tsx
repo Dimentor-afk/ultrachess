@@ -18,6 +18,7 @@ import { REF_KEY, ReferralPrompt, ReferralSheet } from './Referral';
 import { currentPath, navigate, onNavigate, useRoutePath } from './router';
 import { LeaguesPage } from './LeaguesPage';
 import { TrialsPage } from './TrialsPage';
+import { WeeklyPage } from './WeeklyPage';
 import { type Loaded, SessionProvider, type Toast, errorText, loadAll, useSession } from './state';
 import { t } from '../i18n';
 
@@ -32,11 +33,12 @@ const TestPayPage = lazy(() => import('./Payments').then((m) => ({ default: m.Te
 const ReplayPage = lazy(() => import('./ReplayPage').then((m) => ({ default: m.ReplayPage })));
 const PaddlePayPage = lazy(() => import('./Payments').then((m) => ({ default: m.PaddlePayPage })));
 
-type Route = 'play' | 'leagues' | 'trials' | 'deck' | 'shop' | 'friends' | 'top' | 'admin' | 'profile' | 'help' | 'game' | 'pay' | 'replay';
+type Route = 'play' | 'leagues' | 'weekly' | 'trials' | 'deck' | 'shop' | 'friends' | 'top' | 'admin' | 'profile' | 'help' | 'game' | 'pay' | 'replay';
 
 const ROUTES: { id: Route; label: string; icon: string; admin?: boolean }[] = [
   { id: 'play', label: t('Грати'), icon: 'play' },
   { id: 'leagues', label: t('Ліги'), icon: 'ladder' },
+  { id: 'weekly', label: t('Тиждень слави'), icon: 'flame' },
   { id: 'trials', label: t('Випробування'), icon: 'medal' },
   { id: 'deck', label: t('Колода'), icon: 'cards' },
   { id: 'shop', label: t('Магазин'), icon: 'shop' },
@@ -51,12 +53,13 @@ const TABS: { id: Route; label: string; icon: string; covers?: Route[] }[] = [
   { id: 'deck', label: t('Колода'), icon: 'cards' },
   { id: 'play', label: t('Грати'), icon: 'play' },
   { id: 'friends', label: t('Друзі'), icon: 'users' },
-  { id: 'leagues', label: t('Ліги'), icon: 'trophy', covers: ['trials', 'top'] },
+  { id: 'leagues', label: t('Ліги'), icon: 'trophy', covers: ['weekly', 'trials', 'top'] },
 ];
 
 /** On phones the Ліги tab holds three pages; this strip switches between them. */
 const ARENA: { id: Route; label: string }[] = [
   { id: 'leagues', label: t('Ліги') },
+  { id: 'weekly', label: t('Тиждень') },
   { id: 'trials', label: t('Випробування') },
   { id: 'top', label: t('Рейтинг') },
 ];
@@ -179,7 +182,7 @@ function Shell() {
   const theme = themeById(s.profile.boardTheme);
 
   const badge = (id: Route) =>
-    id === 'play' && readyPacks > 0 ? readyPacks : id === 'friends' && social > 0 ? social : 0;
+    id === 'play' && readyPacks > 0 ? readyPacks : id === 'friends' && social > 0 ? social : (id === 'leagues' || id === 'weekly') && s.profile.weekly.claimable ? 1 : 0;
 
   return (
     <div className="shell" style={{ '--light-sq': theme.light, '--dark-sq': theme.dark } as CSSProperties}>
@@ -276,6 +279,7 @@ function Shell() {
           <Suspense fallback={<p className="muted page-loading">{t('Завантаження…')}</p>}>
           {route === 'play' && <HomePage />}
           {route === 'leagues' && <LeaguesPage />}
+          {route === 'weekly' && <WeeklyPage />}
           {route === 'trials' && <TrialsPage />}
           {route === 'deck' && <DeckPage />}
           {route === 'shop' && <ShopPage />}

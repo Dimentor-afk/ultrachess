@@ -2,6 +2,7 @@
 
 const PATHS: Record<string, string> = {
   play: 'M5 3l14 9-14 9V3z',
+  flame: 'M12 3c1 4 5 5.5 5 10.5a5 5 0 0 1-10 0c0-2.8 1.6-4.4 2.7-5.5.2 2.1 1.4 3.2 2.5 3.2-.2-3 .5-5.4-.2-8.2z',
   cards: 'M4 6h11v15H4zM8 3h11v15',
   deck: 'M3 5h18v6H3zM3 13h18v6H3zM7 5v14M11 5v14M15 5v14',
   trophy: 'M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4zM7 6H4a3 3 0 0 0 3 4M17 6h3a3 3 0 0 1-3 4',

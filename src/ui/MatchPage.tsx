@@ -1,3 +1,4 @@
+import { WEEKLY_GAMES, WEEKLY_TIERS, divisionByN } from '../economy/weekly';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ABILITY_DEFS, abilityOptions, abilityReady } from '../engine/abilities';
 import { HINT_BOT, botLevel } from '../engine/bot/levels';
@@ -95,7 +96,11 @@ export function Game({ start, playerName, playerAvatar, playerTitle, trophies, o
     return () => document.documentElement.classList.remove('in-game');
   }, []);
   const alive = useRef(true);
-  useEffect(() => () => void (alive.current = false), []);
+  // Set again on mount: React's dev double mount runs the cleanup once before the real mount.
+  useEffect(() => {
+    alive.current = true;
+    return () => void (alive.current = false);
+  }, []);
 
   // The server's latest view of the game for us, and what the board shows:
   // the same view, or for a moment our own move played on it ahead of the answer.
@@ -527,7 +532,9 @@ export function Game({ start, playerName, playerAvatar, playerTitle, trophies, o
   // Who sits where: the opponent on top, you at the bottom (a spectator: black on top, white below).
   const top: PlayerCard | null = remote ? (human === 'w' ? remote.black : remote.white) : null;
   const bottomCard: PlayerCard | null = remote ? (human === 'w' ? remote.white : remote.black) : null;
-  const sideName = (c: Color) => (remote ? (c === 'w' ? remote.white : remote.black).name : c === human ? playerName : t('Бот · {0}', botLevel(start.botLevel).name));
+  // The weekly league's bot keeps its strength a secret.
+  const botName = start.weekly ? t('Бот тижня') : t('Бот · {0}', botLevel(start.botLevel).name);
+  const sideName = (c: Color) => (remote ? (c === 'w' ? remote.white : remote.black).name : c === human ? playerName : botName);
 
   const selectedPiece = selected !== null ? view.cells[selected] : null;
   const [cardOpen, setCardOpen] = useState<string | null>(null);
@@ -616,7 +623,7 @@ export function Game({ start, playerName, playerAvatar, playerTitle, trophies, o
           <span className={`pb-who ${top ? 'clickable' : ''}`} onClick={top ? () => setViewing(top.id) : undefined} role={top ? 'button' : undefined} title={top ? t('Профіль гравця') : undefined}>
             {top ? <Avatar card={top.avatar} /> : <span className="avatar avatar-bot">🤖</span>}
             <span>
-              <b>{top ? top.name : t('Бот · {0}', botLevel(start.botLevel).name)}</b>
+              <b>{top ? top.name : botName}</b>
               {top?.title && <TitlePlate id={top.title} small />}
               <small className="muted">{top ? `🏆 ${top.trophies} · ` : ''}{tr(start.botDeck.name)}</small>
             </span>
@@ -649,6 +656,7 @@ export function Game({ start, playerName, playerAvatar, playerTitle, trophies, o
             captureFx={captureFx}
             introHidden={intro ? new Set(introPlan.slice(landed).flatMap((x) => x.squares)) : undefined}
             introLanding={intro && landed > 0 ? new Set(introPlan[landed - 1].squares) : undefined}
+            skins={start.skins}
           />
           {quakeArrows.map(({ o, x, y, angle }) => (
             <button
@@ -759,7 +767,9 @@ export function Game({ start, playerName, playerAvatar, playerTitle, trophies, o
               ? `${spectator ? t('Глядач · ') : ''}${remote.ranked ? t('Ліга гравців') : t('Гра з другом')}`
               : start.trial
                 ? t('{0} · раунд {1}/{2}', start.trial.name, start.trial.round, start.trial.rounds)
-                : start.ranked
+                : start.weekly
+                  ? t('Тиждень слави · матч {0}/{1}', start.weekly.game, WEEKLY_GAMES)
+                  : start.ranked
                   ? t('Ліга ботів')
                   : t('Тренування')}<span className="status-move"> · {t('хід {0}', fullMoves(match.ply) + (match.turn === 'w' ? 1 : 0))}</span></span>
           <br />
@@ -998,6 +1008,9 @@ export function Game({ start, playerName, playerAvatar, playerTitle, trophies, o
                   🏆 {verdict.trophiesDelta >= 0 ? '+' : ''}
                   {verdict.trophiesDelta}
                 </span>
+                {!!verdict.streakBonus && (
+                  <span className="streak-bonus">🔥 {t('+{0} за серію: {1} перемог поспіль', verdict.streakBonus, verdict.streak ?? 0)}</span>
+                )}
                 <span className="muted">
                   {t('Тепер: {0} · {1}', verdict.profile.ladders[verdict.ladder].trophies, tr(verdict.profile.ladders[verdict.ladder].leagueName))}
                 </span>
@@ -1074,7 +1087,20 @@ export function Game({ start, playerName, playerAvatar, playerTitle, trophies, o
                 <a className="small" href="#/profile/achievements">{t('Усі досягнення →')}</a>
               </div>
             )}
-            {verdict && !verdict.ladder && !verdict.trial && <p className="muted">{t('Тренування: кубки й паки не нараховуються.')}</p>}
+            {verdict?.weekly && (
+              <div className="verdict">
+                <span className="eyebrow">{t('Тиждень слави · дивізіон {0}', divisionByN(verdict.weekly.division).roman)}</span>
+                <span className="trophy-delta up">{t('Перемог: {0} · зіграно {1} з {2}', verdict.weekly.wins, verdict.weekly.played, WEEKLY_GAMES)}</span>
+                {verdict.weekly.settled ? (
+                  <a className="btn btn-primary btn-sm" href="#/weekly">
+                    {verdict.weekly.tier >= 0 ? t('Забрати нагороди тижня') : t('Підсумки тижня')}
+                  </a>
+                ) : (
+                  <span className="muted small">{weeklyNextText(verdict.weekly.wins)}</span>
+                )}
+              </div>
+            )}
+            {verdict && !verdict.ladder && !verdict.trial && !verdict.weekly && <p className="muted">{t('Тренування: кубки й паки не нараховуються.')}</p>}
             <div className="editor-actions">
               {onRematch && !spectator && (
                 <button className="btn btn-primary" onClick={onRematch}>
@@ -1181,3 +1207,10 @@ function PieceBrief({ cell, onMore }: { cell: ViewPiece; onMore: () => void }) {
     </div>
   );
 }
+
+/** What the next weekly reward needs ("ще 2 перемоги до 6"). */
+function weeklyNextText(wins: number): string {
+  const next = WEEKLY_TIERS.find((x) => x > wins);
+  return next ? t('До нагороди за {0} перемог: ще {1}', next, next - wins) : t('Найвища нагорода тижня вже ваша');
+}
+

@@ -82,5 +82,7 @@ export function useCountdown(at: number | null | undefined): string {
   const h = Math.floor(min / 60);
   const m = min % 60;
   if (min <= 1) return t('менше хвилини');
+  // Days away (the weekly league): days and hours are enough.
+  if (h >= 24) return t('{0} д {1} год', Math.floor(h / 24), h % 24);
   return h ? t('{0} год {1} хв', h, m) : t('{0} хв', m);
 }

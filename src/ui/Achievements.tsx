@@ -1,8 +1,10 @@
+import { SKIN_BY_ID } from '../economy/skins';
+import { parseWeeklyPlate } from '../economy/weekly';
 import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import type { AchievementView } from '../api/client';
 import { ACHIEVEMENT_BY_ID, CREATOR_TITLE, SHOWCASE_SIZE, type AchievementDef } from '../economy/achievements';
 import { FOUNDER_PLATE } from '../economy/referrals';
-import { t } from '../i18n';
+import { t, tr } from '../i18n';
 import { cardArt, packArt } from './cardArt';
 import type { PackType } from '../economy/packs';
 import { currentPath, useRoutePath } from './router';
@@ -64,6 +66,17 @@ export function rarityText(percent: number): string {
 
 /** The plate under a player's name: an achievement they chose to show. */
 export function TitlePlate({ id, small }: { id: string | null | undefined; small?: boolean }) {
+  // A weekly league plate: the season's name and the division, in the division's colours.
+  const weekly = id ? parseWeeklyPlate(id) : null;
+  if (weekly) {
+    const skin = SKIN_BY_ID[weekly.season.skins[5 - weekly.division.n]];
+    return (
+      <span className={`title-plate weekly-plate div-${weekly.division.n} ${small ? 'small' : ''}`} title={t('{0}: 15 перемог у Тижні слави, дивізіон {1}', tr(weekly.season.name), weekly.division.roman)}>
+        {skin && <img src={skin.art} alt="" />}
+        {tr(weekly.season.plate)} · {weekly.division.roman}
+      </span>
+    );
+  }
   if (id === FOUNDER_PLATE) {
     return (
       <span className={`title-plate founder ${small ? 'small' : ''}`} title={t('Засновник спільноти')}>

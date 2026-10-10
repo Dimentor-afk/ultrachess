@@ -137,10 +137,12 @@ export function computeAdminStats(input: {
     const kind: GameKind = mode.startsWith('trial:') ? 'trial' : mode === 'bot' ? 'bot' : 'training';
     const score = r.outcome === 'win' ? 1 : r.outcome === 'draw' ? 0.5 : 0;
     game(m.createdAt, r.reason, r.moves ?? 0, r.outcome === 'draw' ? null : r.outcome === 'win' ? m.color : m.color === 'w' ? 'b' : 'w', kind);
-    const b = bots.get(m.botLevel) ?? { games: 0, score: 0 };
+    // Bot-ladder levels lie between presets (the trophies): count them with the nearest one.
+    const level = Math.round(m.botLevel);
+    const b = bots.get(level) ?? { games: 0, score: 0 };
     b.games++;
     b.score += score;
-    bots.set(m.botLevel, b);
+    bots.set(level, b);
     // The classic trial plays fixed decks: they say nothing about the cards.
     if (mode === 'trial:classic') continue;
     side(m.playerDeck, score, false);

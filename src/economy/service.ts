@@ -19,14 +19,34 @@ import {
   TRIALS,
   type Trial,
   type TrialRun,
+  botEloFor,
   ladderReward,
   leagueIndex,
+  streakBonus,
   trialById,
 } from './leagues';
 import { BOARD_THEMES, DEFAULT_THEME, themeById } from './themes';
+import { SKIN_BY_ID, SKIN_DUPE_GOLD, type SkinChoice, ownedSkins, skinChoiceOf } from './skins';
+import {
+  SEASON,
+  WEEKLY_GAMES,
+  WEEKLY_MIN_TROPHIES,
+  type WeeklyReward,
+  type WeeklyRun,
+  divisionByN,
+  divisionFor,
+  parseRun,
+  runSettled,
+  tierIndex,
+  weekClosesAt,
+  weekWindow,
+  weeklyBotElo,
+  weeklyReward,
+  winsOf,
+} from './weekly';
 import { CAPTURE_FX, DEFAULT_CAPTURE_FX, captureFxById } from './captureFx';
 import { type ShopOffer, shopOffer } from './dailyShop';
-import { BOT_LEVELS, botLevel } from '../engine/bot/levels';
+import { BOT_LEVELS, botLevel, levelForElo } from '../engine/bot/levels';
 import type { BotOptions, BotTurn } from '../engine/bot/search';
 import { legalMoves } from '../engine/legal';
 import { type QuestEvent, type QuestView, addProgress, parseQuests, questViews } from './quests';
@@ -125,6 +145,61 @@ export interface Profile {
   plates: string[];
   /** Achievement shown as the plate under the name (null: none). */
   title: string | null;
+  /** Skins won, and the one worn per card. */
+  skins: string[];
+  skinChoice: SkinChoice;
+  /** The weekly league at a glance (the home screen's banner). */
+  weekly: WeeklyBrief;
+}
+
+/** The weekly league at a glance. */
+export interface WeeklyBrief {
+  open: boolean;
+  opensAt: number;
+  closesAt: number;
+  nextOpensAt: number;
+  /** Enough bot-ladder trophies to enter. */
+  eligible: boolean;
+  /** This week's division (or the one the trophies would enter); null below the entry. */
+  division: number | null;
+  wins: number;
+  played: number;
+  /** This week's games are done (all played, or no higher reward in reach). */
+  settled: boolean;
+  /** A reward waits to be taken (this week's or last week's). */
+  claimable: boolean;
+}
+
+/** The weekly league page. */
+export interface WeeklyView extends WeeklyBrief {
+  trophies: number;
+  /** The run shown: this week's, or last week's while its reward waits. */
+  run: {
+    week: string;
+    division: number;
+    rating: number;
+    results: WeeklyRun['results'];
+    /** The reward is settled: all games played, no higher tier in reach, or the week closed. */
+    over: boolean;
+    claimed: boolean;
+    /** Tier reached (-1: fewer than 3 wins) and its reward. */
+    tier: number;
+    reward: WeeklyReward | null;
+    /** A game of this run is in progress. */
+    playing: boolean;
+    lastWeek: boolean;
+  } | null;
+}
+
+/** What taking a weekly reward gave. */
+export interface WeeklyClaim {
+  reward: WeeklyReward;
+  packs: PackView[];
+  /** Skins new to the player, and the ones they had (paid in gold instead). */
+  skinsNew: string[];
+  skinsOwned: string[];
+  dupeGold: number;
+  profile: Profile;
 }
 
 export interface LadderView {
@@ -139,8 +214,13 @@ export interface LadderView {
   /** Pack for the next win (while under the cap). */
   nextPack: Exclude<PackType, 'starter'>;
   winGold: number;
+  /** Trophies for the next win (the streak bonus included) and for a loss. */
   win: number;
   loss: number;
+  /** Bot ladder: wins in a row so far (0 in the player ladder). */
+  streak: number;
+  /** The bot-ladder bot's rating now (≈ the trophies). */
+  botElo: number;
 }
 
 /** A league reached for the first time and what it paid. */
@@ -155,6 +235,9 @@ export interface LeagueUp {
 export interface LadderResult {
   ladder: Ladder;
   trophiesDelta: number;
+  /** Of `trophiesDelta`, the win streak's bonus; the streak after this game. */
+  streakBonus?: number;
+  streak?: number;
   goldDelta: number;
   reward: PackView | null;
   rewardSkipped: boolean;
@@ -222,6 +305,10 @@ export interface MatchStart {
   botLevel: number;
   playerDeck: Deck;
   botDeck: Deck;
+  /** Skins on the board, per side (the bot wears none). */
+  skins: Partial<Record<Color, SkinChoice>>;
+  /** A weekly-league game: the bot's strength is not shown; the run so far. */
+  weekly?: { division: number; game: number; wins: number };
 }
 
 export interface MatchFinish {
@@ -234,6 +321,11 @@ export interface MatchFinish {
   rewardSkipped: boolean;
   leagueUps: LeagueUp[];
   ladder: Ladder | null;
+  /** Bot ladder: the win streak's share of `trophiesDelta` and the streak after this game. */
+  streakBonus?: number;
+  streak?: number;
+  /** Weekly league: the run after this game. */
+  weekly?: { division: number; wins: number; played: number; settled: boolean; tier: number };
   trial: TrialResult | null;
   /** Achievements this game reached (ids). */
   achievements: string[];
@@ -305,7 +397,7 @@ export interface PublicProfile extends PlayerCard {
 
 export interface HistoryRow {
   id: string;
-  kind: 'ranked' | 'bot' | 'training' | 'friend' | 'trial';
+  kind: 'ranked' | 'bot' | 'training' | 'friend' | 'trial' | 'weekly';
   opponent: string;
   outcome: 'win' | 'loss' | 'draw';
   reason: string;
@@ -354,8 +446,9 @@ export interface PvpState {
   id: string;
   /** Your side; null when you are watching someone else's game. */
   color: Color | null;
-  /** Each side's capture effect. */
+  /** Each side's capture effect and skins. */
   captureFx: Record<Color, string>;
+  skins: Record<Color, SkinChoice>;
   white: PlayerCard;
   black: PlayerCard;
   whiteDeck: Deck;
@@ -594,6 +687,7 @@ export class GameService {
       lastSeen: 0,
       quests: '{}',
       botOverride: -1,
+      botStreak: 0,
       captureFx: DEFAULT_CAPTURE_FX,
       ownedFx: '[]',
       botTrophies: 0,
@@ -617,6 +711,9 @@ export class GameService {
       refStage: 0,
       refGames: 0,
       patchSeen: PATCH_ID,
+      skins: '[]',
+      skinChoice: '{}',
+      weekly: '',
     };
   }
 
@@ -940,7 +1037,154 @@ export class GameService {
       showcase: this.achState(u).showcase ?? [],
       plates: this.platesOf(u),
       title: this.titleOf(u),
+      skins: ownedSkins(u.skins),
+      skinChoice: this.skinsOf(u),
+      weekly: this.weeklyBrief(u),
     };
+  }
+
+  // ── Skins ──
+
+  /** The skins a player wears on the board (only ones they own). */
+  private skinsOf(u: UserRow): SkinChoice {
+    return skinChoiceOf(u.skinChoice, u.skins);
+  }
+
+  /** Wear a skin on a card's piece, or the card's own look again (null). */
+  async setSkin(token: string, cardId: string, skinId: string | null): Promise<Profile> {
+    const u = await this.auth(token);
+    const choice = this.skinsOf(u);
+    if (skinId === null) {
+      delete choice[cardId];
+    } else {
+      const skin = SKIN_BY_ID[skinId];
+      if (!skin || skin.card !== cardId) throw new ApiError(400, 'Такого скіна немає.');
+      if (!ownedSkins(u.skins).includes(skinId)) throw new ApiError(400, 'Цей скін ще не здобуто.');
+      choice[cardId] = skinId;
+    }
+    await this.store.updateUser(u.id, { skinChoice: JSON.stringify(choice) });
+    return this.profileOf(u.id);
+  }
+
+  /** Give skins; the ones already owned are paid in gold. */
+  private async grantSkins(userId: string, ids: string[]): Promise<{ added: string[]; owned: string[]; gold: number }> {
+    const u = (await this.store.getUser(userId))!;
+    const have = ownedSkins(u.skins);
+    const added = ids.filter((id) => SKIN_BY_ID[id] && !have.includes(id));
+    const owned = ids.filter((id) => have.includes(id));
+    const gold = owned.length * SKIN_DUPE_GOLD;
+    await this.store.updateUser(userId, { skins: JSON.stringify([...have, ...added]), gold: u.gold + gold });
+    return { added, owned, gold };
+  }
+
+  // ── Weekly league ──
+
+  /** The run kept for a player, and whether its reward is settled (all played, out of reach, week closed). */
+  private weeklyRun(u: UserRow): { run: WeeklyRun | null; over: boolean; current: boolean } {
+    const run = parseRun(u.weekly);
+    if (!run) return { run: null, over: false, current: false };
+    const current = run.week === weekWindow(this.now()).key;
+    return { run, over: runSettled(run) || this.now() >= weekClosesAt(run.week), current };
+  }
+
+  private weeklyClaimable(u: UserRow): boolean {
+    const { run, over } = this.weeklyRun(u);
+    return !!run && over && !run.claimedAt && tierIndex(winsOf(run)) >= 0;
+  }
+
+  private weeklyBrief(u: UserRow): WeeklyBrief {
+    const w = weekWindow(this.now());
+    const { run, current } = this.weeklyRun(u);
+    const mine = current ? run : null;
+    return {
+      open: w.open,
+      opensAt: w.opensAt,
+      closesAt: w.closesAt,
+      nextOpensAt: w.nextOpensAt,
+      eligible: u.botTrophies >= WEEKLY_MIN_TROPHIES,
+      division: mine ? mine.division : (divisionFor(u.botTrophies)?.n ?? null),
+      wins: mine ? winsOf(mine) : 0,
+      played: mine ? mine.results.length : 0,
+      settled: mine ? runSettled(mine) : false,
+      claimable: this.weeklyClaimable(u),
+    };
+  }
+
+  async weekly(token: string): Promise<WeeklyView> {
+    const u = await this.auth(token);
+    const { run, over, current } = this.weeklyRun(u);
+    // Last week's run stays on show only while its reward waits.
+    const shown = run && (current || this.weeklyClaimable(u)) ? run : null;
+    let playing = false;
+    if (shown?.matchId) {
+      const m = await this.store.getMatch(shown.matchId);
+      playing = !!m && m.status === 'active';
+    }
+    const tier = shown ? tierIndex(winsOf(shown)) : -1;
+    return {
+      ...this.weeklyBrief(u),
+      trophies: u.botTrophies,
+      run: shown
+        ? {
+            week: shown.week,
+            division: shown.division,
+            rating: shown.rating,
+            results: shown.results,
+            over,
+            claimed: !!shown.claimedAt,
+            tier,
+            reward: tier >= 0 ? weeklyReward(divisionByN(shown.division).n, tier) : null,
+            playing,
+            lastWeek: !current,
+          }
+        : null,
+    };
+  }
+
+  /** Take the settled reward of the run kept (this week's or last week's). */
+  async claimWeekly(token: string): Promise<WeeklyClaim> {
+    const u = await this.auth(token);
+    if (!this.weeklyClaimable(u)) throw new ApiError(400, 'Нагороди поки немає: зіграйте свої матчі тижня.');
+    return this.giveWeekly(u);
+  }
+
+  private async giveWeekly(u: UserRow): Promise<WeeklyClaim> {
+    const run = parseRun(u.weekly)!;
+    const reward = weeklyReward(divisionByN(run.division).n, tierIndex(winsOf(run)));
+    // Marked first: a second request finds it taken.
+    await this.store.updateUser(u.id, { weekly: JSON.stringify({ ...run, claimedAt: this.now() }) });
+    const packs: PackView[] = [];
+    for (const type of reward.packs) packs.push(this.view(await this.createPack(u.id, type, `${SEASON.name} · ${divisionByN(run.division).roman}`)));
+    const skins = await this.grantSkins(u.id, reward.skins);
+    const fresh = (await this.store.getUser(u.id))!;
+    const patch: Partial<UserRow> = { gold: fresh.gold + reward.gold, shards: fresh.shards + reward.shards };
+    if (reward.plate) {
+      let earned: string[] = [];
+      try {
+        earned = JSON.parse(fresh.plates || '[]');
+      } catch {
+        earned = [];
+      }
+      if (!earned.includes(reward.plate)) patch.plates = JSON.stringify([...earned, reward.plate]);
+    }
+    await this.store.updateUser(u.id, patch);
+    return { reward, packs, skinsNew: skins.added, skinsOwned: skins.owned, dupeGold: skins.gold, profile: await this.profileOf(u.id) };
+  }
+
+  /** The week's run for a new game: this week's, or a new one (last week's waiting reward is given first). */
+  private async weeklyRunForGame(u: UserRow): Promise<WeeklyRun> {
+    const w = weekWindow(this.now());
+    const { run, current } = this.weeklyRun(u);
+    if (run && current) {
+      if (runSettled(run)) throw new ApiError(409, 'Матчі цього тижня зіграно: заберіть нагороду.');
+      if (!w.open) throw new ApiError(409, 'Тиждень слави завершився. Наступний почнеться в понеділок о 10:00.');
+      return run;
+    }
+    if (!w.open) throw new ApiError(409, 'Тиждень слави почнеться в понеділок о 10:00 за Києвом.');
+    const division = divisionFor(u.botTrophies);
+    if (!division) throw new ApiError(403, `Потрібно щонайменше ${WEEKLY_MIN_TROPHIES} кубків у лізі ботів.`);
+    if (this.weeklyClaimable(u)) await this.giveWeekly(u);
+    return { week: w.key, season: SEASON.id, division: division.n, rating: u.botTrophies, results: [] };
   }
 
   // ── Achievements ──
@@ -1211,8 +1455,9 @@ export class GameService {
     return this.profileOf(u.id);
   }
 
+  /** The bot-ladder bot's level: as strong as the trophies (an admin may pick one to test). */
   private rankedBot(u: UserRow): number {
-    return u.role === 'admin' && u.botOverride >= 0 ? u.botOverride : BOT_LEAGUES[leagueIndex('bot', u.botTrophies)].botLevel!;
+    return u.role === 'admin' && u.botOverride >= 0 ? u.botOverride : levelForElo(botEloFor(u.botTrophies));
   }
 
   // ── Ladders ──
@@ -1238,8 +1483,10 @@ export class GameService {
       packsLimit: LADDER_PACK_LIMIT[ladder],
       nextPack: ladderReward(ladder, st.cycle),
       winGold: LADDER_WIN_GOLD[ladder],
-      win: LADDER_TROPHIES[ladder].win,
+      win: LADDER_TROPHIES[ladder].win + (ladder === 'bot' ? streakBonus(u.botStreak + 1) : 0),
       loss: LADDER_TROPHIES[ladder].loss,
+      streak: ladder === 'bot' ? u.botStreak : 0,
+      botElo: ladder === 'bot' ? botEloFor(st.trophies) : 0,
     };
   }
 
@@ -1259,14 +1506,17 @@ export class GameService {
     const u = (await this.store.getUser(userId))!;
     const st = this.ladderState(u, ladder);
     const t = LADDER_TROPHIES[ladder];
-    const trophiesDelta = Math.max(-st.trophies, outcome === 'win' ? t.win : outcome === 'loss' ? t.loss : t.draw);
+    // Bot ladder: the 3rd win in a row and later ones pay more; a loss or a draw ends the streak.
+    const streak = ladder === 'bot' ? (outcome === 'win' ? u.botStreak + 1 : 0) : 0;
+    const bonus = ladder === 'bot' && outcome === 'win' ? streakBonus(streak) : 0;
+    const trophiesDelta = Math.max(-st.trophies, outcome === 'win' ? t.win + bonus : outcome === 'loss' ? t.loss : t.draw);
     const trophies = st.trophies + trophiesDelta;
     const patch: Partial<UserRow> = {
       wins: u.wins + (outcome === 'win' ? 1 : 0),
       losses: u.losses + (outcome === 'loss' ? 1 : 0),
       draws: u.draws + (outcome === 'draw' ? 1 : 0),
     };
-    if (ladder === 'bot') Object.assign(patch, { botTrophies: trophies, botBest: Math.max(st.best, trophies) });
+    if (ladder === 'bot') Object.assign(patch, { botTrophies: trophies, botBest: Math.max(st.best, trophies), botStreak: streak });
     else Object.assign(patch, { trophies, bestTrophies: Math.max(st.best, trophies) });
 
     let gold = u.gold;
@@ -1307,7 +1557,7 @@ export class GameService {
     }
     patch.gold = gold;
     await this.store.updateUser(u.id, patch);
-    return { ladder, trophiesDelta, goldDelta, reward, rewardSkipped, leagueUps };
+    return { ladder, trophiesDelta, goldDelta, reward, rewardSkipped, leagueUps, ...(ladder === 'bot' ? { streakBonus: bonus, streak } : {}) };
   }
 
   // ── Trials ──
@@ -1796,14 +2046,29 @@ export class GameService {
     return classicDeck('bot', 'Колода бота');
   }
 
-  async startMatch(token: string, opts: { deckId?: string; ranked: boolean; level?: number; trial?: string }): Promise<MatchStart> {
+  async startMatch(token: string, opts: { deckId?: string; ranked: boolean; level?: number; trial?: string; weekly?: boolean }): Promise<MatchStart> {
     const u = await this.auth(token);
     let playerDeck: Deck;
     let botDeck: Deck;
     let botLevel: number;
     let mode: string;
     let trialInfo: MatchStart['trial'];
-    if (opts.trial) {
+    let weeklyRun: WeeklyRun | null = null;
+    if (opts.weekly) {
+      const run = await this.weeklyRunForGame(u);
+      if (run.matchId) {
+        // An unfinished game of the week goes on: leaving a lost game does not undo it.
+        const old = await this.store.getMatch(run.matchId);
+        if (old && old.status === 'active') return this.matchStart(old);
+      }
+      playerDeck = await this.playableDeck(u.id, opts.deckId);
+      // As strong as the player's rating or stronger, up to the division's ceiling; never shown.
+      const elo = weeklyBotElo(divisionByN(run.division), run.rating, this.rng());
+      botLevel = levelForElo(elo);
+      botDeck = this.botDeck(BOT_LEAGUES[leagueIndex('bot', elo)].botMaxRarity!);
+      mode = 'weekly';
+      weeklyRun = run;
+    } else if (opts.trial) {
       const t = trialById(opts.trial);
       if (!t) throw new ApiError(404, 'Такого випробування немає.');
       if (t.kind === 'pvp') throw new ApiError(400, 'Це випробування проходиться в лізі гравців: шукайте суперника на головній.');
@@ -1856,6 +2121,7 @@ export class GameService {
     };
     await this.store.insertMatch(m);
     if (opts.trial) await this.saveRun(u, { ...this.trialRuns(u)[opts.trial], matchId: m.id });
+    if (weeklyRun) await this.store.updateUser(u.id, { weekly: JSON.stringify({ ...weeklyRun, matchId: m.id }) });
     return { ...(await this.matchStart(m)), trial: trialInfo };
   }
 
@@ -1868,15 +2134,24 @@ export class GameService {
       const run = u && t ? this.trialRuns(u)[t.id] : undefined;
       if (t && run) trial = { id: t.id, name: t.name, round: run.wins + 1, rounds: t.opponents.length };
     }
+    const owner = await this.store.getUser(m.userId);
+    let weekly: MatchStart['weekly'];
+    if (mode === 'weekly' && owner) {
+      const run = parseRun(owner.weekly);
+      if (run) weekly = { division: run.division, game: run.results.length + 1, wins: winsOf(run) };
+    }
     return {
       matchId: m.id,
       ranked: m.ranked,
       view: this.matchView(m, this.replayMatch(m), m.actions.length),
       color: m.color,
-      botLevel: m.botLevel,
+      // The weekly bot's strength stays hidden.
+      botLevel: mode === 'weekly' ? 0 : m.botLevel,
       playerDeck: m.playerDeck,
       botDeck: m.botDeck,
+      skins: owner ? { [m.color]: this.skinsOf(owner) } : {},
       ...(trial ? { trial } : {}),
+      ...(weekly ? { weekly } : {}),
     };
   }
 
@@ -2075,12 +2350,21 @@ export class GameService {
 
     let ladder: LadderResult | null = null;
     let trial: MatchFinish['trial'] = null;
+    let weekly: MatchFinish['weekly'];
     if (mode === 'bot') {
       ladder = await this.settleLadder(u.id, 'bot', outcome, 'Перемога в лізі ботів');
     } else if (mode.startsWith('trial:')) {
       const t = trialById(mode.slice(6));
       const run = this.trialRuns(u)[mode.slice(6)];
       if (t && run && run.status === 'active' && run.matchId === m.id) trial = await this.trialStep(u.id, t, outcome);
+    } else if (mode === 'weekly') {
+      const run = parseRun(u.weekly);
+      if (run && run.matchId === m.id && !run.claimedAt && run.results.length < WEEKLY_GAMES) {
+        const next: WeeklyRun = { ...run, results: [...run.results, outcome === 'win' ? 'w' : outcome === 'loss' ? 'l' : 'd'] };
+        delete next.matchId;
+        await this.store.updateUser(u.id, { weekly: JSON.stringify(next) });
+        weekly = { division: next.division, wins: winsOf(next), played: next.results.length, settled: runSettled(next), tier: tierIndex(winsOf(next)) };
+      }
     }
     const events: QuestEvent[] = ['play'];
     if (outcome === 'win') events.push('win');
@@ -2102,6 +2386,8 @@ export class GameService {
       rewardSkipped: ladder?.rewardSkipped ?? false,
       leagueUps: ladder?.leagueUps ?? [],
       ladder: ladder ? 'bot' : null,
+      ...(ladder ? { streakBonus: ladder.streakBonus ?? 0, streak: ladder.streak ?? 0 } : {}),
+      ...(weekly ? { weekly } : {}),
       trial,
       achievements,
       profile: await this.profileOf(u.id),
@@ -2247,8 +2533,8 @@ export class GameService {
       const r = JSON.parse(m.result);
       out.push({
         id: m.id,
-        kind: this.modeOf(m) === 'bot' ? 'bot' : this.modeOf(m).startsWith('trial:') ? 'trial' : 'training',
-        opponent: `Бот · ${botLevel(m.botLevel).name}`,
+        kind: this.modeOf(m) === 'bot' ? 'bot' : this.modeOf(m) === 'weekly' ? 'weekly' : this.modeOf(m).startsWith('trial:') ? 'trial' : 'training',
+        opponent: this.modeOf(m) === 'weekly' ? 'Бот тижня' : `Бот · ${botLevel(m.botLevel).name}`,
         outcome: r.outcome,
         reason: r.reason,
         moves: r.moves,
@@ -2289,7 +2575,7 @@ export class GameService {
       const bot = m.color === 'w' ? 'b' : 'w';
       const player = m.userId === u.id ? u : await this.store.getUser(m.userId);
       const me = { name: player?.name ?? 'Гравець', avatar: player?.avatar ?? null };
-      const them = { name: `Бот · ${botLevel(m.botLevel).name}`, avatar: null };
+      const them = { name: this.modeOf(m) === 'weekly' ? 'Бот тижня' : `Бот · ${botLevel(m.botLevel).name}`, avatar: null };
       return {
         kind: 'm',
         id,
@@ -2518,6 +2804,7 @@ export class GameService {
       id: row.id,
       color,
       captureFx: { w: captureFxById(w?.captureFx).id, b: captureFxById(b?.captureFx).id },
+      skins: { w: w ? this.skinsOf(w) : {}, b: b ? this.skinsOf(b) : {} },
       white: await this.cardOf(row.whiteId),
       black: await this.cardOf(row.blackId),
       whiteDeck: row.whiteDeck,

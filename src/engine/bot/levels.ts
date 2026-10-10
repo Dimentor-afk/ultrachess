@@ -29,8 +29,58 @@ export const BOT_LEVELS: BotLevel[] = [
   { level: 12, name: 'Ultra', elo: 3000, opts: { depth: 32, timeMs: 6000, noise: 0 } },
 ];
 
+const TOP = BOT_LEVELS.length - 1;
+const clampLevel = (level: number) => Math.max(0, Math.min(TOP, Number.isFinite(level) ? level : 0));
+
+/**
+ * A level for a rating, between two presets (the bot ladder: the bot's rating is the player's trophies).
+ * Below the weakest preset it is the weakest, above the strongest the strongest.
+ */
+export function levelForElo(elo: number): number {
+  if (elo <= BOT_LEVELS[0].elo) return 0;
+  for (let i = 1; i <= TOP; i++) {
+    const a = BOT_LEVELS[i - 1];
+    const b = BOT_LEVELS[i];
+    if (elo <= b.elo) return Math.round((i - 1 + (elo - a.elo) / (b.elo - a.elo)) * 1000) / 1000;
+  }
+  return TOP;
+}
+
+/** The rating of a level (a fractional level lies between its two presets). */
+export function eloOfLevel(level: number): number {
+  const l = clampLevel(level);
+  const i = Math.floor(l);
+  if (i >= TOP) return BOT_LEVELS[TOP].elo;
+  return Math.round(BOT_LEVELS[i].elo + (BOT_LEVELS[i + 1].elo - BOT_LEVELS[i].elo) * (l - i));
+}
+
+/**
+ * Search settings of a level. A fractional one blends its two presets: noise, blunders and time
+ * slide between them, the depth and the capture search switch halfway (they cannot be split).
+ */
+export function botOptions(level: number): BotOptions {
+  const l = clampLevel(level);
+  const i = Math.floor(l);
+  const f = l - i;
+  if (f === 0 || i >= TOP) return BOT_LEVELS[Math.min(i, TOP)].opts;
+  const a = BOT_LEVELS[i].opts;
+  const b = BOT_LEVELS[i + 1].opts;
+  const lerp = (x: number, y: number) => x + (y - x) * f;
+  const near = f < 0.5 ? a : b;
+  return {
+    depth: near.depth,
+    timeMs: Math.round(lerp(a.timeMs, b.timeMs)),
+    noise: Math.round(lerp(a.noise ?? 3, b.noise ?? 3) * 10) / 10,
+    blunder: Math.round(lerp(a.blunder ?? 0, b.blunder ?? 0) * 1000) / 1000,
+    quiescence: near.quiescence,
+  };
+}
+
+/** A level as players see it: the nearest preset's name, and the level's own rating. */
 export function botLevel(level: number): BotLevel {
-  return BOT_LEVELS[Math.max(0, Math.min(BOT_LEVELS.length - 1, Math.round(level)))];
+  const l = clampLevel(level);
+  const near = BOT_LEVELS[Math.round(l)];
+  return Number.isInteger(l) ? near : { ...near, level: l, elo: eloOfLevel(l), opts: botOptions(l) };
 }
 
 /** Strong settings for "Підказка", whatever the opponent's level: as deep as 1.5 s allows. */

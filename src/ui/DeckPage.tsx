@@ -5,6 +5,7 @@ import { PawnPanel, pawnKindTarget, replacePawnKind } from './PawnPanel';
 import type { Card, Deck, PieceType } from '../engine/types';
 import { Emblem } from './art';
 import { CardModal } from './CardModal';
+import { skinsOfCard } from '../economy/skins';
 import { CardArt, RarityTag } from './common';
 import { Icon } from './icons';
 import { currentPath, onNavigate } from './router';
@@ -280,7 +281,7 @@ function DeckHub({ deck }: { deck: Deck }) {
       >
         <span className={`deck-piece r-${card.rarity}`}>
           {!card.id.endsWith('-classic') && <span className="piece-aura" />}
-          <CardArt cardId={card.id} className="deck-art" />
+          <CardArt cardId={card.id} skin={s.profile.skinChoice[card.id]} className="deck-art" />
           {!card.id.endsWith('-classic') && (
             <span className="piece-emblem">
               <Emblem cardId={card.id} />
@@ -324,6 +325,11 @@ function DeckHub({ deck }: { deck: Deck }) {
         <span className="mini-card-emblem">
           <Emblem cardId={c.id} />
         </span>
+        {skinsOfCard(c.id).length > 0 && (
+          <span className={`mini-skin ${s.profile.skinChoice[c.id] ? 'worn' : ''}`} title={t('Є скіни')}>
+            {s.profile.skinChoice[c.id] ? <img src={skinsOfCard(c.id).find((k) => k.id === s.profile.skinChoice[c.id])?.art} alt="" /> : '✦'}
+          </span>
+        )}
       </div>
       <div className="mini-card-body">
         <span className="card-type">{PIECE_NAMES[c.pieceType]}</span>
@@ -495,6 +501,7 @@ function DeckHub({ deck }: { deck: Deck }) {
                 ? t('Уже стоїть у цій колоді.')
                 : undefined
           }
+          skins={!!owned[detailCard.id]}
           onClose={() => setDetail(null)}
         >
           {owned[detailCard.id] && (
@@ -530,6 +537,7 @@ function DeckHub({ deck }: { deck: Deck }) {
 
 /** Small read-only picture of the deck's two ranks. */
 export function MiniBoard({ deck }: { deck: Deck }) {
+  const { profile } = useSession();
   return (
     <div className="mini-board">
       {[8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7].map((i) => {
@@ -538,7 +546,7 @@ export function MiniBoard({ deck }: { deck: Deck }) {
         const light = (file + (i >= 8 ? 1 : 0)) % 2 === 1;
         return (
           <div key={i} className={`mini-sq ${light ? 'light' : 'dark'} r-${card.rarity}`} title={card.name}>
-            <CardArt cardId={card.id} />
+            <CardArt cardId={card.id} skin={profile.skinChoice[card.id]} />
             {!card.id.endsWith('-classic') && <span className="mini-dot" />}
           </div>
         );

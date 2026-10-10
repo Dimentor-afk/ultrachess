@@ -6,6 +6,7 @@ import { cardArt } from './cardArt';
 // The clip (scripts and their player) loads with the first opened card.
 const CardClip = lazy(() => import('./CardClip').then((m) => ({ default: m.CardClip })));
 import { Icon } from './icons';
+import { SkinPicker } from './SkinPicker';
 import { t } from '../i18n';
 
 const PIECE_ACC: Record<Card['pieceType'], string> = {
@@ -22,12 +23,15 @@ export function CardModal({
   card,
   locked = false,
   note,
+  skins = false,
   onClose,
   children,
 }: {
   card: Card;
   locked?: boolean;
   note?: ReactNode;
+  /** Show the card's skins to put on (the deck page, for an owned card). */
+  skins?: boolean;
   onClose: () => void;
   children?: ReactNode;
 }) {
@@ -92,6 +96,8 @@ export function CardModal({
             </h3>
             <p className="card-modal-rules">{card.rulesText}</p>
           </section>
+
+          {skins && <SkinPicker cardId={card.id} />}
 
           <section className="cm-section cm-clip">
             <h3 className="cm-sub">

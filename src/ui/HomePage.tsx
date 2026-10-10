@@ -1,8 +1,12 @@
+import { SKIN_BY_ID } from '../economy/skins';
+import { SEASON, WEEKLY_GAMES, WEEKLY_MIN_TROPHIES, divisionByN } from '../economy/weekly';
+import { useCountdown } from './cosmetics';
+import { DivisionBadge } from './WeeklyPage';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ReferralSheet } from './Referral';
 import type { MatchStart, PackView } from '../api/client';
 import { PACKS, PACK_SHARD_PRICE, RARITIES, STARTER_PACK, packName } from '../economy/packs';
-import { LADDER_NAMES, LADDER_PACK_LIMIT, LADDER_TROPHIES, LADDER_WIN_GOLD, LEAGUES, type Ladder } from '../economy/leagues';
+import { LADDER_NAMES, LADDER_PACK_LIMIT, LADDER_TROPHIES, LADDER_WIN_GOLD, LEAGUES, STREAK_BONUS, type Ladder } from '../economy/leagues';
 import { currentPath, navigate } from './router';
 import { RARITY_NAMES } from '../engine/cards';
 import type { Rarity } from '../engine/types';
@@ -250,6 +254,7 @@ export function HomePage() {
 
         <div className="hb-dock">
           {battle}
+          {ladder === 'bot' && activeDeck && <StreakMeter streak={lv.streak} win={lv.win} />}
           <div className="hb-dock-extra">
             <button className="btn btn-sm" onClick={() => setSheet('training')}>
               <Icon name="target" /> {t('Тренування')}
@@ -318,6 +323,8 @@ export function HomePage() {
             </button>
           ))}
         </div>
+
+        <WeeklyBanner />
 
         <div className="hb-stage">
           <nav className="hb-rail" aria-label={t('Швидкі дії')}>
@@ -566,3 +573,68 @@ function OddsTable() {
     </div>
   );
 }
+
+/**
+ * Bot-ladder win streak under the battle button: four steps, the 3rd and 4th win in a row pay
+ * +30 and +40 (the most); the lit steps are the wins in a row so far.
+ */
+function StreakMeter({ streak, win }: { streak: number; win: number }) {
+  const steps = [null, null, LADDER_TROPHIES.bot.win + STREAK_BONUS[2], LADDER_TROPHIES.bot.win + STREAK_BONUS[3]];
+  const lit = Math.min(steps.length, streak);
+  const text =
+    streak === 0
+      ? t('Виграйте 2 поспіль, далі +{0} і +{1}', steps[2]!, steps[3]!)
+      : streak === 1
+        ? t('1 поспіль · ще одна, і далі +{0}', steps[2]!)
+        : streak < steps.length
+          ? t('{0} поспіль · наступна +{1} 🏆', streak, win)
+          : t('{0} поспіль · максимум +{1} 🏆', streak, win);
+  return (
+    <div className={`streak ${streak >= 2 ? 'hot' : ''}`} title={t('Серія перемог у лізі ботів')}>
+      <span className="streak-track" aria-hidden="true">
+        {steps.map((bonus, i) => (
+          <i key={i} className={`${i < lit ? 'on' : ''} ${i === lit && streak >= 2 ? 'next' : ''}`}>
+            {bonus ? `+${bonus}` : '🔥'}
+          </i>
+        ))}
+      </span>
+      <span className="streak-text">{text}</span>
+    </div>
+  );
+}
+
+/** The weekly league on the home screen: live, its reward waiting, opening soon, or locked. */
+function WeeklyBanner() {
+  const { profile } = useSession();
+  const w = profile.weekly;
+  const countdown = useCountdown(w.open ? w.closesAt : w.nextOpensAt);
+  const d = w.division ? divisionByN(w.division) : null;
+  const state = w.claimable ? 'claim' : !w.eligible && !w.played ? 'locked' : w.open ? 'open' : 'closed';
+  const sub =
+    state === 'claim'
+      ? t('Нагороди чекають: заберіть їх')
+      : state === 'locked'
+        ? t('Вхід з {0} 🏆 у лізі ботів', WEEKLY_MIN_TROPHIES)
+        : state === 'closed'
+          ? t('Почнеться через {0}', countdown)
+          : w.settled
+            ? t('Ваші матчі зіграно · ще {0}', countdown)
+            : w.played
+              ? t('{0} перемог · матч {1} з {2} · ще {3}', w.wins, w.played + 1, WEEKLY_GAMES, countdown)
+              : t('Іде зараз · {0} матчів · ще {1}', WEEKLY_GAMES, countdown);
+  return (
+    <a className={`wk-banner ${state}`} href="#/weekly">
+      {d && state !== 'locked' ? <DivisionBadge n={d.n} size="sm" /> : <span className="wk-banner-icon">{state === 'locked' ? '🔒' : '🔥'}</span>}
+      <span className="wk-banner-text">
+        <b>
+          {t('Тиждень слави')}
+          {d && state !== 'locked' && <small> · {tr(d.name)}</small>}
+        </b>
+        <small>{sub}</small>
+      </span>
+      <img className="wk-banner-art" src={SKIN_BY_ID[SEASON.skins[4]].art} alt="" />
+      <span className="wk-banner-go">›</span>
+    </a>
+  );
+}
+

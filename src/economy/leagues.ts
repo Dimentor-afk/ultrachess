@@ -1,7 +1,8 @@
 // Two ladders, each split into leagues. The bot ladder is practice against
-// the engine: many small steps from a ~250 Elo beginner up, modest rewards
-// and at most 5 packs a day. The player ladder is played against people and
-// pays the full rewards. Reaching a league for the first time pays a bonus.
+// the engine: the bot's rating is the player's trophies (460 trophies, a bot of
+// about 460 Elo), so every league starts where its bots get that strong; modest
+// rewards and at most 5 packs a day. The player ladder is played against people
+// and pays the full rewards. Reaching a league for the first time pays a bonus.
 
 import type { Rarity } from '../engine/types';
 import { PACK_SHARD_PRICE, type PackType } from './packs';
@@ -16,8 +17,7 @@ export interface LeagueReward {
 export interface League {
   name: string;
   minTrophies: number;
-  /** Bot ladder: bot level (index into BOT_LEVELS) and its deck strength. */
-  botLevel?: number;
+  /** Bot ladder: the strongest card rarity in the bot's deck (its strength is the trophies, see botEloFor). */
   botMaxRarity?: Rarity;
   /** One-time bonus for reaching this league. */
   reward: LeagueReward;
@@ -26,21 +26,35 @@ export interface League {
 }
 
 export const BOT_LEAGUES: League[] = [
-  { name: 'Ліга новачків', minTrophies: 0, botLevel: 0, botMaxRarity: 'common', reward: { gold: 0, pack: null }, art: 'common' },
-  { name: "Дерев'яна ліга", minTrophies: 100, botLevel: 1, botMaxRarity: 'common', reward: { gold: 50, pack: null }, art: 'common' },
-  { name: "Кам'яна ліга", minTrophies: 250, botLevel: 2, botMaxRarity: 'rare', reward: { gold: 60, pack: 'common' }, art: 'common' },
-  { name: 'Бронзова ліга', minTrophies: 450, botLevel: 3, botMaxRarity: 'rare', reward: { gold: 80, pack: 'common' }, art: 'rare' },
-  { name: 'Срібна ліга', minTrophies: 700, botLevel: 4, botMaxRarity: 'epic', reward: { gold: 100, pack: 'rare' }, art: 'rare' },
-  { name: 'Золота ліга', minTrophies: 1000, botLevel: 5, botMaxRarity: 'epic', reward: { gold: 150, pack: 'rare' }, art: 'epic' },
-  { name: 'Платинова ліга', minTrophies: 1350, botLevel: 6, botMaxRarity: 'legendary', reward: { gold: 200, pack: 'epic' }, art: 'legendary' },
-  { name: 'Міфічна ліга ботів', minTrophies: 1750, botLevel: 7, botMaxRarity: 'mythological', reward: { gold: 300, pack: 'legendary' }, art: 'mythic' },
-  // The arena of strong bots, up to ~3000.
-  { name: 'Арена майстрів', minTrophies: 2200, botLevel: 8, botMaxRarity: 'mythological', reward: { gold: 350, pack: 'epic' }, art: 'mythic' },
-  { name: 'Міжнародна арена', minTrophies: 2700, botLevel: 9, botMaxRarity: 'mythological', reward: { gold: 400, pack: 'legendary' }, art: 'mythic' },
-  { name: 'Гросмейстерська арена', minTrophies: 3250, botLevel: 10, botMaxRarity: 'mythological', reward: { gold: 450, pack: 'legendary' }, art: 'mythic' },
-  { name: 'Арена чемпіонів', minTrophies: 3850, botLevel: 11, botMaxRarity: 'mythological', reward: { gold: 500, pack: 'legendary' }, art: 'mythic' },
-  { name: 'Ultra арена', minTrophies: 4500, botLevel: 12, botMaxRarity: 'mythological', reward: { gold: 600, pack: 'mythic' }, art: 'mythic' },
+  { name: 'Ліга новачків', minTrophies: 0, botMaxRarity: 'common', reward: { gold: 0, pack: null }, art: 'common' },
+  { name: "Дерев'яна ліга", minTrophies: 200, botMaxRarity: 'common', reward: { gold: 50, pack: null }, art: 'common' },
+  { name: "Кам'яна ліга", minTrophies: 400, botMaxRarity: 'rare', reward: { gold: 60, pack: 'common' }, art: 'common' },
+  { name: 'Бронзова ліга', minTrophies: 600, botMaxRarity: 'rare', reward: { gold: 80, pack: 'common' }, art: 'rare' },
+  { name: 'Срібна ліга', minTrophies: 800, botMaxRarity: 'epic', reward: { gold: 100, pack: 'rare' }, art: 'rare' },
+  { name: 'Золота ліга', minTrophies: 1000, botMaxRarity: 'epic', reward: { gold: 150, pack: 'rare' }, art: 'epic' },
+  { name: 'Платинова ліга', minTrophies: 1250, botMaxRarity: 'legendary', reward: { gold: 200, pack: 'epic' }, art: 'legendary' },
+  { name: 'Міфічна ліга ботів', minTrophies: 1500, botMaxRarity: 'mythological', reward: { gold: 300, pack: 'legendary' }, art: 'mythic' },
+  // The arenas of strong bots: from a FIDE master up to the strongest the engine plays (3000).
+  { name: 'Арена майстрів', minTrophies: 1800, botMaxRarity: 'mythological', reward: { gold: 350, pack: 'epic' }, art: 'mythic' },
+  { name: 'Міжнародна арена', minTrophies: 2100, botMaxRarity: 'mythological', reward: { gold: 400, pack: 'legendary' }, art: 'mythic' },
+  { name: 'Гросмейстерська арена', minTrophies: 2400, botMaxRarity: 'mythological', reward: { gold: 450, pack: 'legendary' }, art: 'mythic' },
+  { name: 'Арена чемпіонів', minTrophies: 2700, botMaxRarity: 'mythological', reward: { gold: 500, pack: 'legendary' }, art: 'mythic' },
+  { name: 'Ultra арена', minTrophies: 3000, botMaxRarity: 'mythological', reward: { gold: 600, pack: 'mythic' }, art: 'mythic' },
 ];
+
+/** The bot-ladder bot's rating for these trophies (the weakest bot below 250, the strongest above 3000). */
+export function botEloFor(trophies: number): number {
+  return Math.max(0, Math.round(trophies));
+}
+
+/**
+ * Bot-ladder win streak: the 3rd win in a row pays 10 trophies more, the 4th and later 20 more
+ * (30 and 40 instead of 20). A loss or a draw ends the streak.
+ */
+export const STREAK_BONUS = [0, 0, 10, 20];
+export function streakBonus(winsInRow: number): number {
+  return winsInRow < 1 ? 0 : STREAK_BONUS[Math.min(STREAK_BONUS.length, winsInRow) - 1];
+}
 
 export const PVP_LEAGUES: League[] = [
   { name: "Дерев'яна арена", minTrophies: 0, reward: { gold: 0, pack: null }, art: 'common' },

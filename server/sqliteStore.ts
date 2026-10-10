@@ -185,6 +185,7 @@ const USER_COLS: Record<keyof UserRow, string> = {
   botCycle: 'bot_cycle',
   botPacksToday: 'bot_packs_today',
   botPacksDay: 'bot_packs_day',
+  botStreak: 'bot_streak',
   freePackDay: 'free_pack_day',
   leagueRewards: 'league_rewards',
   trials: 'trials',
@@ -201,6 +202,9 @@ const USER_COLS: Record<keyof UserRow, string> = {
   refStage: 'ref_stage',
   refGames: 'ref_games',
   patchSeen: 'patch_seen',
+  skins: 'skins',
+  skinChoice: 'skin_choice',
+  weekly: 'weekly',
 };
 
 /** Columns added after the first release, for databases created before them. */
@@ -239,6 +243,10 @@ const USER_MIGRATIONS: [string, string][] = [
   ['ref_stage', 'INTEGER NOT NULL DEFAULT 0'],
   ['ref_games', 'INTEGER NOT NULL DEFAULT 0'],
   ['patch_seen', "TEXT NOT NULL DEFAULT ''"],
+  ['bot_streak', 'INTEGER NOT NULL DEFAULT 0'],
+  ['skins', "TEXT NOT NULL DEFAULT '[]'"],
+  ['skin_choice', "TEXT NOT NULL DEFAULT '{}'"],
+  ['weekly', "TEXT NOT NULL DEFAULT ''"],
 ];
 
 /** Columns added to other tables after the first release. */
@@ -298,6 +306,7 @@ function user(r: Row | undefined): UserRow | null {
     botCycle: Number(r.bot_cycle ?? 0),
     botPacksToday: Number(r.bot_packs_today ?? 0),
     botPacksDay: (r.bot_packs_day as string | null) ?? '',
+    botStreak: Number(r.bot_streak ?? 0),
     freePackDay: (r.free_pack_day as string | null) ?? '',
     leagueRewards: (r.league_rewards as string | null) ?? '{}',
     trials: (r.trials as string | null) ?? '{}',
@@ -314,6 +323,9 @@ function user(r: Row | undefined): UserRow | null {
     refStage: Number(r.ref_stage ?? 0),
     refGames: Number(r.ref_games ?? 0),
     patchSeen: (r.patch_seen as string | null) ?? '',
+    skins: (r.skins as string | null) ?? '[]',
+    skinChoice: (r.skin_choice as string | null) ?? '{}',
+    weekly: (r.weekly as string | null) ?? '',
   };
 }
 

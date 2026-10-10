@@ -319,8 +319,12 @@ const routes: [string, RegExp, Handler][] = [
         ranked: !!body.ranked,
         level: body.level !== undefined ? Number(body.level) : undefined,
         trial: body.trial ? String(body.trial) : undefined,
+        weekly: !!body.weekly,
       }),
   ],
+  ['GET', /^weekly$/, ({ token }) => svc.weekly(token)],
+  ['POST', /^weekly\/claim$/, ({ token }) => svc.claimWeekly(token)],
+  ['POST', /^profile\/skin$/, ({ token, body }) => svc.setSkin(token, String(body.cardId ?? ''), body.skinId ? String(body.skinId) : null)],
   [
     'POST',
     /^matches\/(\w+)\/action$/,

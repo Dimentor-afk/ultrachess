@@ -69,6 +69,7 @@ export function withUserDefaults(u: UserRow): UserRow {
     botCycle: u.botCycle ?? 0,
     botPacksToday: u.botPacksToday ?? 0,
     botPacksDay: u.botPacksDay ?? '',
+    botStreak: u.botStreak ?? 0,
     freePackDay: u.freePackDay ?? '',
     leagueRewards: u.leagueRewards ?? '{}',
     trials: u.trials ?? '{}',
@@ -85,6 +86,9 @@ export function withUserDefaults(u: UserRow): UserRow {
     refStage: u.refStage ?? 0,
     refGames: u.refGames ?? 0,
     patchSeen: u.patchSeen ?? '',
+    skins: u.skins ?? '[]',
+    skinChoice: u.skinChoice ?? '{}',
+    weekly: u.weekly ?? '',
   };
 }
 

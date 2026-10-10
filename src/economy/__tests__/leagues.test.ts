@@ -3,6 +3,7 @@ import { parseSquare } from '../../engine/coords';
 import { classicDeck } from '../../engine/deck';
 import { legalMoves } from '../../engine/legal';
 import { type Action, createMatch, performAction } from '../../engine/match';
+import { BOT_LEVELS, eloOfLevel, levelForElo } from '../../engine/bot/levels';
 import { BOT_LEAGUES, trialById } from '../leagues';
 import { MemoryStore } from '../memoryStore';
 import { type BotRunner, CLAIM_MS, GameService } from '../service';
@@ -66,7 +67,7 @@ describe('bot ladder', () => {
     const { store, svc, reg } = await setup();
     const { token, profile } = await reg('a@a.com', 'A');
     expect(profile.ladders.bot).toMatchObject({ trophies: 0, league: 0, packsLimit: 5 });
-    expect((await svc.startMatch(token, { ranked: true })).botLevel).toBe(BOT_LEAGUES[0].botLevel);
+    expect((await svc.startMatch(token, { ranked: true })).botLevel).toBe(0);
 
     await store.updateUser(profile.id, { botTrophies: BOT_LEAGUES[1].minTrophies - 5 });
     await store.insertMatch({ id: 'b1', userId: profile.id, ranked: true, mode: 'bot', color: 'w', botLevel: 0, playerDeck: classicDeck(), botDeck: classicDeck(), status: 'active', result: null, createdAt: Date.now(), actions: [] });
@@ -82,6 +83,38 @@ describe('bot ladder', () => {
     await store.insertMatch({ id: 'b2', userId: profile.id, ranked: true, mode: 'bot', color: 'w', botLevel: 0, playerDeck: classicDeck(), botDeck: classicDeck(), status: 'active', result: null, createdAt: Date.now(), actions: [] });
     await playLine(svc, token, 'b2', WHITE_MATES);
     expect((await svc.finishMatch(token, 'b2', false)).leagueUps).toEqual([]);
+  });
+});
+
+describe('bot ladder: rating and win streak', () => {
+  it('the bot is as strong as the trophies', async () => {
+    const { store, svc, reg } = await setup();
+    const { token, profile } = await reg('e@e.com', 'E');
+    await store.updateUser(profile.id, { botTrophies: 460 });
+    const start = await svc.startMatch(token, { ranked: true });
+    expect(start.botLevel).toBe(levelForElo(460));
+    expect(eloOfLevel(start.botLevel)).toBe(460);
+    expect((await svc.me(token)).ladders.bot.botElo).toBe(460);
+    // Far past the strongest preset: the strongest bot.
+    expect(levelForElo(5000)).toBe(BOT_LEVELS.length - 1);
+  });
+
+  it('the 3rd win in a row pays 30, the 4th and later 40; a loss ends the streak', async () => {
+    const { store, svc, reg } = await setup();
+    const { token, profile } = await reg('s@s.com', 'S');
+    await store.updateUser(profile.id, { botTrophies: 500 });
+    const game = async (id: string, line: Action[]) => {
+      await store.insertMatch({ id, userId: profile.id, ranked: true, mode: 'bot', color: 'w', botLevel: 0, playerDeck: classicDeck(), botDeck: classicDeck(), status: 'active', result: null, createdAt: Date.now(), actions: [] });
+      await playLine(svc, token, id, line);
+      return svc.finishMatch(token, id, false);
+    };
+    const deltas: number[] = [];
+    for (let i = 0; i < 5; i++) deltas.push((await game(`w${i}`, WHITE_MATES)).trophiesDelta);
+    expect(deltas).toEqual([20, 20, 30, 40, 40]);
+    expect((await svc.me(token)).ladders.bot).toMatchObject({ streak: 5, win: 40 });
+    const lost = await game('l1', BLACK_MATES);
+    expect(lost).toMatchObject({ trophiesDelta: -15, streak: 0 });
+    expect((await svc.me(token)).ladders.bot).toMatchObject({ streak: 0, win: 20 });
   });
 });
 

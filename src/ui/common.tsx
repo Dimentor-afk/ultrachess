@@ -1,6 +1,7 @@
 import { CARD_BY_ID, EFFECT_NAMES, PIECE_NAMES, RARITY_NAMES, getCard } from '../engine/cards';
 import type { Card, Color, PieceType } from '../engine/types';
 import type { ReactNode } from 'react';
+import { SKIN_BY_ID } from '../economy/skins';
 import { Emblem, PieceSvg } from './art';
 import { cardArt, pieceSprite } from './cardArt';
 import { getSettings } from './settings';
@@ -80,7 +81,9 @@ export function CardView({
 }
 
 /** Card art only (pixel art when available). */
-export function CardArt({ cardId, className = '' }: { cardId: string; className?: string }) {
+export function CardArt({ cardId, skin, className = '' }: { cardId: string; skin?: string | null; className?: string }) {
+  // A skin is a detailed sprite: drawn smooth, not pixelated.
+  if (skin && SKIN_BY_ID[skin]) return <img className={`skin-art ${className}`} src={SKIN_BY_ID[skin].art} alt="" loading="lazy" />;
   const art = cardArt(cardId);
   const card = getCard(cardId);
   return art ? <img className={`pixel ${className}`} src={art} alt="" loading="lazy" /> : <PieceSvg type={card.pieceType} color="w" className={className} />;

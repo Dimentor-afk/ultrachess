@@ -1,4 +1,5 @@
-import { type CSSProperties, type ReactNode, memo, useLayoutEffect, useRef } from 'react';
+import { type CSSProperties, type ReactNode, createContext, memo, useContext, useLayoutEffect, useRef } from 'react';
+import { SKIN_BY_ID, type SkinChoice } from '../economy/skins';
 import { getCard } from '../engine/cards';
 import { fileOf, isBoardSquare, rankOf, sq } from '../engine/coords';
 import type { FxMove, MatchFx } from '../engine/fx';
@@ -233,11 +234,17 @@ interface Props {
   /** Match intro: pieces not placed yet, and the ones landing right now. */
   introHidden?: Set<Square>;
   introLanding?: Set<Square>;
+  /** Skins each side wears (card id → skin id). */
+  skins?: Partial<Record<Color, SkinChoice>>;
 }
 
-const FILES = 'abcdefgh';
+/** The skins on this board, for the pieces to find their look. */
+const SkinContext = createContext<Partial<Record<Color, SkinChoice>>>({});
 
-export function Board({ view, orientation, selected, marks, lastMove, hint, preview, checkSquare, onSquare, celebrate = false, mated = null, captureFx, introHidden, introLanding }: Props) {
+const FILES = 'abcdefgh';
+const NO_SKINS: Partial<Record<Color, SkinChoice>> = {};
+
+export function Board({ view, orientation, selected, marks, lastMove, hint, preview, checkSquare, onSquare, celebrate = false, mated = null, captureFx, introHidden, introLanding, skins }: Props) {
   const barrier = new Set(view.barriers.flatMap((b) => b.squares));
   const ranks = orientation === 'w' ? [8, 7, 6, 5, 4, 3, 2, 1, 0, -1] : [-1, 0, 1, 2, 3, 4, 5, 6, 7, 8];
   const files = orientation === 'w' ? [-1, 0, 1, 2, 3, 4, 5, 6, 7, 8] : [8, 7, 6, 5, 4, 3, 2, 1, 0, -1];
@@ -468,6 +475,7 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
     }
   }
   return (
+    <SkinContext.Provider value={skins ?? NO_SKINS}>
     <div
       className={`board ${live?.shake ? 'shake' : ''} ${jolt ? 'jolt' : ''} ${mating ? 'mating' : ''} ${ring > THIN_RING ? 'wide-ring' : ''}`}
       key={live?.shake || jolt ? `shake-${anim.current.n}` : 'board'}
@@ -545,6 +553,7 @@ export function Board({ view, orientation, selected, marks, lastMove, hint, prev
         })}
       </div>
     </div>
+    </SkinContext.Provider>
   );
 }
 
@@ -569,18 +578,21 @@ function PieceViewInner({ piece }: { piece: ViewPiece }) {
   const special = !card.id.endsWith('-classic');
   const { blackStyle } = useSettings();
   const sprite = pieceSprite(card.id, piece.type, piece.color, blackStyle);
+  // A skin replaces the sprite (the same for both sides: the outline tells them apart).
+  const skinId = useContext(SkinContext)[piece.color]?.[piece.cardId];
+  const skin = skinId ? SKIN_BY_ID[skinId] : undefined;
   const outline = blackStyle === 'team' ? (piece.color === 'w' ? '#3d8bff' : '#ff4d6d') : piece.color === 'w' ? '#0d1326' : '#e9cf87';
-  const art = useOutlined(sprite.src, outline);
+  const art = useOutlined(skin ? skin.art : sprite.src, outline);
   return (
     <span
       className={`piece piece-${piece.color} ${blackStyle === 'team' ? 'team' : ''} r-${card.rarity} ${special ? 'special' : ''} ${piece.illusion ? 'illusion' : ''} ${
-        sprite.tint ? 'tinted' : ''
-      }`}
+        sprite.tint && !skin ? 'tinted' : ''
+      } ${skin ? 'skinned' : ''}`}
       title={`${card.name}\n${card.rulesText}`}
     >
       <span className="piece-base" />
       {special && <span className="piece-aura" />}
-      <img className={`piece-sprite pixel ${art.baked ? 'baked' : ''}`} src={art.src} alt="" draggable={false} />
+      <img className={`piece-sprite ${skin ? 'skin' : 'pixel'} ${art.baked ? 'baked' : ''}`} src={art.src} alt="" draggable={false} />
       {special && (
         <span className={`piece-emblem ${piece.cooldown === 0 && piece.id ? 'is-ready' : ''}`}>
           <Emblem cardId={card.id} />

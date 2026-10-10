@@ -1,7 +1,7 @@
 import type { HistoryRow } from '../api/client';
 import { locale, t, tr } from '../i18n';
 
-const KIND: Record<HistoryRow['kind'], string> = { ranked: t('Ліга гравців'), bot: t('Ліга ботів'), training: t('Тренування'), friend: t('Друг'), trial: t('Випробування') };
+const KIND: Record<HistoryRow['kind'], string> = { ranked: t('Ліга гравців'), bot: t('Ліга ботів'), training: t('Тренування'), friend: t('Друг'), trial: t('Випробування'), weekly: t('Тиждень слави') };
 const OUTCOME: Record<HistoryRow['outcome'], string> = { win: t('Перемога'), loss: t('Поразка'), draw: t('Нічия') };
 
 /** Finished games, newest first; each opens its replay (#/replay/<m|p>/<id>). */

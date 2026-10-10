@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { LADDER_NAMES, LADDER_PACK_LIMIT, LADDER_TROPHIES, LADDER_WIN_GOLD, LEAGUES, type Ladder } from '../economy/leagues';
+import { LADDER_NAMES, LADDER_PACK_LIMIT, LADDER_TROPHIES, LADDER_WIN_GOLD, LEAGUES, STREAK_BONUS, type Ladder } from '../economy/leagues';
 import { packName } from '../economy/packs';
-import { botLevel } from '../engine/bot/levels';
+import { BOT_LEVELS } from '../engine/bot/levels';
 import { RARITY_NAMES } from '../engine/cards';
 import { packArt } from './cardArt';
 import { currentPath, onNavigate } from './router';
@@ -52,6 +52,12 @@ export function LeaguesPage() {
         <span>
           {t('Перемога:')}{' '}<b>+{LADDER_TROPHIES[ladder].win} 🏆</b>, 🪙 {LADDER_WIN_GOLD[ladder]} {t('і пак')}
         </span>
+        {ladder === 'bot' && (
+          <span>
+            🔥 {t('Серія перемог: 3-тя поспіль +{0}, далі +{1}', LADDER_TROPHIES.bot.win + STREAK_BONUS[2], LADDER_TROPHIES.bot.win + STREAK_BONUS[3])}
+          </span>
+        )}
+        {ladder === 'bot' && <span>{t('Бот такий сильний, скільки у вас кубків: 1000 🏆 ≈ 1000 Elo')}</span>}
         <span>
           {t('Поразка:')}{' '}<b>{LADDER_TROPHIES[ladder].loss} 🏆</b>
         </span>
@@ -71,7 +77,11 @@ export function LeaguesPage() {
           .map(({ l, i }) => {
             const state = i < lv.league ? 'passed' : i === lv.league ? 'current' : 'locked';
             const next = leagues[i + 1];
-            const bot = l.botLevel !== undefined ? botLevel(l.botLevel) : null;
+            // Bots here are as strong as the trophies: from the league's start to the next one's.
+            const weakest = BOT_LEVELS[0].elo;
+            const strongest = BOT_LEVELS[BOT_LEVELS.length - 1].elo;
+            const from = Math.min(strongest, Math.max(weakest, l.minTrophies));
+            const to = next ? Math.min(strongest, next.minTrophies) : null;
             const inLeague = state === 'current' && next ? Math.min(1, (lv.trophies - l.minTrophies) / (next.minTrophies - l.minTrophies)) : 0;
             return (
               <li key={l.name} ref={state === 'current' ? here : undefined} className={`league-step ${state}`}>
@@ -81,9 +91,10 @@ export function LeaguesPage() {
                     {t('Ліга {0} · від {1}', i + 1, l.minTrophies)} 🏆
                   </span>
                   <b className="league-name">{l.name}</b>
-                  {bot && (
+                  {l.botMaxRarity && (
                     <span className="small">
-                      {t('Бот:')} <b>{bot.name}</b> {t('(~{0} Elo) · картки до «{1}»', bot.elo, RARITY_NAMES[l.botMaxRarity!].toLowerCase())}
+                      {to !== null && to > from ? t('Боти ~{0}–{1} Elo', from, to) : t('Боти ~{0} Elo', from)}
+                      {!next && t(' (найсильніші)')} · {t('картки до «{0}»', RARITY_NAMES[l.botMaxRarity].toLowerCase())}
                     </span>
                   )}
                   {state === 'current' && next && (

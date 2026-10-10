@@ -49,6 +49,8 @@ export interface UserRow {
   botCycle: number;
   botPacksToday: number;
   botPacksDay: string;
+  /** Bot-ladder wins in a row (a loss or a draw resets it). */
+  botStreak: number;
   /** UTC day the free pack of the day was last taken ('' never). */
   freePackDay: string;
   /** Highest league index already rewarded per ladder (JSON {bot, pvp}). */
@@ -81,6 +83,11 @@ export interface UserRow {
   refGames: number;
   /** The patch notes the player has seen (PATCH_ID; '' none yet). */
   patchSeen: string;
+  /** Skins won (JSON array of skin ids) and the one worn per card (JSON {cardId: skinId}). */
+  skins: string;
+  skinChoice: string;
+  /** The weekly league: this week's run, or last week's while its reward waits (JSON WeeklyRun, '' none). */
+  weekly: string;
 }
 
 export interface SessionRow {

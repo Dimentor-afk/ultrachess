@@ -31,6 +31,8 @@ import {
   type OpenResult,
   type PackView,
   type Profile,
+  type WeeklyClaim,
+  type WeeklyView,
 } from '../economy/service';
 import type { Hasher, Role } from '../economy/store';
 import type { AchievementView } from '../economy/achievements';
@@ -70,6 +72,8 @@ export type {
   PvpState,
   PvpSummary,
   ShopOffer,
+  WeeklyClaim,
+  WeeklyView,
 };
 
 export interface ChallengesView {
@@ -122,7 +126,12 @@ export interface Api {
   saveDeck(deck: Deck): Promise<Deck[]>;
   deleteDeck(id: string): Promise<Deck[]>;
   setActiveDeck(id: string): Promise<Profile>;
-  startMatch(opts: { deckId?: string; ranked: boolean; level?: number; trial?: string }): Promise<MatchStart>;
+  startMatch(opts: { deckId?: string; ranked: boolean; level?: number; trial?: string; weekly?: boolean }): Promise<MatchStart>;
+  /** The weekly league: this week, the run, the reward waiting. */
+  weekly(): Promise<WeeklyView>;
+  claimWeekly(): Promise<WeeklyClaim>;
+  /** Wear a skin on a card's piece (null: the card's own look). */
+  setSkin(cardId: string, skinId: string | null): Promise<Profile>;
   /** Send the player's action (or null to let the bot move); the answer is the server's record of the game. */
   /**
    * Bot games: send the player's action (null: let the bot move, or just fetch
@@ -255,7 +264,10 @@ class HttpApi implements Api {
   saveDeck = (deck: Deck) => this.call<Deck[]>('PUT', 'decks', deck);
   deleteDeck = (id: string) => this.call<Deck[]>('DELETE', `decks/${id}`);
   setActiveDeck = (id: string) => this.call<Profile>('POST', 'decks/active', { id });
-  startMatch = (opts: { deckId?: string; ranked: boolean; level?: number; trial?: string }) => this.call<MatchStart>('POST', 'matches', opts);
+  startMatch = (opts: { deckId?: string; ranked: boolean; level?: number; trial?: string; weekly?: boolean }) => this.call<MatchStart>('POST', 'matches', opts);
+  weekly = () => this.call<WeeklyView>('GET', 'weekly');
+  claimWeekly = () => this.call<WeeklyClaim>('POST', 'weekly/claim', {});
+  setSkin = (cardId: string, skinId: string | null) => this.call<Profile>('POST', 'profile/skin', { cardId, skinId });
   matchAction = (id: string, action: Action | null, v: string) =>
     this.call<{ view: GameView; stale?: boolean }>('POST', `matches/${id}/action`, { action, v });
   finishMatch = (id: string, resigned: boolean) => this.call<MatchFinish>('POST', `matches/${id}/finish`, { resigned });
@@ -456,7 +468,10 @@ class LocalApi implements Api {
   saveDeck = async (deck: Deck) => this.svc.saveDeck(await this.t(), deck);
   deleteDeck = async (id: string) => this.svc.deleteDeck(await this.t(), id);
   setActiveDeck = async (id: string) => this.svc.setActiveDeck(await this.t(), id);
-  startMatch = async (opts: { deckId?: string; ranked: boolean; level?: number; trial?: string }) => this.svc.startMatch(await this.t(), opts);
+  startMatch = async (opts: { deckId?: string; ranked: boolean; level?: number; trial?: string; weekly?: boolean }) => this.svc.startMatch(await this.t(), opts);
+  weekly = async () => this.svc.weekly(await this.t());
+  claimWeekly = async () => this.svc.claimWeekly(await this.t());
+  setSkin = async (cardId: string, skinId: string | null) => this.svc.setSkin(await this.t(), cardId, skinId);
   matchAction = async (id: string, action: Action | null, v: string) => this.svc.matchAction(await this.t(), id, action, v);
   finishMatch = async (id: string, resigned: boolean) => this.svc.finishMatch(await this.t(), id, resigned);
   leaderboard = async () => {
