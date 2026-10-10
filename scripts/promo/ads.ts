@@ -732,8 +732,9 @@ const PORTAL_EDIT: Shot[] = [
 const FB = 60_000 / 136;
 const fb = (n: number) => Math.round(n * FB);
 const FX_MOVES = GAME_STEPS.map(([m]) => m);
-/** Shot k of the game: everything before it already played, then its move. */
-const fxMove = (k: number, o: Omit<Board, 'kind' | 'pos' | 'steps'>): Board => ({ kind: 'board', crowd: false, pos: GAME_POS, pre: FX_MOVES.slice(0, k), steps: [FX_MOVES[k]], ...o });
+/** Shot k of a game: everything before it already played, then its move. */
+const shotOf = (pos: Record<string, string>, moves: string[]) => (k: number, o: Omit<Board, 'kind' | 'pos' | 'steps'>): Board => ({ kind: 'board', crowd: false, pos, pre: moves.slice(0, k), steps: [moves[k]], ...o });
+const fxMove = shotOf(GAME_POS, FX_MOVES);
 const FX_LINE = 'One game. Every move *rated*.';
 const CHESSFX: Shot[] = [
   { kind: 'board', crowd: false, pos: GAME_POS, steps: [], caption: FX_LINE, zoom: 1.04, focus: 'd5', ms: 5480 - fb(6) },
@@ -749,9 +750,41 @@ const CHESSFX: Shot[] = [
   fxMove(8, { ms: fb(4), land: fb(2), cam: 'tilt-l', focus: 'a6', zoom: 1.9, grade: { sq: 'a6', g: '!' }, paint: ['a7', 'a6', 'a5'], label: 'Spearman', bumps: [fb(2)] }),
   fxMove(9, { ms: fb(8), land: fb(2), cam: 'spin', focus: 'e8', zoom: 1.6, grade: { sq: 'd8', g: '!!' }, paint: ['c5', 'd8'], label: 'Barricade', bumps: [fb(2), fb(3), fb(4)] }),
   fxMove(10, { ms: fb(2), land: fb(1), cam: 'tilt-r', focus: 'a5', zoom: 1.7, grade: { sq: 'a5', g: '??' }, paint: ['a6', 'a5'], bumps: [fb(1)] }),
-  fxMove(11, { ms: fb(10), land: fb(2), cam: 'tilt-l', focus: 'f7', zoom: 1.5, grade: { sq: 'f6', g: '#' }, paint: ['e5', 'f6'], bumps: [fb(2), fb(4)] }),
+  fxMove(11, { ms: fb(10), land: fb(2), cam: 'tilt-l', focus: 'e6', zoom: 1.12, grade: { sq: 'f6', g: '#' }, paint: ['e5', 'f6'], bumps: [fb(2), fb(4)] }),
   { kind: 'board', crowd: false, pos: GAME_POS, pre: FX_MOVES, steps: [], cam: 'spin', focus: 'd5', zoom: 1.04, ms: fb(4), bumps: [fb(2)] },
   // The end card holds through the track's last hit (36.4–37 s).
+  { kind: 'end', text: 'Every piece has a superpower', ms: fb(6) + 1050, bumps: [fb(2), fb(4), fb(6) + 220] },
+];
+
+// Round 2 of the chessfx series, same track and grid: other cards, and a queen that leaves the board
+// and comes back from beyond its edge to mate. The Piercer strikes from afar (nothing travels), so its
+// hit is what lands on the beat, like the Kamikaze's blast. The mates are shot wide: the stamp fits.
+const FX2_POS: Record<string, string> = {
+  g1: 'w:king-classic', f2: 'w:pawn-classic', g2: 'w:pawn-classic', h2: 'w:pawn-classic',
+  d1: 'w:queen-levitation', b1: 'w:knight-galloper', c4: 'w:pawn-duelist', a1: 'w:rook-earthquake', c1: 'w:bishop-ricochet',
+  g8: 'b:king-classic', f7: 'b:pawn-classic', g7: 'b:pawn-classic', h7: 'b:pawn-classic', e8: 'b:rook-classic', h6: 'b:bishop-eclipse',
+  a8: 'b:rook-displacer', a7: 'b:pawn-classic', a6: 'b:bishop-piercer', b7: 'b:pawn-phantom', b6: 'b:pawn-classic',
+  b4: 'b:knight-classic', d5: 'b:knight-classic', e4: 'b:bishop-classic',
+};
+const FX2_MOVES = ['b1e4~', 'b7b5', 'c4d5~', 'a6c4', 'd1>levitate', '!bishop-eclipse:diag:1:2', 'a8a7', '!rook-earthquake:file:1:-1', 'c1b4~', 'a7b7', '*queen-levitation'];
+const fx2 = shotOf(FX2_POS, FX2_MOVES);
+/** The quake's rook leaps before the line moves: its slam (550 ms in) is what lands on the beat. */
+const QUAKE_SLAM = 241;
+const CHESSFX2: Shot[] = [
+  { kind: 'board', crowd: false, pos: FX2_POS, steps: [], caption: 'Round 2. Every move *rated*.', zoom: 1.04, focus: 'd5', ms: 5480 - fb(6) },
+  { kind: 'board', crowd: false, pos: FX2_POS, steps: [], caption: 'Round 2. Every move *rated*.', cam: 'tilt-r', focus: 'd5', zoom: 1.3, ms: fb(6) },
+  fx2(0, { ms: fb(6), land: fb(3), cam: 'punch', focus: 'd3', zoom: 1.6, grade: { sq: 'e4', g: '!!' }, paint: ['b1', 'c3', 'e4'], label: 'Galloper', bumps: [fb(2), fb(3)] }),
+  fx2(1, { ms: fb(4), land: fb(2), cam: 'tilt-l', focus: 'b6', zoom: 1.9, grade: { sq: 'b5', g: '!' }, paint: ['b7', 'b5'], label: 'Phantom Pawn', bumps: [fb(2)] }),
+  fx2(2, { ms: fb(6), land: fb(3), cam: 'spin', focus: 'c5', zoom: 1.9, grade: { sq: 'c4', g: 'best' }, paint: ['c4', 'd5'], label: 'Duelist', bumps: [fb(2), fb(3)] }),
+  fx2(3, { ms: fb(4), land: fb(2) - 226, cam: 'tilt-r', focus: 'b5', zoom: 1.8, grade: { sq: 'c4', g: '!' }, paint: ['a6', 'b5', 'c4'], label: 'Piercer', bumps: [fb(2)] }),
+  fx2(4, { ms: fb(8), land: fb(3), cam: 'spin', focus: 'd6', zoom: 1.15, grade: { sq: 'd8', g: '!!' }, paint: ['d1', 'd8'], label: 'Levitation', bumps: [fb(3), fb(5)] }),
+  fx2(5, { ms: fb(4), land: fb(1), cam: 'tilt-l', focus: 'e3', zoom: 1.4, grade: { sq: 'h6', g: '?!' }, paint: ['h6'], label: 'Eclipse', bumps: [fb(1), fb(2)] }),
+  fx2(6, { ms: fb(4), land: fb(2), cam: 'tilt-r', focus: 'a7', zoom: 1.9, grade: { sq: 'a7', g: '?' }, paint: ['a8', 'a7', 'a6'], label: 'Displacer', bumps: [fb(2)] }),
+  fx2(7, { ms: fb(8), land: fb(2) - QUAKE_SLAM, cam: 'punch', focus: 'b4', zoom: 1.5, grade: { sq: 'a1', g: '!!' }, paint: ['a1'], label: 'Earthquake', bumps: [fb(2), fb(3), fb(4)] }),
+  fx2(8, { ms: fb(4), land: fb(2), cam: 'spin', focus: 'b3', zoom: 1.8, grade: { sq: 'b4', g: '!' }, paint: ['c1', 'a3', 'b4'], label: 'Ricochet', bumps: [fb(2)] }),
+  fx2(9, { ms: fb(2), land: fb(1), cam: 'tilt-l', focus: 'b7', zoom: 1.7, grade: { sq: 'b7', g: '??' }, paint: ['a7', 'b7'], bumps: [fb(1)] }),
+  fx2(10, { ms: fb(10), land: fb(2), cam: 'tilt-r', focus: 'e6', zoom: 1.12, grade: { sq: 'e8', g: '#' }, paint: ['d8', 'e8'], label: 'Out of nowhere', bumps: [fb(2), fb(4)] }),
+  { kind: 'board', crowd: false, pos: FX2_POS, pre: FX2_MOVES, steps: [], cam: 'spin', focus: 'd5', zoom: 1.04, ms: fb(4), bumps: [fb(2)] },
   { kind: 'end', text: 'Every piece has a superpower', ms: fb(6) + 1050, bumps: [fb(2), fb(4), fb(6) + 220] },
 ];
 
@@ -775,6 +808,7 @@ export const ADS: Record<string, Shot[]> = {
   onlypiece: ONLY_PIECE,
   portaledit: PORTAL_EDIT,
   chessfx: CHESSFX,
+  chessfx2: CHESSFX2,
   memes: MEMES,
   cardofday: CARD_OF_DAY,
   ...SERIES,

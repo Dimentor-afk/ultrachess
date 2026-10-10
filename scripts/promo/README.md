@@ -29,6 +29,9 @@ pack opening, directed shot by shot. Nothing here ships with the game.
   each with a chess-site grade badge and its squares in the grade's colour (`grade`, `paint`), the card's
   name (`label`), and `land`: when the move lands, so the lead is worked out from the move's own length
   and every move lands on a beat (136 BPM, cut to the author's track, which is not in the repo).
+  `chessfx2`: round 2 on the same grid with other cards (Galloper, Phantom, Duelist, Piercer, Levitation,
+  Eclipse, Displacer, Earthquake, Ricochet), mate by a queen back from beyond the board. A new round is
+  a position and its moves for `shotOf(pos, moves)`.
 - `portaledit`: a phonk edit of the Portal Bishop ("The board has edges. He doesn't."), cut to the grid of
   our own phonk: `python3 scripts/promo/phonk.py phonk.wav --bpm 130 --intro 3 --drop 5` (synthesised:
   cowbell riff, 808, claps, hats; prints the drop time and the beat). The game's effect sounds go on
