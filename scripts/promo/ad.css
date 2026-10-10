@@ -158,14 +158,14 @@ html, body, #root { margin: 0; height: 100%; background: #05070f; overflow: hidd
 /* The whole frame kicks on a hit in the music, with a white flash. */
 .ad-kicker { position: absolute; inset: 0; }
 @keyframes ad-kick { from { scale: 1.06; filter: brightness(1.18) blur(0.8px); } to { scale: 1; filter: none; } }
-.ad-bump { position: absolute; inset: 0; z-index: 55; pointer-events: none; opacity: 0; background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.26), rgba(255, 255, 255, 0) 65%); animation: ad-bump 0.2s ease-out both; }
+.ad-bump { position: absolute; inset: 0; z-index: 55; pointer-events: none; opacity: 0; background: radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--bump, #fff) 34%, transparent), transparent 65%); animation: ad-bump 0.2s ease-out both; }
 @keyframes ad-bump { from { opacity: 1; } to { opacity: 0; } }
 /* Danger squares: red, pulsing on the beat; the hero's square gold. */
 .ad .cell.preview::after { background: rgba(255, 36, 72, 0.62); animation: ad-danger 0.673s ease-in-out infinite; }
 @keyframes ad-danger { 50% { background: rgba(255, 36, 72, 0.3); } }
 .ad .cell.hint::after { background: rgba(255, 196, 64, 0.55); box-shadow: inset 0 0 0 0.6cqw #ffd76a; }
 /* Camera moves (the shot's length is the animation's). */
-.ad-camera { position: relative; }
+.ad-camera { position: relative; container-type: inline-size; }
 .ad-camera.cam-tilt-l { animation-name: ad-tilt-l; }
 .ad-camera.cam-tilt-r { animation-name: ad-tilt-r; }
 .ad-camera.cam-punch { animation-name: ad-punch; animation-timing-function: linear; }
@@ -203,3 +203,44 @@ html, body, #root { margin: 0; height: 100%; background: #05070f; overflow: hidd
 .ad-hero-text b { font-family: var(--font-display); font-weight: 400; font-size: 64px; line-height: 1; letter-spacing: 0.06em; text-transform: uppercase; color: #fff; text-shadow: -3px 0 0 rgba(255, 40, 80, 0.85), 3px 0 0 rgba(60, 220, 255, 0.75), 0 6px 0 rgba(0, 0, 0, 0.6); animation: ad-stamp 0.35s cubic-bezier(0.2, 1.5, 0.4, 1) 0.08s both; }
 .ad-hero-text span { font-weight: 800; font-size: 18px; letter-spacing: 0.22em; text-transform: uppercase; color: color-mix(in srgb, var(--r) 60%, #fff); animation: ad-cap-in 0.35s ease-out 0.25s both; }
 @keyframes ad-stamp { from { opacity: 0; transform: scale(2.4); letter-spacing: 0.4em; } }
+
+/* ── Graded moves (chessfx): the move's squares in the grade's colour, its badge, the card's name ── */
+.ad-board-shot .cell.last::after { background: color-mix(in srgb, var(--grade, #f5c451) 66%, transparent); box-shadow: inset 0 0 2.4cqw color-mix(in srgb, var(--grade, #f5c451) 80%, transparent); }
+.ad-grade {
+  position: absolute;
+  z-index: 9;
+  width: 7.4cqw;
+  height: 7.4cqw;
+  translate: -50% -50%;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--grade);
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 3.9cqw;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  box-shadow: 0 0 0 0.55cqw rgba(255, 255, 255, 0.92), 0 0.6cqw 0 rgba(0, 0, 0, 0.35), 0 0 4cqw var(--grade);
+  animation: ad-grade-in 0.45s cubic-bezier(0.2, 1.7, 0.4, 1) var(--land) both;
+}
+.ad-grade::after { content: ''; position: absolute; inset: -0.6cqw; border-radius: 50%; border: 0.5cqw solid var(--grade); opacity: 0; animation: ad-grade-ring 0.7s ease-out calc(var(--land) + 80ms) both; }
+@keyframes ad-grade-in { 0% { opacity: 0; transform: scale(0.2) rotate(-40deg); } 100% { opacity: 1; transform: none; } }
+@keyframes ad-grade-ring { 0% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(2.6); } }
+.ad-label {
+  position: absolute;
+  z-index: 300;
+  left: 0;
+  right: 0;
+  bottom: 10%;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 34px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #fff;
+  -webkit-text-stroke: 1.5px #05070f;
+  paint-order: stroke fill;
+  text-shadow: 0 0 22px var(--grade, #f5c451), 0 4px 0 rgba(0, 0, 0, 0.6);
+  animation: ad-stamp 0.35s cubic-bezier(0.2, 1.5, 0.4, 1) var(--land, 0ms) both;
+}

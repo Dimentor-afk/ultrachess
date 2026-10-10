@@ -22,6 +22,8 @@ export interface SceneSpec {
    *  "*card" (that card's move, a capture if it has one), "!queen-immortal:arm" or
    *  "!rook-earthquake:*" (an ability, it does not use the turn); "…|caption" changes the caption. */
   steps: string[];
+  /** Played at once before the shot: a shot can start in the middle of a game. */
+  pre?: string[];
 }
 
 /**
@@ -49,7 +51,9 @@ export function startState(spec: SceneSpec): MatchState {
   pos.nextId = n + 1;
   pos.turn = spec.turn ?? 'w';
   pos.ply = pos.turn === 'w' ? 10 : 11;
-  return { ...pos, decks: { w: classicDeck(), b: classicDeck() }, history: [], repetition: {}, status: 'playing', result: null, lastMove: null, fx: null };
+  let m: MatchState = { ...pos, decks: { w: classicDeck(), b: classicDeck() }, history: [], repetition: {}, status: 'playing', result: null, lastMove: null, fx: null };
+  for (const p of spec.pre ?? []) m = step(m, p);
+  return m;
 }
 
 function step(m: MatchState, raw: string): MatchState {

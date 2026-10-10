@@ -101,7 +101,7 @@ function slowed(timed: Timed[], k: number): Timed[] {
 }
 
 /** How long a move's own animation runs: the mover and whatever moves with it. */
-function moverMsOf(fx: MatchFx): number {
+export function moverMsOf(fx: MatchFx): number {
   let ms = 0;
   fx.moves.forEach((m, i) => {
     if (i === 0 || !m.after) ms = Math.max(ms, legsMs(m.from, m.legs));

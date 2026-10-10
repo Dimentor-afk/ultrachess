@@ -8,7 +8,7 @@ import { loadLang } from '../../src/i18n';
 import { localizeData } from '../../src/i18n/data';
 import '../../src/ui/styles.css';
 import './ad.css';
-import { ADS, NATIVE, PINNED, type Shot } from './ads';
+import { ADS, GRADES, NATIVE, PINNED, type Shot } from './ads';
 
 const q = new URLSearchParams(location.search);
 const ad = ADS[q.get('ad') ?? 'chaos'];
@@ -29,7 +29,7 @@ async function main() {
   const lang = q.get('lang');
   await loadLang(lang === 'uk' || lang === 'de' || lang === 'it' || lang === 'es' ? lang : 'en');
   localizeData();
-  const [{ Board }, { PackOpening }, { CardView }, engine, { CARD_BY_ID, RARITY_NAMES }, { cardArt, pieceSprite }] = await Promise.all([
+  const [{ Board, mateTimes, moverMsOf }, { PackOpening }, { CardView }, engine, { CARD_BY_ID, RARITY_NAMES }, { cardArt, pieceSprite }] = await Promise.all([
     import('../../src/ui/Board'),
     import('../../src/ui/PackOpening'),
     import('../../src/ui/common'),
@@ -41,7 +41,7 @@ async function main() {
   /** Length of a shot in ms. */
   /** Time after step i of a board shot (its own entry in `gaps`, else `gap`). */
   const gapAt = (s: Extract<Shot, { kind: 'board' }>, i: number) => s.gaps?.[i] ?? s.gap ?? 1500;
-  const shotMs = (s: Shot) => (s.kind === 'board' ? (s.lead ?? 600) + s.steps.reduce((t, _, i) => t + gapAt(s, i), 0) + (s.tail ?? 900) : s.ms);
+  const shotMs = (s: Shot) => (s.kind === 'board' ? (s.ms ?? (s.lead ?? 600) + s.steps.reduce((t, _, i) => t + gapAt(s, i), 0) + (s.tail ?? 900)) : s.ms);
 
   function Caption({ text, pos = 'top' }: { text: string; pos?: 'top' | 'bottom' | 'mid' }) {
     return (
@@ -53,13 +53,22 @@ async function main() {
 
   function BoardShot({ s }: { s: Extract<Shot, { kind: 'board' }> }) {
     const states = useMemo(() => engine.playScene(s), []);
+    // A move set to land at `land`: it starts as long before as its own animation takes.
+    const lead = useMemo(() => {
+      if (s.land === undefined || states.length < 2) return s.lead ?? 600;
+      const fx = engine.view(states[1]).fx;
+      if (!fx) return s.land;
+      return Math.max(0, s.land - (states[1].status === 'checkmate' ? mateTimes(fx).fall : moverMsOf(fx)));
+    }, []);
     const [i, setI] = useState(0);
     useEffect(() => {
       if (i >= states.length - 1) return;
-      const t = setTimeout(() => setI(i + 1), i === 0 ? (s.lead ?? 600) : gapAt(s, i - 1));
+      const t = setTimeout(() => setI(i + 1), i === 0 ? lead : gapAt(s, i - 1));
       return () => clearTimeout(t);
     }, [i]);
     const view = engine.view(states[i]);
+    const grade = s.grade ? GRADES[s.grade.g] : null;
+    const badgeAt = s.grade ? engine.squareXY(s.grade.sq) : null;
     // The caption of the last step played so far ("move|caption").
     const caption = [s.caption, ...s.steps.map((x) => x.split('|')[1])].slice(0, i + 1).filter(Boolean).at(-1);
     const focus = s.focus ? engine.squareXY(s.focus) : { x: 50, y: 50 };
@@ -71,7 +80,7 @@ async function main() {
       return () => clearTimeout(t);
     }, [count]);
     return (
-      <div className="ad-board-shot">
+      <div className="ad-board-shot" style={grade ? ({ '--grade': grade.c, '--land': `${s.land ?? 0}ms` } as CSSProperties) : undefined}>
         {count > 0 && (
           <div className="ad-count" key={count} style={{ '--ms': `${s.countMs ?? 1000}ms` } as CSSProperties}>
             <span>{count}</span>
@@ -88,7 +97,7 @@ async function main() {
             orientation={s.flip ? 'b' : 'w'}
             selected={null}
             marks={new Map()}
-            lastMove={new Set()}
+            lastMove={new Set(i >= 1 ? (s.paint ?? []).map(engine.parseSquare) : [])}
             // Edits: the squares in danger glow red (drawn as the board's line preview), the hero's gold.
             hint={new Set((s.gold ?? []).map(engine.parseSquare))}
             preview={new Set((s.red?.[Math.min(i, s.red.length - 1)] ?? []).map(engine.parseSquare))}
@@ -97,7 +106,14 @@ async function main() {
             celebrate={!!s.win && i === states.length - 1}
             mated={states[i].status === 'checkmate' ? engine.checkSquare(states[i]) : null}
           />
+          {grade && badgeAt && (
+            // The grade's badge sits on the square's top-right corner, like on chess sites.
+            <span className="ad-grade" style={{ left: `${badgeAt.x + 3.6}%`, top: `${badgeAt.y - 3.6}%` }}>
+              {grade.t}
+            </span>
+          )}
         </div>
+        {s.label && <div className="ad-label">{s.label}</div>}
         {caption && <Caption text={caption} pos={s.capPos ?? 'top'} />}
       </div>
     );
@@ -319,7 +335,7 @@ async function main() {
           key={`${run}-${n}`}
           data-n={i}
           data-music={s.music ?? 'full'}
-          style={{ '--d': `${shotMs(s)}ms` } as CSSProperties}
+          style={{ '--d': `${shotMs(s)}ms`, ...(s.kind === 'board' && s.grade ? { '--bump': GRADES[s.grade.g].c } : {}) } as CSSProperties}
         >
           <div className="ad-frame">
           <div

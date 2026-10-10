@@ -12,6 +12,19 @@ export type Music = 'full' | 'tense' | 'build' | 'end';
 
 export type Tier = 'S' | 'A' | 'B' | 'C' | 'D';
 
+/** Move grades as chess sites show them: the badge on the square, the colour of the move. */
+export type Grade = '!!' | '!' | 'best' | 'good' | '?!' | '?' | '??' | '#';
+export const GRADES: Record<Grade, { c: string; t: string }> = {
+  '!!': { c: '#1baca6', t: '!!' },
+  '!': { c: '#5c9bd1', t: '!' },
+  best: { c: '#81b64c', t: '★' },
+  good: { c: '#96af8b', t: '✓' },
+  '?!': { c: '#f0b429', t: '?!' },
+  '?': { c: '#e58f2a', t: '?' },
+  '??': { c: '#ca3431', t: '??' },
+  '#': { c: '#81b64c', t: '#' },
+};
+
 export type Shot = (
   | { kind: 'hook'; text: string; sub?: string; art?: string; ms: number }
   | (SceneSpec & {
@@ -37,6 +50,16 @@ export type Shot = (
       gold?: string[];
       /** Camera move: a slow push (default), a tilted 3D board turning one way or the other, or a punch in. */
       cam?: 'push' | 'tilt-l' | 'tilt-r' | 'punch' | 'spin';
+      /** The shot's length (else lead + steps + tail). */
+      ms?: number;
+      /** When the (one) move lands, ms from the shot's start: the lead is worked out from the move's own
+       *  length, so a hop and a portal both land on the beat (a mate: when the king starts to fall). */
+      land?: number;
+      /** The move's grade: a badge on that square when the move lands, its squares in the grade's colour. */
+      grade?: { sq: string; g: Grade };
+      paint?: string[];
+      /** A short name stamped under the board when the move lands. */
+      label?: string;
       /** Fireworks at the end (a won game). */
       win?: boolean;
       /** A 3-2-1 countdown before the first step (the lead is count × countMs). */
@@ -599,17 +622,18 @@ const GAME_STEPS: [string, string, number][] = [
   ['a6a5', '(ok they’re out of tricks)', 1200],
   ['e5f6', 'queen checks like a KNIGHT.\nCHECKMATE 👑', 2600],
 ];
+const GAME_POS: Record<string, string> = {
+  g1: 'w:king-classic', f2: 'w:pawn-classic', g2: 'w:pawn-classic', h2: 'w:pawn-classic', a2: 'w:pawn-sprinter',
+  f1: 'w:bishop-portal', e4: 'w:knight-berserk', c3: 'w:rook-kamikaze', b3: 'w:queen-amazon', c5: 'w:rook-corner', a5: 'w:knight-galloper',
+  g8: 'b:king-barricade', h8: 'b:rook-fortress', f7: 'b:pawn-classic', g6: 'b:pawn-classic', h7: 'b:pawn-classic',
+  d6: 'b:queen-immortal', e5: 'b:pawn-stubborn', d7: 'b:bishop-sniper', b8: 'b:rook-castle', a4: 'b:knight-squire',
+  d4: 'b:bishop-chain', a7: 'b:pawn-spearman', e6: 'b:knight-mirage', b7: 'b:pawn-phantom',
+};
 const GAME: Shot[] = [
   {
     kind: 'board',
     crowd: false,
-    pos: {
-      g1: 'w:king-classic', f2: 'w:pawn-classic', g2: 'w:pawn-classic', h2: 'w:pawn-classic', a2: 'w:pawn-sprinter',
-      f1: 'w:bishop-portal', e4: 'w:knight-berserk', c3: 'w:rook-kamikaze', b3: 'w:queen-amazon', c5: 'w:rook-corner', a5: 'w:knight-galloper',
-      g8: 'b:king-barricade', h8: 'b:rook-fortress', f7: 'b:pawn-classic', g6: 'b:pawn-classic', h7: 'b:pawn-classic',
-      d6: 'b:queen-immortal', e5: 'b:pawn-stubborn', d7: 'b:bishop-sniper', b8: 'b:rook-castle', a4: 'b:knight-squire',
-      d4: 'b:bishop-chain', a7: 'b:pawn-spearman', e6: 'b:knight-mirage', b7: 'b:pawn-phantom',
-    },
+    pos: GAME_POS,
     caption: 'my last game. white to move',
     capPos: 'bottom',
     zoom: 1,
@@ -702,6 +726,35 @@ const PORTAL_EDIT: Shot[] = [
   { kind: 'end', text: 'Every piece has a superpower', ms: 2186, bumps: [461, 923, 1385] },
 ];
 
+// "chessfx" edit (EN): the same game, a shot per move with a chess-site grade on it, each move landing
+// on a beat of the author's track (136 BPM, the drop at 5480 ms, 70 beats after it). The Kamikaze's
+// knight dies with the rook, so nothing travels: its blast (180 ms in) is what lands on the beat.
+const FB = 60_000 / 136;
+const fb = (n: number) => Math.round(n * FB);
+const FX_MOVES = GAME_STEPS.map(([m]) => m);
+/** Shot k of the game: everything before it already played, then its move. */
+const fxMove = (k: number, o: Omit<Board, 'kind' | 'pos' | 'steps'>): Board => ({ kind: 'board', crowd: false, pos: GAME_POS, pre: FX_MOVES.slice(0, k), steps: [FX_MOVES[k]], ...o });
+const FX_LINE = 'One game. Every move *rated*.';
+const CHESSFX: Shot[] = [
+  { kind: 'board', crowd: false, pos: GAME_POS, steps: [], caption: FX_LINE, zoom: 1.04, focus: 'd5', ms: 5480 - fb(6) },
+  { kind: 'board', crowd: false, pos: GAME_POS, steps: [], caption: FX_LINE, cam: 'tilt-l', focus: 'd5', zoom: 1.3, ms: fb(6) },
+  // The drop: a move every few beats, each landing on one.
+  fxMove(0, { ms: fb(6), land: fb(4), cam: 'spin', focus: 'd4', zoom: 1.05, grade: { sq: 'e6', g: '!!' }, paint: ['f1', 'e6'], label: 'Portal Bishop', bumps: [fb(4)] }),
+  fxMove(1, { ms: fb(4), land: fb(2), cam: 'tilt-r', focus: 'e5', zoom: 1.8, grade: { sq: 'e4', g: '?!' }, paint: ['e5', 'e4'], label: 'Stubborn Pawn', bumps: [fb(2)] }),
+  fxMove(2, { ms: fb(6), land: fb(3), cam: 'punch', focus: 'c7', zoom: 1.6, grade: { sq: 'b8', g: '!!' }, paint: ['e5', 'd7', 'b8'], label: 'Berserker', bumps: [fb(2), fb(3)] }),
+  fxMove(3, { ms: fb(6), land: fb(2) - 180, cam: 'tilt-l', focus: 'c3', zoom: 1.8, grade: { sq: 'c3', g: '??' }, paint: ['a4', 'c3'], label: 'Kamikaze', bumps: [fb(2), fb(3)] }),
+  fxMove(4, { ms: fb(4), land: fb(2), cam: 'spin', focus: 'd4', zoom: 1.8, grade: { sq: 'd4', g: 'best' }, paint: ['b3', 'd4'], label: 'Amazon', bumps: [fb(2)] }),
+  fxMove(6, { ms: fb(4), land: fb(2), cam: 'tilt-r', focus: 'e5', zoom: 2, grade: { sq: 'e5', g: '??' }, paint: ['d6', 'e5'], label: 'Free queen?', bumps: [fb(2)] }),
+  fxMove(7, { ms: fb(6), land: fb(3), cam: 'punch', focus: 'd6', zoom: 1.5, grade: { sq: 'e5', g: '?!' }, paint: ['d4', 'e5'], label: 'Immortal', bumps: [fb(3), fb(4)] }),
+  fxMove(8, { ms: fb(4), land: fb(2), cam: 'tilt-l', focus: 'a6', zoom: 1.9, grade: { sq: 'a6', g: '!' }, paint: ['a7', 'a6', 'a5'], label: 'Spearman', bumps: [fb(2)] }),
+  fxMove(9, { ms: fb(8), land: fb(2), cam: 'spin', focus: 'e8', zoom: 1.6, grade: { sq: 'd8', g: '!!' }, paint: ['c5', 'd8'], label: 'Barricade', bumps: [fb(2), fb(3), fb(4)] }),
+  fxMove(10, { ms: fb(2), land: fb(1), cam: 'tilt-r', focus: 'a5', zoom: 1.7, grade: { sq: 'a5', g: '??' }, paint: ['a6', 'a5'], bumps: [fb(1)] }),
+  fxMove(11, { ms: fb(10), land: fb(2), cam: 'tilt-l', focus: 'f7', zoom: 1.5, grade: { sq: 'f6', g: '#' }, paint: ['e5', 'f6'], bumps: [fb(2), fb(4)] }),
+  { kind: 'board', crowd: false, pos: GAME_POS, pre: FX_MOVES, steps: [], cam: 'spin', focus: 'd5', zoom: 1.04, ms: fb(4), bumps: [fb(2)] },
+  // The end card holds through the track's last hit (36.4–37 s).
+  { kind: 'end', text: 'Every piece has a superpower', ms: fb(6) + 1050, bumps: [fb(2), fb(4), fb(6) + 220] },
+];
+
 /** A line that stays over the whole video (it does not pop again on each cut). */
 export const PINNED: Record<string, string> = {
   nobody: 'Розробив класну гру як проєкт\nі поділився з усіма знайомими',
@@ -721,6 +774,7 @@ export const ADS: Record<string, Shot[]> = {
   patchmate: PATCH_MATE,
   onlypiece: ONLY_PIECE,
   portaledit: PORTAL_EDIT,
+  chessfx: CHESSFX,
   memes: MEMES,
   cardofday: CARD_OF_DAY,
   ...SERIES,

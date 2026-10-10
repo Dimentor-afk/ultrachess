@@ -25,6 +25,10 @@ pack opening, directed shot by shot. Nothing here ships with the game.
   every hit (`bumps`), hero inserts (`kind: 'hero'`). Cut to the author's own track (not in the
   repo): `ffmpeg -i out/onlypiece.mp4 -i <track> -map 0:v -map 1:a -t 15.6 -af afade=t=out:st=15:d=0.6 -c:v libx264 -crf 21 -c:a aac out.mp4`.
   Board shots also take `red` (per step), `gold` and `cam` (`push`, `tilt-l`, `tilt-r`, `punch`, `spin`).
+- `chessfx`: the `game` in a "chessfx" edit: a shot per move (`pre` plays the moves before it at once),
+  each with a chess-site grade badge and its squares in the grade's colour (`grade`, `paint`), the card's
+  name (`label`), and `land`: when the move lands, so the lead is worked out from the move's own length
+  and every move lands on a beat (136 BPM, cut to the author's track, which is not in the repo).
 - `portaledit`: a phonk edit of the Portal Bishop ("The board has edges. He doesn't."), cut to the grid of
   our own phonk: `python3 scripts/promo/phonk.py phonk.wav --bpm 130 --intro 3 --drop 5` (synthesised:
   cowbell riff, 808, claps, hats; prints the drop time and the beat). The game's effect sounds go on
