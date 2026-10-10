@@ -282,13 +282,9 @@ html, body, #root { margin: 0; height: 100%; background: #05070f; overflow: hidd
 .ad-filters { position: absolute; width: 0; height: 0; }
 @keyframes ad-out-vwhip { 0% { transform: none; filter: none; } 35% { filter: url(#vb1); } 70% { filter: url(#vb2); } 100% { transform: translateY(-34%) scale(1.08); filter: url(#vb3) brightness(1.15); } }
 @keyframes ad-in-vwhip { 0% { transform: translateY(34%) scale(1.08); filter: url(#vb3) brightness(1.15); } 30% { filter: url(#vb2); } 60% { filter: url(#vb1); } 100% { transform: none; filter: none; } }
-@keyframes ad-in-pull { from { transform: scale(2.4) rotate(5deg); filter: blur(3px); } 60% { filter: none; } to { transform: none; } }
+@keyframes ad-in-pull { from { transform: scale(1.65) rotate(3deg); filter: blur(2px); } 60% { filter: none; } to { transform: none; } }
 
-/* ── The close-up edit: dark grey around a grey board, colour turned down, quiet labels ── */
-.edit .ad { background: radial-gradient(120% 75% at 50% 48%, #2c2c30, #0c0c0e 78%); }
-.edit .ad-kicker { filter: saturate(0.78) contrast(1.05); }
-.edit .ad-shot::after { content: ''; position: absolute; inset: 0; z-index: 70; pointer-events: none; background: radial-gradient(110% 70% at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.55)); }
-.edit .ad-board-shot .board { box-shadow: 0 10px 60px rgba(0, 0, 0, 0.7); }
+/* ── The close-up edit: quiet labels in a pill, smaller badges ── */
 .edit .ad-grade { width: 4.8cqw; height: 4.8cqw; font-size: 2.6cqw; box-shadow: 0 0 0 0.4cqw #fff, 0 0.4cqw 1cqw rgba(0, 0, 0, 0.35); }
 .edit .ad-label { left: 50%; right: auto; bottom: 13%; translate: -50% 0; padding: 7px 14px 7px 19px; border-radius: 999px; background: rgba(14, 14, 17, 0.66); white-space: nowrap; font-family: var(--font-body); font-weight: 700; font-size: 14px; letter-spacing: 0.32em; color: #fff; -webkit-text-stroke: 0; text-shadow: none; animation: ad-label-in 0.5s ease-out var(--land, 0ms) both; }
 @keyframes ad-label-in { from { opacity: 0; letter-spacing: 0.6em; } }
@@ -354,3 +350,6 @@ html, body, #root { margin: 0; height: 100%; background: #05070f; overflow: hidd
 .ad-meme-card.r-mythological { --r: var(--r-mythological); }
 .ad-meme-card .ad-card-slam { width: 196px; }
 .emo { font-family: 'Noto Color Emoji', sans-serif; font-weight: 400; }
+/* The piece that did the trick: its card's name in a gold pill under its square. */
+.ad-grade-tag { position: absolute; z-index: 10; translate: -50% -50%; padding: 0.7cqw 2.2cqw; border-radius: 999px; background: #f5c451; color: #2a1a00; font-family: var(--font-body); font-weight: 800; font-size: 3.2cqw; white-space: nowrap; box-shadow: 0 0.5cqw 1.6cqw rgba(0, 0, 0, 0.35); animation: ad-tag 2.6s ease-out var(--land) both; }
+@keyframes ad-tag { 0% { opacity: 0; transform: translateY(-1.5cqw) scale(0.7); } 10% { opacity: 1; transform: none; } 88% { opacity: 1; } 100% { opacity: 0; } }

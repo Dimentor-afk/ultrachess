@@ -74,6 +74,16 @@ async function main() {
     return k;
   }
 
+  /** A card's name in a gold pill under the piece that did the trick: it stays through the next move. */
+  function Tag({ tag, delay }: { tag: NonNullable<StepGrade['tag']>; delay: number }) {
+    const at = engine.squareXY(tag.sq);
+    return (
+      <span className="ad-grade-tag" style={{ '--land': `${delay}ms`, left: `${at.x}%`, top: `${at.y + 8.5}%` } as CSSProperties}>
+        {tag.text}
+      </span>
+    );
+  }
+
   /** A move's grade on the board: the badge on its square's corner (rings pulsing on a held one),
    *  the chess-site word in a pill above it for a moment. Placed in the board's own box. */
   function GradeMark({ g, delay, rings }: { g: StepGrade; delay: number; rings?: boolean }) {
@@ -198,9 +208,9 @@ async function main() {
         </div>
         {article && <Article />}
         {s.label && <div className="ad-label">{s.label}</div>}
-        {step?.label && (
+        {mark?.label && (
           <div className="ad-label" key={`l${i}`} style={{ '--land': `${markDelay}ms` } as CSSProperties}>
-            {step.label}
+            {mark.label}
           </div>
         )}
         {s.fade && (
@@ -310,7 +320,9 @@ async function main() {
     const view = engine.view(states[i]);
     const g = (i > 0 && b.grades?.[i - 1]) || null;
     const delay = g ? travelOf(states[i]) : 0;
-    const p = s.panels[Math.max(0, panel)];
+    // The last step so far with a tag (its pill outlives the moves after it).
+    const tagAt = Math.max(0, ...(b.grades ?? []).map((x, k) => (x?.tag && k < i ? k + 1 : 0)));
+    const p = s.panels.length ? s.panels[Math.max(0, panel)] : null;
     return (
       <div className="ad-meme">
         <div className="ad-meme-board" style={{ ...themeVars(b.theme), ...(g ? { '--grade': GRADES[g.g].c } : {}) } as CSSProperties}>
@@ -326,8 +338,10 @@ async function main() {
               checkSquare={engine.checkSquare(states[i])}
               onSquare={() => {}}
               celebrate={false}
+              mated={states[i].status === 'checkmate' ? engine.checkSquare(states[i]) : null}
             />
             {g && <GradeMark key={i} g={g} delay={delay} />}
+            {tagAt > 0 && <Tag key={`t${tagAt}`} tag={b.grades![tagAt - 1]!.tag!} delay={travelOf(states[tagAt]) + 250} />}
           </div>
           {card && s.card && (
             <div className={`ad-meme-card r-${CARD_BY_ID[s.card.id].rarity}`}>
@@ -338,7 +352,7 @@ async function main() {
           )}
         </div>
         <div className="ad-meme-panel">
-          <MemePanel key={panel} mood={p.mood} text={p.text} />
+          {p && <MemePanel key={panel} mood={p.mood} text={p.text} />}
         </div>
       </div>
     );
@@ -556,8 +570,8 @@ async function main() {
     // Edits choose their cuts: the shot comes in its own way and leaves the way the next one comes in.
     const next = last ? undefined : ad[i + 1].cut;
     const edit = !!s.cut || !!next;
-    const CUT_IN = { vwhip: 'ad-in-vwhip 0.34s cubic-bezier(0.15, 0.85, 0.3, 1) both', pull: 'ad-in-pull 0.4s cubic-bezier(0.2, 0.8, 0.25, 1) both', cut: '' };
-    const CUT_OUT = { vwhip: `ad-out-vwhip 0.2s cubic-bezier(0.6, 0, 0.9, 0.4) ${shotMs(s) - 200}ms forwards`, pull: '', cut: '' };
+    const CUT_IN = { vwhip: 'ad-in-vwhip 0.24s cubic-bezier(0.15, 0.85, 0.3, 1) both', pull: 'ad-in-pull 0.32s cubic-bezier(0.2, 0.8, 0.25, 1) both', cut: '' };
+    const CUT_OUT = { vwhip: `ad-out-vwhip 0.16s cubic-bezier(0.6, 0, 0.9, 0.4) ${shotMs(s) - 160}ms forwards`, pull: '', cut: '' };
     const cutAnim = [i > 0 && s.cut ? CUT_IN[s.cut] : '', next ? CUT_OUT[next] : ''].filter(Boolean).join(', ');
     // A pull back starts where the close-up before it was looking.
     const prev = ad[i - 1];

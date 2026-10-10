@@ -14,6 +14,7 @@ pack opening, directed shot by shot. Nothing here ships with the game.
 | `render.mjs` | Renders a script frame by frame on a fake clock into `out/<name>.mp4`, and writes `out/<name>.marks.json` (when each effect, cut, caption and pack stage happened). |
 | `sound.py` | Synthesises the sound track from the marks: music per shot (full / tense / build / end), drops on reveals, whooshes on cuts, effect sounds on effects. |
 | `smooth.py` | Checks a rendered video for frozen or jumping frames. |
+| `caption.mjs` | A caption as a transparent PNG (emoji in colour) for ffmpeg to lay over a clip. |
 | `promo.tsx`, `promo.css`, `index.html`, `record.mjs` | The first, real-time recorder (real-time recording, kept for reference; `render.mjs` replaced it). |
 
 ## Videos
@@ -37,19 +38,27 @@ pack opening, directed shot by shot. Nothing here ships with the game.
   cowbell riff, 808, claps, hats; prints the drop time and the beat). The game's effect sounds go on
   top: `sound.py out/portaledit.marks.json 15.6 sfx.wav --native --no-music`, mixed with ffmpeg `amix`.
   Cuts are timed from the start of the ad, so an edit never drifts off its music.
-- `freerook`: the meme "Black: yeah, FREE ROOK‼️ … oh wait 😟" as a split screen (`kind: 'meme'`): the board on
-  top plays its steps at set times (`lands`, one per state), each with a chess-site grade and its word in a pill
-  (`grades`: "Brilliant", "Blunder"), a piece picked up with its moves dotted (`select`); under it a reaction of
-  our own (`panels`: `cheer`, a crowd of black pieces laughing; `sad` and `sad-close`, the king alone in the rain),
-  then the card that did it over the board (`card`). The rook looks free because the e4 pawn is pinned, but the
-  Ambusher goes off by itself; `d8d5^` shows the queen's travel before the blast (the game shows only the blast).
-  Cut to the reference's sound (not in the repo): the rook at 0.6 s, the cut at 5.57 s, the end at 12.95 s.
-- `closeup`: a quiet close-up edit of five moves with cards no video had shown (Ricochet Rook, Wanderer,
-  Rotator, Diagonal Pawn) on the reference's sound (87 BPM, every move on one of its hits): `cam: 'roll'`
-  (the focus square in the middle, turning from `roll[0]` to `roll[1]`), `cam: 'still'`, `held` (the badge of
-  the move just played, rings pulsing), a board `theme` from the shop, `article` (blurred pages about the game
-  flicking past, the name lit), `fade` (grey and the name), and cuts per shot (`cut`: `vwhip` with motion blur,
-  `pull` out of a close-up, `cut`). `LOOK` gives an ad dark sprites for Black, coordinates on or off, a page class.
+- `freerook`: the meme "Black: yeah, FREE ROOK‼️ … oh wait 😢" as a split screen (`kind: 'meme'`). The board on
+  top plays its steps at set times (`lands`, one per state) with chess-site grades and their word in a pill
+  (`grades`: "Brilliant", "Good"), a gold pill under the piece that did the trick (`tag`: "Fortress Rook"), a
+  piece picked up with its moves dotted (`select`). The Fortress Rook goes under the knight, the knight takes it,
+  the Fortress steps back alive, and the knight has left h7 unguarded: mate. The reaction under the board is the
+  reference's own clip, cut out with ffmpeg below its caption and clear of its watermark, with our captions
+  (`caption.mjs`: a caption as a transparent PNG) and its sound (none of it is in the repo):
+  `ffmpeg -i out/freerook.mp4 -i ref.mp4 -i cap-free.png -i cap-wait.png -i ref-audio.wav -filter_complex
+  "[1:v]trim=0:12.95,setpts=PTS-STARTPTS,crop=420:282:40:645,scale=1080:725,fps=30[m];[0:v][m]overlay=0:1195[v1];
+  [v1][2:v]overlay=0:1205:enable='lt(t,5.567)'[v2];[v2][3:v]overlay=0:1205:enable='gte(t,5.567)'[v]" -map "[v]" -map 4:a …`.
+  The panel can also be our own reaction (`panels`: `cheer`, black pieces laughing; `sad`, `sad-close`, the king
+  in the rain). `d8d5^` shows a piece's travel into an Ambusher before the blast (the game shows only the blast).
+- `closeup`: a close-up edit on mythic and legendary cards (the Comet king takes a checking rook from four
+  squares away, the Eclipse bars the long diagonal, the Chameleon steps onto the other colour with check, and
+  the rook's mate meets the Barricade), every move on a hit of the reference's sound (87 BPM). Every move plays
+  in a still shot, whole in the frame, and the cuts come only between moves: `cam: 'roll'` (the focus square in
+  the middle, turning a little from `roll[0]` to `roll[1]`), `cam: 'still'`, `held` (the badge of the move just
+  played, rings pulsing), `article` (blurred pages about the game while nothing moves), `fade` (grey and the
+  name), and cuts per shot (`cut`: `vwhip` with motion blur, `pull` out of a close-up, `cut`). `LOOK` gives an ad
+  a page class and the watermark (it can also set dark sprites for Black and coordinates; these two keep the
+  game's own look).
 - Stills to check a shot without a whole render: `STILLS=1000,5600 node scripts/promo/render.mjs closeup`
   (→ `out/closeup-1000.jpg`, …).
 - `patchmate`: the clip in the patch notes (`public/assets/patch/mate-<lang>.mp4/.webm`, poster

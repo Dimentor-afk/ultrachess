@@ -26,8 +26,9 @@ export const GRADES: Record<Grade, { c: string; t: string }> = {
 };
 
 /** The grade of one step of a shot: its badge on `sq` when the move lands, its squares in the grade's colour,
- *  the chess-site word for it in a pill for a moment ("Brilliant"), the card's name under the board. */
-export type StepGrade = { sq: string; g: Grade; paint?: string[]; name?: string; label?: string };
+ *  the chess-site word for it in a pill for a moment ("Brilliant"), the card's name under the board, and a
+ *  card's name in a gold pill over another square (`tag`: the piece that did the trick). */
+export type StepGrade = { sq: string; g: Grade; paint?: string[]; name?: string; label?: string; tag?: { sq: string; text: string } };
 
 /** How a shot comes in (edits): a vertical whip with motion blur, a pull back from a close-up, a plain cut. */
 export type Cut = 'vwhip' | 'pull' | 'cut';
@@ -50,6 +51,7 @@ export type Shot = (
         red?: string[][];
         theme?: string;
       };
+      /** The reaction under the board (none: the panel stays black for a clip laid in afterwards). */
       panels: { at: number; mood: Mood; text?: string }[];
       card?: { at: number; id: string };
       ms: number;
@@ -829,13 +831,16 @@ const CHESSFX2: Shot[] = [
   { kind: 'end', text: 'Every piece has a superpower', ms: fb(6) + 1050, bumps: [fb(2), fb(4), fb(6) + 220] },
 ];
 
-// "Black: yeah, FREE ROOK‼️ … oh wait 😟" (EN), a meme split screen on the reference's sound: the rook lands at
-// 0.6 s, the reaction cuts at 5.57 s, the sound ends at 12.95 s. The rook looks free: the pawn on e4 is pinned
-// to its king. But the Ambusher does not move to take: it goes off by itself when an enemy piece steps
-// diagonally in front of it, pinned or not. The queen's travel is shown before the blast (`^`).
+// "Black: yeah, FREE ROOK‼️ … oh wait 😢" (EN), a meme split screen on the reference's sound. The board is ours;
+// the reaction under it is the reference's own clip, cut out and laid in with ffmpeg (see README), so the panel
+// here is left black. The Fortress Rook goes under the knight; the knight takes it, but the Fortress does not die
+// (it steps back to d4), and the knight has left f6: nothing guards h7 any more. Times follow the clip: the cut
+// to "oh wait" at 5.57 s, the end at 12.95 s.
 const FR_POS = {
-  e1: 'w:king-classic', d1: 'w:rook-classic', e4: 'w:pawn-ambusher', a2: 'w:pawn-classic', b2: 'w:pawn-classic', f2: 'w:pawn-classic', g2: 'w:pawn-classic', h2: 'w:pawn-classic',
-  g8: 'b:king-classic', d8: 'b:queen-classic', e8: 'b:rook-classic', a7: 'b:pawn-classic', b7: 'b:pawn-classic', f7: 'b:pawn-classic', g7: 'b:pawn-classic', h7: 'b:pawn-classic',
+  g1: 'w:king-classic', b1: 'w:queen-classic', d1: 'w:rook-fortress', g5: 'w:knight-classic',
+  a2: 'w:pawn-classic', b2: 'w:pawn-classic', f2: 'w:pawn-classic', g2: 'w:pawn-classic', h2: 'w:pawn-classic',
+  g8: 'b:king-classic', f8: 'b:rook-classic', f6: 'b:knight-classic', b6: 'b:queen-classic',
+  a7: 'b:pawn-classic', b7: 'b:pawn-classic', f7: 'b:pawn-classic', g7: 'b:pawn-classic', h7: 'b:pawn-classic',
 };
 const FREE_ROOK: Shot[] = [
   {
@@ -843,59 +848,59 @@ const FREE_ROOK: Shot[] = [
     board: {
       crowd: false,
       pos: FR_POS,
-      theme: 'ocean',
-      steps: ['d1d5', 'd8d5^'],
-      lands: [600, 5100, 5570],
+      steps: ['d1d5', 'f6d5', 'b1h7'],
+      lands: [900, 4000, 6100],
       grades: [
         { sq: 'd5', g: '!!', paint: ['d1', 'd5'], name: 'Brilliant' },
-        { sq: 'd5', g: 'good', paint: ['d8', 'd5'], name: 'Good' },
-        { sq: 'd5', g: '??', paint: ['d8', 'd5'], name: 'Blunder', label: 'Ambusher' },
+        { sq: 'd5', g: 'good', paint: ['f6', 'd5'], name: 'Good', tag: { sq: 'd4', text: 'Fortress Rook' } },
+        { sq: 'h7', g: '#', paint: ['b1', 'h7'] },
       ],
-      select: { sq: 'd8', from: 2900, to: 4850 },
-      red: [[], [], ['e4', 'd5'], []],
+      select: { sq: 'f6', from: 2400, to: 3700 },
     },
-    panels: [
-      { at: 0, mood: 'cheer', text: 'Black: yeah, FREE ROOK‼️' },
-      { at: 5570, mood: 'sad', text: 'Black: oh wait… 😟' },
-      { at: 8170, mood: 'sad-close', text: 'Black: oh wait… 😟' },
-    ],
-    card: { at: 8170, id: 'pawn-ambusher' },
+    panels: [],
     ms: 12950,
   },
 ];
 
-// A close-up edit (EN) on the reference's sound (87 BPM, its hits at 1138, 1823, 5050, 5608, 8348, 8812,
-// 10077, 11099, 13502, 14536 ms; the music ends at 15.35 s): five quiet moves with cards no video had shown,
-// the camera close and turning, whips between shots, a blurred page about Ultrachess over the board.
-// The Ricochet Rook checks off the edge, the Wanderer steps away two squares, the Rotator swaps with its pawn
-// and is taken from two squares away, and the Diagonal Pawn promotes with check.
+// A close-up edit (EN) on the reference's sound (87 BPM, its hits at 1138, 1823, 5050, 5608, 6641, 7326, 8348,
+// 10077, 11099, 13502, 14536 ms; the music ends at 15.35 s), on mythic and legendary cards: the Comet king flies
+// four squares and takes the rook that checks it, the Eclipse bars the long diagonal (the rook cannot go to b8
+// through it), the Chameleon steps onto the other colour with check, the king has to go to f8, and the rook's
+// mate meets the Barricade: a pawn of its own appears on e8 and blocks it. Every move plays in a still shot,
+// whole in the frame; the cuts come only between moves.
 const CU_POS = {
-  g1: 'w:king-classic', f2: 'w:pawn-classic', g2: 'w:pawn-classic', h2: 'w:pawn-classic',
-  h3: 'w:rook-ricochet', e7: 'w:knight-rotator', d6: 'w:pawn-diagonal',
-  f8: 'b:king-wanderer', g7: 'b:pawn-classic', b6: 'b:pawn-classic', a7: 'b:pawn-classic',
+  d3: 'w:king-comet', b1: 'w:rook-classic', c3: 'w:bishop-chameleon', f2: 'w:pawn-classic', g2: 'w:pawn-classic', h2: 'w:pawn-classic',
+  g8: 'b:king-barricade', h8: 'b:bishop-eclipse', d7: 'b:rook-classic', a7: 'b:pawn-classic', g7: 'b:pawn-classic', h7: 'b:pawn-classic',
 };
-const CU_MOVES = ['h3g8', 'f8f6', 'e7d6', 'f6d6', 'e7d8'];
-const CU_RICOCHET: StepGrade = { sq: 'g8', g: '!', paint: ['h3', 'h8', 'g8'], label: 'Ricochet Rook' };
-const CU_ROTATOR: StepGrade = { sq: 'e7', g: '!!', paint: ['e7', 'd6'], label: 'Rotator' };
-const CU_PROMOTE: StepGrade = { sq: 'd8', g: '!', paint: ['e7', 'd8'], label: 'Diagonal Pawn' };
+const CU_MOVES = ['d3d7', '!bishop-eclipse:diag:1:0', 'a7a6', 'c3c4', 'g8f8', 'b1b8'];
+const CU_BARRICADE: StepGrade = { sq: 'e8', g: '!!', paint: ['b1', 'b8', 'e8'], label: 'Barricade' };
 const cuShot = (k: number, o: Omit<Board, 'kind' | 'pos' | 'steps'> & { steps?: string[] }): Board => ({
-  kind: 'board', crowd: false, pos: CU_POS, theme: 'marble', cam: 'roll', pre: CU_MOVES.slice(0, k), steps: [], ...o,
+  kind: 'board', crowd: false, pos: CU_POS, cam: 'roll', pre: CU_MOVES.slice(0, k), steps: [], ...o,
 });
 const CLOSEUP: Shot[] = [
-  cuShot(0, { steps: CU_MOVES.slice(0, 2), lands: [1138, 1823], grades: [CU_RICOCHET, { sq: 'f6', g: 'best', paint: ['f8', 'f6'], label: 'Wanderer' }], focus: 'g7', zoom: 2.3, roll: [-12, 5], ms: 2300 }),
-  // Pulled back to the whole board, flat; the page about the game over it, then the Rotator's swap.
-  cuShot(2, { steps: [CU_MOVES[2]], lands: [2750], grades: [CU_ROTATOR], cam: 'still', zoom: 1, article: { from: 450, to: 2560 }, cut: 'pull', ms: 3260 }),
-  cuShot(3, { held: CU_ROTATOR, focus: 'e7', zoom: 3, roll: [9, -5], cut: 'vwhip', ms: 2740 }),
-  cuShot(3, { steps: CU_MOVES.slice(3), lands: [512, 1777], grades: [{ sq: 'd6', g: 'best', paint: ['f6', 'd6'], label: 'Wanderer' }, CU_PROMOTE], focus: 'e7', zoom: 2.3, roll: [-9, 6], cut: 'vwhip', ms: 2750 }),
-  cuShot(5, { held: CU_PROMOTE, focus: 'd8', zoom: 3, roll: [11, -4], cut: 'vwhip', ms: 2450 }),
-  cuShot(5, { held: CU_PROMOTE, cam: 'still', focus: 'e6', zoom: 1.5, cut: 'vwhip', ms: 1040 }),
-  cuShot(5, { held: CU_PROMOTE, cam: 'still', focus: 'e6', zoom: 1.5, fade: 810, cut: 'cut', ms: 810 }),
+  cuShot(0, { steps: [CU_MOVES[0]], lands: [1138], grades: [{ sq: 'd7', g: '!!', paint: ['d3', 'd7'], label: 'Comet' }], focus: 'd5', zoom: 1.65, roll: [-5, 3], ms: 2300 }),
+  // The whole board, flat: the page about the game over it while nothing moves, then the Eclipse and a pawn.
+  cuShot(1, {
+    steps: CU_MOVES.slice(1, 3),
+    lands: [2350, 2750],
+    grades: [{ sq: 'h8', g: '!', paint: ['h8'], label: 'Eclipse' }, null],
+    cam: 'still',
+    zoom: 1,
+    article: { from: 350, to: 1850 },
+    cut: 'pull',
+    ms: 3260,
+  }),
+  cuShot(3, { steps: CU_MOVES.slice(3, 5), lands: [1081, 1766], grades: [{ sq: 'c4', g: '!', paint: ['c3', 'c4'], label: 'Chameleon' }, { sq: 'f8', g: 'best', paint: ['g8', 'f8'] }], focus: 'e6', zoom: 1.6, roll: [4, -3], cut: 'vwhip', ms: 2740 }),
+  cuShot(5, { steps: [CU_MOVES[5]], lands: [1777], grades: [CU_BARRICADE], cam: 'still', focus: 'd6', zoom: 1.12, cut: 'vwhip', ms: 2750 }),
+  cuShot(6, { held: CU_BARRICADE, focus: 'e8', zoom: 2.3, roll: [-4, 3], cut: 'vwhip', ms: 2450 }),
+  cuShot(6, { held: { ...CU_BARRICADE, label: undefined }, cam: 'still', zoom: 1, cut: 'vwhip', ms: 1040 }),
+  cuShot(6, { held: { ...CU_BARRICADE, label: undefined }, cam: 'still', zoom: 1, fade: 810, cut: 'cut', ms: 810 }),
 ];
 
-/** How an ad's board looks: dark sprites for Black, coordinates, a class on the page (`meme`, `edit`). */
+/** An ad's page class (`meme`: the split screen; `edit`: quiet labels and badges) and the watermark. */
 export const LOOK: Record<string, { blackStyle?: 'team' | 'dark'; coordinates?: boolean; cls?: string }> = {
-  freerook: { blackStyle: 'dark', cls: 'meme' },
-  closeup: { blackStyle: 'dark', coordinates: false, cls: 'edit' },
+  freerook: { cls: 'meme' },
+  closeup: { cls: 'edit' },
 };
 
 /** A line that stays over the whole video (it does not pop again on each cut). */
