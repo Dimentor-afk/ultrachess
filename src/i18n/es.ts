@@ -1797,5 +1797,12 @@ const dict: Record<string, string> = {
   "Нагороди трохи кращі, ніж з ботами.": "Recompensas algo mejores que con bots.",
   "Цей Тиждень слави завершився.": "Esta Semana de gloria ha terminado.",
   "Тиждень слави ще не почався.": "La Semana de gloria aún no ha empezado.",
+  "Час демо": "Reloj de la demo",
+  "Годинник демо зсунуто, зараз у ньому {0}": "El reloj de la demo está movido: allí ahora son las {0}",
+  "Справжній час": "Hora real",
+  "Відкрити Тиждень слави": "Abrir la Semana de gloria",
+  "+1 день": "+1 día",
+  "Скіни сезону → {0}": "Aspectos de temporada → {0}",
+  "Скіни сезону": "Aspectos de temporada",
 };
 export default dict;

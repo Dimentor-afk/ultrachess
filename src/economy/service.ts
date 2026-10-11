@@ -37,6 +37,7 @@ import {
   divisionFor,
   parseRun,
   runSettled,
+  seasonPlateId,
   tierIndex,
   weekClosesAt,
   weekWindow,
@@ -3245,6 +3246,24 @@ export class GameService {
     if (!(await this.store.getUser(userId))) throw new ApiError(404, 'Гравця не знайдено.');
     const owned = await this.ownedSet(userId);
     for (const c of CARDS) if (!owned.has(c.id)) await this.store.addCard(userId, c.id);
+  }
+
+  /** The season's skins and its top plate, to try them without playing a week (a test tool). */
+  async adminGrantSkins(token: string, userId: string): Promise<void> {
+    await this.admin(token);
+    const u = await this.store.getUser(userId);
+    if (!u) throw new ApiError(404, 'Гравця не знайдено.');
+    let plates: string[] = [];
+    try {
+      plates = JSON.parse(u.plates || '[]');
+    } catch {
+      plates = [];
+    }
+    const plate = seasonPlateId(SEASON, 1);
+    await this.store.updateUser(userId, {
+      skins: JSON.stringify([...new Set([...ownedSkins(u.skins), ...SEASON.skins])]),
+      plates: JSON.stringify(plates.includes(plate) ? plates : [...plates, plate]),
+    });
   }
 
   async adminSetTrophies(token: string, userId: string, trophies: number, ladder: Ladder = 'pvp'): Promise<void> {

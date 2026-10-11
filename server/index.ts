@@ -372,6 +372,7 @@ const routes: [string, RegExp, Handler][] = [
   ['GET', /^admin\/stats\/(\d+)$/, ({ token, params }) => svc.adminStats(token, Number(params[0]))],
   ['POST', /^admin\/users\/(\w+)\/pack$/, ({ token, params, body }) => svc.adminGrantPack(token, params[0], String(body.type) as never)],
   ['POST', /^admin\/users\/(\w+)\/all-cards$/, ({ token, params }) => svc.adminGrantAllCards(token, params[0])],
+  ['POST', /^admin\/users\/(\w+)\/skins$/, ({ token, params }) => svc.adminGrantSkins(token, params[0])],
   ['POST', /^admin\/users\/(\w+)\/trophies$/, ({ token, params, body }) => svc.adminSetTrophies(token, params[0], Number(body.trophies), body.ladder === 'bot' ? 'bot' : 'pvp')],
   [
     'POST',

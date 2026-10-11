@@ -149,6 +149,7 @@ export interface Api {
   adminStats(days: number): Promise<AdminStats>;
   adminGrantPack(userId: string, type: PackType): Promise<void>;
   adminGrantAllCards(userId: string): Promise<void>;
+  adminGrantSkins(userId: string): Promise<void>;
   adminSetTrophies(userId: string, trophies: number, ladder?: 'bot' | 'pvp'): Promise<void>;
   adminSetRole(userId: string, role: Role): Promise<void>;
   adminGrantCurrency(userId: string, gold: number, shards: number): Promise<void>;
@@ -284,6 +285,7 @@ class HttpApi implements Api {
   adminStats = (days: number) => this.call<AdminStats>('GET', `admin/stats/${days}`);
   adminGrantPack = (userId: string, type: PackType) => this.call<void>('POST', `admin/users/${userId}/pack`, { type });
   adminGrantAllCards = (userId: string) => this.call<void>('POST', `admin/users/${userId}/all-cards`, {});
+  adminGrantSkins = (userId: string) => this.call<void>('POST', `admin/users/${userId}/skins`, {});
   adminSetTrophies = (userId: string, trophies: number, ladder: 'bot' | 'pvp' = 'pvp') => this.call<void>('POST', `admin/users/${userId}/trophies`, { trophies, ladder });
   adminSetRole = (userId: string, role: Role) => this.call<void>('POST', `admin/users/${userId}/role`, { role });
   adminGrantCurrency = (userId: string, gold: number, shards: number) =>
@@ -492,6 +494,7 @@ class LocalApi implements Api {
   adminStats = async (days: number) => this.svc.adminStats(await this.t(), days);
   adminGrantPack = async (userId: string, type: PackType) => this.svc.adminGrantPack(await this.t(), userId, type);
   adminGrantAllCards = async (userId: string) => this.svc.adminGrantAllCards(await this.t(), userId);
+  adminGrantSkins = async (userId: string) => this.svc.adminGrantSkins(await this.t(), userId);
   adminSetTrophies = async (userId: string, trophies: number, ladder: 'bot' | 'pvp' = 'pvp') => this.svc.adminSetTrophies(await this.t(), userId, trophies, ladder);
   adminSetRole = async (userId: string, role: Role) => this.svc.adminSetRole(await this.t(), userId, role);
   adminGrantCurrency = async (userId: string, gold: number, shards: number) =>

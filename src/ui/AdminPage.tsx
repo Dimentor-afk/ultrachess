@@ -8,6 +8,7 @@ import { errorText, useSession } from './state';
 import { Sheet } from './Sheet';
 import { locale, t } from '../i18n';
 import { formatPrice } from '../economy/payments';
+import { weekWindow } from '../economy/weekly';
 
 const PACK_TYPES: PackType[] = ['starter', ...(Object.keys(PACKS) as PackType[])];
 
@@ -43,6 +44,48 @@ function ago(ms: number): string {
 }
 
 const dateTime = (ms: number) => new Date(ms).toLocaleString(locale(), { dateStyle: 'short', timeStyle: 'short' });
+
+const SHIFT_KEY = 'uc.demo.clockShift';
+
+/**
+ * The demo only (no server): moves its clock, to open the weekly league on any day or to step to the
+ * week's end. main.tsx applies the shift to Date.now() before anything starts; the page reloads.
+ */
+function DemoClock() {
+  let shift = 0;
+  try {
+    shift = Number(localStorage.getItem(SHIFT_KEY)) || 0;
+  } catch {
+    // no storage: no clock to move
+  }
+  const set = (ms: number) => {
+    try {
+      if (ms) localStorage.setItem(SHIFT_KEY, String(Math.round(ms)));
+      else localStorage.removeItem(SHIFT_KEY);
+    } catch {
+      return;
+    }
+    location.reload();
+  };
+  const w = weekWindow(Date.now());
+  return (
+    <div className="panel admin-demo">
+      <b>{t('Час демо')}</b>
+      <span className="muted small">{shift ? t('Годинник демо зсунуто, зараз у ньому {0}', new Date(Date.now()).toLocaleString(locale())) : t('Справжній час')}</span>
+      <div className="admin-row">
+        <button className="btn btn-sm btn-primary" disabled={w.open} onClick={() => set(shift + w.nextOpensAt + 3_600_000 - Date.now())}>
+          {t('Відкрити Тиждень слави')}
+        </button>
+        <button className="btn btn-sm" onClick={() => set(shift + 86_400_000)}>
+          {t('+1 день')}
+        </button>
+        <button className="btn btn-sm" disabled={!shift} onClick={() => set(0)}>
+          {t('Справжній час')}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export function AdminPage() {
   const s = useSession();
@@ -97,6 +140,7 @@ export function AdminPage() {
           <b>Статистика</b>
         </button>
       </div>
+      {s.api.mode === 'local' && <DemoClock />}
       {tab === 'stats' && <AdminStatsTab />}
       {tab === 'players' && (
         <>
@@ -291,6 +335,9 @@ function PlayerSheet({ u, run, onClose }: { u: AdminUser; run: (fn: () => Promis
           </button>
           <button className="btn btn-sm" onClick={() => run(() => s.api.adminGrantAllCards(u.id), t('Усі карти → {0}', u.name))}>
             {t('Усі карти')}
+          </button>
+          <button className="btn btn-sm" onClick={() => run(() => s.api.adminGrantSkins(u.id), t('Скіни сезону → {0}', u.name))}>
+            {t('Скіни сезону')}
           </button>
         </div>
 
