@@ -182,8 +182,9 @@ function Shell() {
   const social = s.inbox.friendRequests + s.inbox.challenges + s.inbox.yourTurn;
   const theme = themeById(s.profile.boardTheme);
 
-  const badge = (id: Route) =>
-    id === 'play' && readyPacks > 0 ? readyPacks : id === 'friends' && social > 0 ? social : (id === 'leagues' || id === 'weekly') && s.profile.weekly.claimable ? 1 : 0;
+  // Weekly rewards to take: on the Тиждень слави link, or on the phone's Ліги tab that holds it.
+  const badge = (id: Route, tab = false) =>
+    id === 'play' && readyPacks > 0 ? readyPacks : id === 'friends' && social > 0 ? social : id === (tab ? 'leagues' : 'weekly') && s.profile.weekly.claimable ? 1 : 0;
 
   return (
     <div className="shell" style={{ '--light-sq': theme.light, '--dark-sq': theme.dark } as CSSProperties}>
@@ -249,7 +250,7 @@ function Shell() {
             <a key={t.id} href={`#/${t.id}`} className={`tab tab-${t.id} ${on ? 'on' : ''}`} aria-current={on ? 'page' : undefined}>
               <span className="tab-icon">
                 <Icon name={t.icon} />
-                {badge(t.id) > 0 && <span className="nav-badge">{badge(t.id)}</span>}
+                {badge(t.id, true) > 0 && <span className="nav-badge">{badge(t.id, true)}</span>}
               </span>
               <span className="tab-label">{t.label}</span>
             </a>

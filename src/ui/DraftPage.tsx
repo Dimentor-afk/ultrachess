@@ -11,6 +11,14 @@ import { t } from '../i18n';
 
 const KIND_ICON: Record<DraftKind, PieceType> = { pawn: 'pawn', knight: 'knight', bishop: 'bishop', rook: 'rook', crown: 'king' };
 const KIND_NAME = (k: DraftKind) => (k === 'crown' ? t('Корона') : PIECE_NAMES[k]);
+const YOUR_PIECE: Record<PieceType, () => string> = {
+  pawn: () => t('Ваш пішак'),
+  knight: () => t('Ваш кінь'),
+  bishop: () => t('Ваш слон'),
+  rook: () => t('Ваша тура'),
+  queen: () => t('Ваш ферзь'),
+  king: () => t('Ваш король'),
+};
 
 /**
  * Драфт з другом: five rounds of "one of two". The card you take stands on your left side, the
@@ -141,7 +149,7 @@ export function DraftPage({ id }: { id: string }) {
           <div className="dr-round-head">
             <div>
               <span className="eyebrow">{t('Раунд {0}/{1}', v.round + 1, DRAFT_ROUNDS.length)}</span>
-              <h1>{kind === 'crown' ? (v.color === 'w' ? t('Ваш король') : t('Ваш ферзь')) : t('Ваш {0}', PIECE_NAMES[type].toLowerCase())}</h1>
+              <h1>{YOUR_PIECE[type]()}</h1>
             </div>
             <span className={`dr-timer ${secs <= 5 ? 'hurry' : ''}`} aria-label={t('Залишилось {0} с', secs)}>
               <svg viewBox="0 0 36 36" aria-hidden="true">

@@ -2242,6 +2242,7 @@ img[src*='assets/packs'] {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  white-space: nowrap;
   padding: 0.7rem 0.8rem;
   border-radius: 12px;
   color: var(--muted);
@@ -10807,23 +10808,38 @@ html.no-anim .summary-backdrop, html.no-anim .summary-backdrop .summary { animat
   background: radial-gradient(circle at 50% 60%, rgba(255, 255, 255, 0.07), transparent 65%), linear-gradient(180deg, #1a2547, #0c1226);
   border: 1px solid var(--line);
 }
-.patch-clip {
-  display: block;
-  width: min(100%, 300px);
-  aspect-ratio: 1;
-  border-radius: 14px;
-  border: 1px solid var(--line);
-  background: #0c1226;
-  object-fit: cover;
+.patch-elo { display: flex; justify-content: center; align-items: center; gap: 1.2rem; }
+.patch-elo-side { display: flex; flex-direction: column; align-items: center; line-height: 1; }
+.patch-elo-side b { font-family: var(--font-display); font-weight: 400; font-size: 2.8rem; color: var(--gold); text-shadow: 0 3px 0 rgba(0, 0, 0, 0.45); }
+.patch-elo-side.bot b { color: #8fd3ff; }
+.patch-elo-side small { margin-top: 0.3rem; font-weight: 800; color: var(--muted); }
+.patch-elo-eq { font-family: var(--font-display); font-size: 2.2rem; color: #fff; }
+.patch-streak { display: flex; justify-content: center; align-items: center; gap: 0.5rem; }
+.patch-streak i {
+  display: grid;
+  place-items: center;
+  width: 3.4rem;
+  height: 3.4rem;
+  border-radius: 12px;
+  font-style: normal;
+  font-size: 1.5rem;
+  background: rgba(255, 140, 50, 0.16);
+  box-shadow: inset 0 0 0 1.5px rgba(255, 140, 50, 0.6);
 }
-.patch-nerf { display: flex; justify-content: center; align-items: center; gap: 1.6rem; }
-.patch-rook { position: relative; width: 96px; height: 96px; }
-.patch-rook img { width: 100%; height: 100%; object-fit: contain; }
-.patch-emblem { position: absolute; top: -4px; right: -10px; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; color: #e8ecf8; background: #3a4258; box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.5); }
-.patch-emblem svg, .patch-emblem img { width: 70%; height: 70%; }
-.patch-range { font-family: var(--font-display); font-size: 2.4rem; color: #fff; }
-.patch-range s { color: #8a93a8; text-decoration-thickness: 4px; text-decoration-color: #ff4d4d; }
-.patch-range b { color: var(--gold); font-weight: 400; }
+.patch-streak i.b { font-family: var(--font-display); font-size: 1.15rem; color: #2a1400; background: linear-gradient(180deg, #ffd36b, #ff8a2b); box-shadow: none; }
+.patch-streak i.top { box-shadow: 0 0 18px rgba(255, 140, 40, 0.7); transform: scale(1.12); }
+.patch-weekly { display: flex; justify-content: center; align-items: center; gap: 0.6rem; background: radial-gradient(circle at 50% 60%, rgba(255, 110, 40, 0.25), transparent 65%), linear-gradient(180deg, #2a1220, #0c1226); }
+.patch-skins { display: flex; justify-content: center; align-items: flex-end; gap: 0; padding-bottom: 0.4rem; background: radial-gradient(circle at 50% 70%, rgba(255, 90, 30, 0.35), transparent 65%), linear-gradient(180deg, #3b0d12, #12101f); }
+.patch-skins img { width: 56px; height: 56px; min-width: 0; margin: 0 -7px; object-fit: contain; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.5)); }
+.patch-skins img:nth-child(3) { width: 72px; height: 72px; }
+.patch-skins img:nth-child(4) { width: 88px; height: 88px; }
+.patch-skins img:nth-child(5) { width: 108px; height: 108px; filter: drop-shadow(0 0 14px rgba(255, 90, 30, 0.8)); }
+.patch-draft { display: flex; justify-content: center; align-items: center; gap: 1rem; background: radial-gradient(circle at 50% 60%, rgba(141, 99, 234, 0.3), transparent 65%), linear-gradient(180deg, #1d1440, #0c1226); }
+.patch-draft b { font-family: var(--font-display); font-weight: 400; font-size: 1.4rem; color: #c9a8ff; }
+.patch-draft-card { display: grid; place-items: center; width: 84px; height: 112px; border-radius: 12px; background: linear-gradient(160deg, var(--r-legendary), #3a2a10); box-shadow: 0 8px 18px rgba(0, 0, 0, 0.4); }
+.patch-draft-card:last-child { background: linear-gradient(160deg, var(--r-epic), #2a1648); transform: rotate(4deg); }
+.patch-draft-card:first-child { transform: rotate(-4deg); }
+.patch-draft-card img { width: 72px; height: 72px; object-fit: contain; }
 .patch-nav { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; margin-top: 0.3rem; }
 .patch-arrow { min-width: 3.2rem; font-size: 1.2rem; }
 .patch-dots { display: flex; gap: 6px; }

@@ -1,9 +1,11 @@
 import { type ReactNode, useState } from 'react';
-import { Emblem } from './art';
+import { SKIN_BY_ID } from '../economy/skins';
+import { SEASON } from '../economy/weekly';
 import { pieceSprite } from './cardArt';
 import { getSettings } from './settings';
 import { errorText, useSession } from './state';
-import { getLang, t } from '../i18n';
+import { DivisionBadge } from './WeeklyPage';
+import { t } from '../i18n';
 
 /** One page of the notes: a picture, a heading, a few plain lines. */
 interface Page {
@@ -14,37 +16,73 @@ interface Page {
 
 function pages(): Page[] {
   const style = getSettings().blackStyle;
-  // With animations off the clip waits for a tap instead of playing by itself.
-  const animate = getSettings().animations;
+  const sprite = (id: string, type: string) => pieceSprite(id, type, 'w', style).src;
   return [
     {
-      // The real thing, recorded from the game (scripts/promo, ad "patchmate"), in the player's language.
       art: (
-        <video className="patch-clip" poster="assets/patch/mate.webp" autoPlay={animate} controls={!animate} muted loop playsInline aria-label={t('Анімація мату')}>
-          {/* H.264 for most browsers; VP9 where H.264 is missing (Chromium, some Linux Firefox). */}
-          <source src={`assets/patch/mate-${getLang()}.mp4`} type="video/mp4" />
-          <source src={`assets/patch/mate-${getLang()}.webm`} type="video/webm" />
-        </video>
-      ),
-      title: t('Анімація мату'),
-      text: t('Матовий хід тепер іде повільно, король падає, а на дошці з’являється напис «Мат». Підсумок партії відкривається вже після цього.'),
-    },
-    {
-      art: (
-        <div className="patch-art patch-nerf">
-          <span className="patch-rook">
-            <img className="pixel" src={pieceSprite('rook-maneuver', 'rook', 'w', style).src} alt="" />
-            <span className="patch-emblem">
-              <Emblem cardId="rook-maneuver" />
-            </span>
+        <div className="patch-art patch-elo">
+          <span className="patch-elo-side">
+            <b>460</b>
+            <small>🏆 {t('кубків')}</small>
           </span>
-          <span className="patch-range">
-            <s>4</s> → <b>3</b>
+          <span className="patch-elo-eq">≈</span>
+          <span className="patch-elo-side bot">
+            <b>460</b>
+            <small>🤖 Elo</small>
           </span>
         </div>
       ),
-      title: t('Маневрова тура'),
-      text: t('Дальність ходу зменшено з 4 до 3 клітинок. Ходить і б’є, як і раніше, у всіх 8 напрямках.'),
+      title: t('Бот за кубками'),
+      text: t('Сила бота тепер залежить від ваших кубків: 460 🏆 означає бота приблизно на 460 Elo. Арени розтягнуто до 3000, тож верхні справді найсильніші.'),
+    },
+    {
+      art: (
+        <div className="patch-art patch-streak" aria-hidden="true">
+          <i>🔥</i>
+          <i>🔥</i>
+          <i className="b">+30</i>
+          <i className="b top">+40</i>
+        </div>
+      ),
+      title: t('Серія перемог'),
+      text: t('Виграйте двічі поспіль у лізі ботів, і третя перемога дасть +30 🏆, а далі по +40. Поразка чи нічия обнуляє серію. Лічильник під кнопкою «Бій».'),
+    },
+    {
+      art: (
+        <div className="patch-art patch-weekly" aria-hidden="true">
+          {[5, 4, 3, 2, 1].map((n) => (
+            <DivisionBadge key={n} n={n} size={n === 1 ? 'lg' : 'md'} />
+          ))}
+        </div>
+      ),
+      title: t('Тиждень слави'),
+      text: t('Новий рейтинговий режим з понеділка 10:00 до п’ятниці 22:00 за Києвом. Від 500 кубків: 5 дивізіонів, 15 матчів проти ботів, нагороди за 3, 6, 9, 12 і 15 перемог. Вкладка «Тиждень» у Лігах.'),
+    },
+    {
+      art: (
+        <div className="patch-art patch-skins" aria-hidden="true">
+          {SEASON.skins.map((id) => (
+            <img key={id} src={SKIN_BY_ID[id].art} alt="" />
+          ))}
+        </div>
+      ),
+      title: t('Сезон Берсерка'),
+      text: t('За 12 перемог у Тижні слави дають скіни Берсерка, за 15 ще й плашку «Лють Берсерка». Що вищий дивізіон, то кращі скіни. Вдягнути скін можна у вікні картки в колоді, і його бачать обидва гравці.'),
+    },
+    {
+      art: (
+        <div className="patch-art patch-draft" aria-hidden="true">
+          <span className="patch-draft-card">
+            <img className="pixel" src={sprite('knight-rider', 'knight')} alt="" />
+          </span>
+          <b>{t('або')}</b>
+          <span className="patch-draft-card">
+            <img className="pixel" src={sprite('knight-wallrunner', 'knight')} alt="" />
+          </span>
+        </div>
+      ),
+      title: t('Драфт з друзями'),
+      text: t('У Друзях з’явилась кнопка «Драфт». П’ять раундів: з двох карток одну берете собі, другу отримує суперник. Без міфологічних карт і без нагород, просто для розваги.'),
     },
   ];
 }

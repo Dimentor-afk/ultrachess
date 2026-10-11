@@ -40,6 +40,10 @@ the fallback), per-viewer views so hidden information reaches only its owner
 (`src/engine/secure.ts`), **rooms** `#/game/<id>` with **spectators**, **reconnection**, and the
 **README in the lab's format** (plus `docs/networking.md` for the Reflection questions and
 `docs/two-players.gif`).
+Oct 2026: bot strength = the player's bot-ladder trophies (fractional levels, `levelForElo`), win
+streak bonus (+30, +40), the weekly league «Тиждень слави» (`src/economy/weekly.ts`, `#/weekly`),
+season skins (`src/economy/skins.ts`, picked in the card window) and the friend draft
+(`src/economy/draft.ts`, `#/draft/<id>`, kept in the challenge row).
 Game archive (`#/replay/<m|p>/<id>`, from the profile history and the post-game summary): the server
 hands a finished game's decks and actions to its players (`GameService.gameRecord`), the page replays
 them with the engine. An engine game review (move grades, accuracy, 3 free a day) was built and shelved
