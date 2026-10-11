@@ -250,13 +250,14 @@ describe('rook cards', () => {
     expect(at(after, 'a4')).toBe('w:knight-classic');
   });
 
-  it('Смертник takes its killer along, so a king cannot capture it', () => {
+  it('Смертник takes its killer along, but not the king', () => {
     const pos = build({ d4: 'b:rook-kamikaze', c2: 'w:knight-classic', a1: 'w:king-classic', h8: 'b:king-classic' });
     const after = play(pos, 'c2', 'd4');
     expect(at(after, 'd4')).toBeNull();
-    const kingCase = build({ e1: 'w:king-classic', e2: 'b:rook-kamikaze', h8: 'b:king-classic' });
-    expect(targets(kingCase, 'e1')).not.toContain('e2');
-    expect(targets(kingCase, 'e1').length).toBeGreaterThan(0);
+    // The king takes it and lives: a check from an undefended Смертник next to the king is no mate.
+    const mate = build({ h2: 'w:king-classic', h6: 'w:pawn-classic', g8: 'w:rook-kamikaze', h8: 'b:king-classic', h7: 'b:pawn-classic' }, 'b');
+    expect(targets(mate, 'h8')).toEqual(['g8']);
+    expect(at(play(mate, 'h8', 'g8'), 'g8')).toBe('b:king-classic');
   });
 
   it('Замкова тура teleports next to its king once', () => {

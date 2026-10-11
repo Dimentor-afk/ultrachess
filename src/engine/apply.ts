@@ -286,7 +286,8 @@ export function applyMoveWithEvents(
     }
     resetClock = true;
     victims.push({ piece: victim, square: c });
-    if (alive && victim.cardId === 'rook-kamikaze' && mover.type !== 'rook' && mover.type !== 'queen') {
+    // Смертник takes its killer along, unless that is a rook, a queen or the king.
+    if (alive && victim.cardId === 'rook-kamikaze' && mover.type !== 'rook' && mover.type !== 'queen' && mover.type !== 'king') {
       alive = false;
       events.push({ type: 'kamikaze', attacker: mover });
       break;

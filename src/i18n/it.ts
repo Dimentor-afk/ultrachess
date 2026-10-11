@@ -287,7 +287,7 @@ const dict: Record<string, string> = {
   "Фортечна тура": "Torre fortezza",
   "Раз за гру, замість ходу, телепортується на будь-яку вільну клітинку з 8 навколо свого короля (без взяття).": "Una volta a partita, invece della mossa, si teletrasporta su una qualsiasi casa libera delle 8 attorno al proprio re (senza catturare).",
   "Замкова тура": "Torre del castello",
-  "Коли туру б'є будь-яка фігура, крім тури й ферзя, ця фігура теж гине.": "Quando la torre viene catturata da un pezzo qualsiasi tranne torre e regina, muore anche quel pezzo.",
+  "Коли туру б'є будь-яка фігура, крім тури, ферзя чи короля, ця фігура теж гине.": "Quando la torre viene catturata da un pezzo qualsiasi tranne torre, regina e re, muore anche quel pezzo.",
   "Смертник": "Kamikaze",
   "Може стати на клітинку своєї фігури на лінії ходу; ця фігура відштовхується на 1 клітинку далі в тому ж напрямку. Якщо клітинка за фігурою зайнята чи це край — хід нелегальний. Короля відштовхувати не можна.": "Può andare sulla casa di un tuo pezzo lungo la sua linea; quel pezzo viene spinto di 1 casa più avanti nella stessa direzione. Se la casa dietro è occupata o c'è il bordo, la mossa è illegale. Il re non si può spingere.",
   "Витіснювач": "Spintore",
