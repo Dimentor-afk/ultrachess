@@ -14,7 +14,6 @@ import {
   type WeeklyMode,
   type WeeklyReward,
   divisionByN,
-  divisionFor,
   weeklyReward,
 } from '../economy/weekly';
 import { TitlePlate } from './Achievements';
@@ -38,19 +37,21 @@ export function DivisionBadge({ n, size = 'md' }: { n: number; size?: 'sm' | 'md
 
 const skinsLabel = (n: number) => (n === 1 ? t('скін') : n < 5 ? t('{0} скіни', n) : t('{0} скінів', n));
 
-/** What a reward holds, as chips: skins, the plate, packs, gold and shards. */
+/** What a reward holds, as chips: skins (a tap shows them up close), the plate, packs, gold and shards. */
 export function RewardChips({ reward, big }: { reward: WeeklyReward; big?: boolean }) {
+  const [preview, setPreview] = useState(false);
   const packs = reward.packs.reduce<Record<string, number>>((acc, p) => ({ ...acc, [p]: (acc[p] ?? 0) + 1 }), {});
   return (
     <span className={`reward-chips ${big ? 'big' : ''}`}>
       {reward.skins.length > 0 && (
-        <span className="rc rc-skins" title={reward.skins.map((id) => tr(SKIN_BY_ID[id].name)).join(', ')}>
+        <button type="button" className="rc rc-skins" onClick={() => setPreview(true)} title={reward.skins.map((id) => tr(SKIN_BY_ID[id].name)).join(', ')}>
           {reward.skins.map((id) => (
             <img key={id} src={SKIN_BY_ID[id].board} alt="" />
           ))}
           <small>{skinsLabel(reward.skins.length)}</small>
-        </span>
+        </button>
       )}
+      {preview && <SkinPreview skins={reward.skins} onClose={() => setPreview(false)} />}
       {reward.plate && (
         <span className="rc rc-plate">
           <TitlePlate id={reward.plate} small />
@@ -167,12 +168,12 @@ export function WeeklyPage() {
   return (
     <section className="page weekly">
       <ModeSwitch mode={mode} />
-      <WeeklyHero mode={mode} open={view?.open ?? null} countdown={countdown} />
 
       {mode === 'pvp' ? (
         <PvpSoon />
       ) : (
         <>
+          <WeeklyHero open={view?.open ?? null} countdown={countdown} />
           {view && !view.eligible && !run && (
             <div className="panel wk-locked">
               <b>🔒 {t('Вхід з {0} кубків у лізі ботів', WEEKLY_MIN_TROPHIES)}</b>
@@ -257,7 +258,7 @@ export function WeeklyPage() {
           )}
           {view && !view.open && !claimable && view.eligible && <p className="center muted">{t('Тиждень слави відпочиває до {0}.', weekMoment(view.nextOpensAt))}</p>}
 
-          <RewardsPanel mode="bot" division={division} mineTier={run ? run.tier : null} />
+          <RewardsPanel division={division} mineTier={run ? run.tier : null} />
         </>
       )}
 
@@ -287,10 +288,10 @@ function ModeSwitch({ mode }: { mode: WeeklyMode }) {
 }
 
 /** The season, the week's schedule in the player's own time, and how long until it opens or closes. */
-function WeeklyHero({ mode, open, countdown }: { mode: WeeklyMode; open: boolean | null; countdown: string }) {
+function WeeklyHero({ open, countdown }: { open: boolean | null; countdown: string }) {
   const { from, to } = weekSchedule();
   return (
-    <header className={`wk-hero ${open ? 'open' : 'closed'} mode-${mode}`}>
+    <header className={`wk-hero ${open ? 'open' : 'closed'}`}>
       <span className="wk-rays" aria-hidden="true" />
       <img className="wk-hero-art" src={SKIN_BY_ID[SEASON.skins[4]].art} alt="" />
       <div className="wk-hero-text">
@@ -300,9 +301,7 @@ function WeeklyHero({ mode, open, countdown }: { mode: WeeklyMode; open: boolean
         </span>
         <h1>{t('Тиждень слави')}</h1>
         <p className="wk-when">
-          {!WEEKLY_LIVE[mode] ? (
-            <span className="wk-soon">{t('З гравцями: скоро')}</span>
-          ) : open === null ? (
+          {open === null ? (
             '…'
           ) : open ? (
             <>
@@ -314,20 +313,20 @@ function WeeklyHero({ mode, open, countdown }: { mode: WeeklyMode; open: boolean
           )}
         </p>
         <small className="wk-sched">{t('{0} до {1}, ваш час', from, to)}</small>
-        <small className="wk-sched">{mode === 'bot' ? t('{0} матчів проти ботів', WEEKLY_GAMES) : t('{0} матчів проти гравців', WEEKLY_GAMES)}</small>
+        <small className="wk-sched">{t('{0} матчів проти ботів', WEEKLY_GAMES)}</small>
       </div>
     </header>
   );
 }
 
-/** Every division's rewards for one mode, five tiers each; the player's division opens first. */
-function RewardsPanel({ mode, division, mineTier }: { mode: WeeklyMode; division: number | null; mineTier: number | null }) {
+/** Every division's rewards, five tiers each; the player's division opens first. */
+function RewardsPanel({ division, mineTier }: { division: number | null; mineTier: number | null }) {
   const [tab, setTab] = useState<number | null>(null);
   const shown = tab ?? division ?? 5;
   return (
     <div className="panel wk-rewards">
       <div className="section-head">
-        <h2>{mode === 'bot' ? t('Нагороди') : t('Нагороди з гравцями')}</h2>
+        <h2>{t('Нагороди')}</h2>
         <span className="muted small">{t('за кожен рівень свої, не сумуються')}</span>
       </div>
       <div className="wk-tabs" role="tablist" aria-label={t('Дивізіони')}>
@@ -348,53 +347,74 @@ function RewardsPanel({ mode, division, mineTier }: { mode: WeeklyMode; division
               <b>{need}</b>
               <small>{t('перемог')}</small>
             </span>
-            <RewardChips reward={weeklyReward(divisionByN(shown).n, i, mode)} />
+            <RewardChips reward={weeklyReward(divisionByN(shown).n, i)} />
           </li>
         ))}
       </ol>
       <p className="muted small">
-        {t('Нагороди видаються, коли зіграно всі {0} матчів, коли вищий рівень уже не досягти, або коли тиждень закінчився.', WEEKLY_GAMES)}{' '}
-        {t('Скін, який уже є, замінюється золотом.')}
+        {t('Нагороди видаються, коли зіграно всі {0} матчів, коли вищий рівень уже не досягти, або коли тиждень закінчився.', WEEKLY_GAMES)}
       </p>
-      {mode === 'bot' && (
-        <a className="wk-pvp-link" href="#/weekly/pvp">
-          ⚔ {t('З гравцями нагороди будуть кращі')} <span aria-hidden="true">›</span>
-        </a>
-      )}
     </div>
   );
 }
 
-/** The week against players: not open yet; what it will be, where the player would stand, its rewards. */
+/** The week against players: not here yet, a placeholder. */
 function PvpSoon() {
-  const { profile } = useSession();
-  const trophies = profile.ladders.pvp.trophies;
-  const d = divisionFor(trophies);
   return (
-    <>
-      <div className="panel wk-soon-panel">
-        {d ? <DivisionBadge n={d.n} size="lg" /> : <span className="wk-soon-lock">🔒</span>}
-        <div>
-          <span className="eyebrow">{t('Скоро')}</span>
-          <h2>{t('Тиждень слави з гравцями')}</h2>
-          <span className="muted small">
-            {d
-              ? t('За кубками ліги гравців ({0}) ви були б тут: дивізіон {1}, {2}.', trophies, d.roman, tr(d.name))
-              : t('Вхід з {0} кубків у лізі гравців, у вас {1}.', WEEKLY_MIN_TROPHIES, trophies)}
-          </span>
-          <ul className="wk-soon-list">
-            <li>{t('Ті самі дні й години, той самий сезон і скіни.')}</li>
-            <li>{t('15 матчів проти живих гравців вашого дивізіону.')}</li>
-            <li>{t('Дивізіон за кубками ліги гравців, окремий від тижня з ботами.')}</li>
-            <li>{t('Нагороди трохи кращі, ніж з ботами.')}</li>
-          </ul>
-        </div>
+    <div className="panel wk-soon-panel">
+      <span className="wk-soon-icon" aria-hidden="true">
+        ⚔
+      </span>
+      <h2>{t('Тиждень слави з гравцями')}</h2>
+      <span className="pill">{t('скоро')}</span>
+    </div>
+  );
+}
+
+/** Skins up close: one at a time, big, with the arrows (or a tap on a thumbnail) to the others. */
+function SkinPreview({ skins, onClose }: { skins: string[]; onClose: () => void }) {
+  // The finest first: that is the one to look at.
+  const list = [...skins].sort((a, b) => SKIN_BY_ID[b].tier - SKIN_BY_ID[a].tier);
+  const [at, setAt] = useState(0);
+  const k = SKIN_BY_ID[list[at]];
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+      if (e.key === 'ArrowRight') setAt((i) => Math.min(list.length - 1, i + 1));
+      if (e.key === 'ArrowLeft') setAt((i) => Math.max(0, i - 1));
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [list.length, onClose]);
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className={`modal skin-preview skin-t${k.tier}`} role="dialog" aria-modal="true" aria-label={tr(k.name)} onClick={(e) => e.stopPropagation()}>
+        <button className="icon-btn skin-preview-close" onClick={onClose} aria-label={t('Закрити')}>
+          ✕
+        </button>
+        <span className="wk-rays" aria-hidden="true" />
+        <img key={k.id} className="skin-preview-art" src={k.art} alt="" />
+        <span className="eyebrow">{t('Скін {0}/{1} · {2}', k.tier, SEASON.skins.length, tr(SEASON.name))}</span>
+        <h2>{tr(k.name)}</h2>
+        {list.length > 1 && (
+          <div className="skin-preview-nav">
+            <button className="btn patch-arrow" onClick={() => setAt(at - 1)} disabled={at === 0} aria-label={t('Назад')}>
+              ←
+            </button>
+            <span className="skin-preview-thumbs">
+              {list.map((id, i) => (
+                <button key={id} type="button" className={i === at ? 'on' : ''} onClick={() => setAt(i)} aria-label={tr(SKIN_BY_ID[id].name)}>
+                  <img src={SKIN_BY_ID[id].board} alt="" />
+                </button>
+              ))}
+            </span>
+            <button className="btn patch-arrow" onClick={() => setAt(at + 1)} disabled={at === list.length - 1} aria-label={t('Далі')}>
+              →
+            </button>
+          </div>
+        )}
       </div>
-      <button className="btn btn-battle wk-action" disabled>
-        ⚔ {t('Скоро')}
-      </button>
-      <RewardsPanel mode="pvp" division={d?.n ?? null} mineTier={null} />
-    </>
+    </div>
   );
 }
 

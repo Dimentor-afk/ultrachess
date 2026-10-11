@@ -1,5 +1,5 @@
 import { SKIN_BY_ID } from '../economy/skins';
-import { SEASON, WEEKLY_GAMES, WEEKLY_LIVE, WEEKLY_MIN_TROPHIES, divisionByN } from '../economy/weekly';
+import { SEASON, WEEKLY_GAMES, WEEKLY_MIN_TROPHIES } from '../economy/weekly';
 import { useCountdown } from './cosmetics';
 import { DivisionBadge } from './WeeklyPage';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -253,7 +253,11 @@ export function HomePage() {
         </div>
 
         <div className="hb-dock">
-          {battle}
+          {/* The two main modes side by side: the ladder's battle and the week. */}
+          <div className="hb-battle-row">
+            {battle}
+            <WeeklyButton />
+          </div>
           {ladder === 'bot' && activeDeck && <StreakMeter streak={lv.streak} win={lv.win} />}
           <div className="hb-dock-extra">
             <button className="btn btn-sm" onClick={() => setSheet('training')}>
@@ -324,7 +328,6 @@ export function HomePage() {
           ))}
         </div>
 
-        <WeeklyBanner ladder={ladder} />
 
         <div className="hb-stage">
           <nav className="hb-rail" aria-label={t('Швидкі дії')}>
@@ -388,14 +391,6 @@ export function HomePage() {
               </span>
               <span className="hb-rail-label">{t('Шанси')}</span>
             </button>
-            {/* Phones: the weekly league is a button here (the banner above takes the room the deck needs). */}
-            <a className="hb-rail-btn hb-weekly-btn" href={ladder === 'pvp' ? '#/weekly/pvp' : '#/weekly'}>
-              <span className="hb-rail-icon rail-weekly">
-                <Icon name="flame" />
-                {profile.weekly.claimable ? <span className="nav-badge">1</span> : profile.weekly.open && profile.weekly.eligible && !profile.weekly.settled && <span className="hb-rail-dot" />}
-              </span>
-              <span className="hb-rail-label">{t('Тиждень')}</span>
-            </a>
           </nav>
         </div>
 
@@ -612,55 +607,38 @@ function StreakMeter({ streak, win }: { streak: number; win: number }) {
 }
 
 /**
- * The weekly league on the home screen, for the ladder picked above it: live, its reward waiting,
- * opening soon, or locked; with players it is still to come.
+ * Тиждень слави next to the battle button, as big and as easy to hit: it is one of the main modes.
+ * Its line says what is up: live (wins, games, time left), the reward waiting, opening soon, locked.
  */
-function WeeklyBanner({ ladder }: { ladder: Ladder }) {
+function WeeklyButton() {
   const { profile } = useSession();
   const w = profile.weekly;
   const countdown = useCountdown(w.open ? w.closesAt : w.nextOpensAt);
-  if (ladder === 'pvp' && !WEEKLY_LIVE.pvp && !w.claimable) {
-    return (
-      <a className="wk-banner soon" href="#/weekly/pvp">
-        <span className="wk-banner-icon">⚔</span>
-        <span className="wk-banner-text">
-          <b>
-            {t('Тиждень слави')}
-            <small> · {t('з гравцями')}</small>
-          </b>
-          <small>{t('Скоро: той самий тиждень проти людей')}</small>
-        </span>
-        <img className="wk-banner-art" src={SKIN_BY_ID[SEASON.skins[4]].art} alt="" />
-        <span className="wk-banner-go">›</span>
-      </a>
-    );
-  }
-  const d = w.division ? divisionByN(w.division) : null;
-  const state = w.claimable ? 'claim' : !w.eligible && !w.played ? 'locked' : w.open ? 'open' : 'closed';
+  const state = w.claimable ? 'claim' : !w.eligible && !w.played ? 'locked' : w.open ? (w.settled ? 'done' : 'open') : 'closed';
   const sub =
     state === 'claim'
-      ? t('Нагороди чекають: заберіть їх')
+      ? t('🎁 Нагорода!')
       : state === 'locked'
-        ? t('Вхід з {0} 🏆 у лізі ботів', WEEKLY_MIN_TROPHIES)
+        ? t('🔒 з {0} 🏆', WEEKLY_MIN_TROPHIES)
         : state === 'closed'
-          ? t('Почнеться через {0}', countdown)
-          : w.settled
-            ? t('Ваші матчі зіграно · ще {0}', countdown)
+          ? t('через {0}', countdown)
+          : state === 'done'
+            ? t('✓ зіграно')
             : w.played
-              ? t('{0} перемог · матч {1} з {2} · ще {3}', w.wins, w.played + 1, WEEKLY_GAMES, countdown)
-              : t('Іде зараз · {0} матчів · ще {1}', WEEKLY_GAMES, countdown);
+              ? t('{0} перемог · {1}/{2}', w.wins, w.played, WEEKLY_GAMES)
+              : t('● іде · {0}', countdown);
   return (
-    <a className={`wk-banner ${state}`} href="#/weekly">
-      {d && state !== 'locked' ? <DivisionBadge n={d.n} size="sm" /> : <span className="wk-banner-icon">{state === 'locked' ? '🔒' : '🔥'}</span>}
-      <span className="wk-banner-text">
-        <b>
-          {t('Тиждень слави')}
-          {d && state !== 'locked' && <small> · {tr(d.name)}</small>}
-        </b>
+    <a className={`hb-weekly ${state}`} href="#/weekly" aria-label={`${t('Тиждень слави')}: ${sub}`}>
+      <img className="hb-weekly-art" src={SKIN_BY_ID[SEASON.skins[4]].board} alt="" />
+      <span className="hb-weekly-text">
+        <b>{t('Тиждень слави')}</b>
         <small>{sub}</small>
       </span>
-      <img className="wk-banner-art" src={SKIN_BY_ID[SEASON.skins[4]].art} alt="" />
-      <span className="wk-banner-go">›</span>
+      {w.division && state !== 'locked' && (
+        <span className="hb-weekly-div">
+          <DivisionBadge n={w.division} size="sm" />
+        </span>
+      )}
     </a>
   );
 }

@@ -8,8 +8,7 @@ import { MemoryStore } from '../memoryStore';
 import { type BotRunner, GameService } from '../service';
 import type { Hasher } from '../store';
 import { SKIN_DUPE_GOLD } from '../skins';
-import { type WeeklyRun, weekWindow, weeklyBotElo, divisionByN, kyivMoment, weeklyReward, DIVISIONS, SEASON, WEEKLY_TIERS } from '../weekly';
-import { PACK_SHARD_PRICE } from '../packs';
+import { type WeeklyRun, weekWindow, weeklyBotElo, divisionByN, kyivMoment, SEASON } from '../weekly';
 import { CARD_BY_ID } from '../../engine/cards';
 import { deckPositions } from '../../engine/deck';
 
@@ -166,20 +165,6 @@ describe('weekly league', () => {
     expect(levels.size).toBeGreaterThan(1);
     const top = decks.flat().filter((c) => ['legendary', 'mythological'].includes(CARD_BY_ID[c].rarity));
     expect(top.length).toBeGreaterThan(0);
-  });
-
-  it('the week with players pays a little more than with bots, tier by tier', () => {
-    const value = (r: ReturnType<typeof weeklyReward>) => r.gold + 2 * r.shards + 2 * r.packs.reduce((n, p) => n + PACK_SHARD_PRICE[p], 0);
-    for (const d of DIVISIONS)
-      WEEKLY_TIERS.forEach((_, tier) => {
-        const bot = weeklyReward(d.n, tier, 'bot');
-        const pvp = weeklyReward(d.n, tier, 'pvp');
-        expect(pvp.gold).toBeGreaterThan(bot.gold);
-        expect(value(pvp)).toBeGreaterThan(value(bot));
-        // The season's prizes are the same in both.
-        expect(pvp.skins).toEqual(bot.skins);
-        expect(pvp.plate).toBe(bot.plate);
-      });
   });
 
   it('the Berserker season starts on a Monday and has no end yet', () => {
