@@ -1773,7 +1773,6 @@ const dict: Record<string, string> = {
   "З ботами": "With bots",
   "З гравцями": "With players",
   "старт {0} · кінець ?": "starts {0} · ends ?",
-  "{0} до {1}, ваш час": "{0} to {1}, your time",
   "Цей Тиждень слави завершився.": "This Week of Glory is over.",
   "Тиждень слави ще не почався.": "The Week of Glory has not started yet.",
   "Час демо": "Demo clock",
@@ -1790,9 +1789,11 @@ const dict: Record<string, string> = {
   "{0} перемог · {1}/{2}": "{0} wins · {1}/{2}",
   "● іде · {0}": "● on · {0}",
   "Скін {0}/{1} · {2}": "Skin {0}/{1} · {2}",
-  "Новий рейтинговий режим щотижня з {0} до {1} за вашим часом. Від 500 кубків: 5 дивізіонів, 15 матчів, кожен з новим ботом, нагороди за 3, 6, 9, 12 і 15 перемог. Такий самий тиждень з гравцями скоро. Кнопка поруч із «Бій» на головній.": "A new ranked mode every week from {0} to {1}, your time. From 500 trophies: 5 divisions, 15 matches, each against a new bot, rewards for 3, 6, 9, 12 and 15 wins. The same week with players is coming soon. The button next to “Battle” on the home screen.",
+  "Новий рейтинговий режим щотижня: {0}. Від 500 кубків: 5 дивізіонів, 15 матчів, кожен з новим ботом, нагороди за 3, 6, 9, 12 і 15 перемог. Такий самий тиждень з гравцями скоро. Кнопка поруч із «Бій» на головній.": "A new ranked mode every week: {0}. From 500 trophies: 5 divisions, 15 matches, each against a new bot, rewards for 3, 6, 9, 12 and 15 wins. The same week with players is coming soon. The button next to “Battle” on the home screen.",
   "Старт {0}, кінець поки «?». За 12 перемог у Тижні слави дають скіни Берсерка, за 15 ще й плашку «Лють Берсерка». Що вищий дивізіон, то кращі скіни. Торкніться скіна в нагородах, щоб роздивитись. Скін вдягається у вікні картки в колоді, його бачать обидва гравці.": "Starts {0}, ends “?” for now. 12 wins in the Week of Glory give Berserker skins, 15 wins also the “Berserker’s Fury” plate. The higher the division, the better the skins. Tap a skin in the rewards to look closer. Put a skin on in the card window in your deck; both players see it.",
   "Що нового": "What’s new",
   "Зміни останнього оновлення": "Changes in the latest update",
+  "{0} до {1} у вас": "{0} to {1} your time",
+  "{0} до {1} за Києвом": "{0} to {1} Kyiv time",
 };
 export default dict;

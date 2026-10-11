@@ -1773,7 +1773,6 @@ const dict: Record<string, string> = {
   "З ботами": "Con i bot",
   "З гравцями": "Con i giocatori",
   "старт {0} · кінець ?": "inizio {0} · fine ?",
-  "{0} до {1}, ваш час": "{0} fino a {1}, ora tua",
   "Цей Тиждень слави завершився.": "Questa Settimana di gloria è finita.",
   "Тиждень слави ще не почався.": "La Settimana di gloria non è ancora iniziata.",
   "Час демо": "Orologio demo",
@@ -1790,9 +1789,11 @@ const dict: Record<string, string> = {
   "{0} перемог · {1}/{2}": "{0} vittorie · {1}/{2}",
   "● іде · {0}": "● in corso · {0}",
   "Скін {0}/{1} · {2}": "Skin {0}/{1} · {2}",
-  "Новий рейтинговий режим щотижня з {0} до {1} за вашим часом. Від 500 кубків: 5 дивізіонів, 15 матчів, кожен з новим ботом, нагороди за 3, 6, 9, 12 і 15 перемог. Такий самий тиждень з гравцями скоро. Кнопка поруч із «Бій» на головній.": "Una nuova modalità classificata ogni settimana da {0} a {1}, ora tua. Da 500 trofei: 5 divisioni, 15 partite, ognuna contro un nuovo bot, ricompense per 3, 6, 9, 12 e 15 vittorie. La stessa settimana con i giocatori arriva presto. Il pulsante accanto a «Battaglia» nella home.",
+  "Новий рейтинговий режим щотижня: {0}. Від 500 кубків: 5 дивізіонів, 15 матчів, кожен з новим ботом, нагороди за 3, 6, 9, 12 і 15 перемог. Такий самий тиждень з гравцями скоро. Кнопка поруч із «Бій» на головній.": "Una nuova modalità classificata ogni settimana: {0}. Da 500 trofei: 5 divisioni, 15 partite, ognuna contro un nuovo bot, ricompense per 3, 6, 9, 12 e 15 vittorie. La stessa settimana con i giocatori arriva presto. Il pulsante accanto a «Battaglia» nella home.",
   "Старт {0}, кінець поки «?». За 12 перемог у Тижні слави дають скіни Берсерка, за 15 ще й плашку «Лють Берсерка». Що вищий дивізіон, то кращі скіни. Торкніться скіна в нагородах, щоб роздивитись. Скін вдягається у вікні картки в колоді, його бачать обидва гравці.": "Inizio {0}, fine per ora «?». 12 vittorie nella Settimana di gloria danno skin del Berserker, 15 anche la targhetta «Furia del Berserker». Più alta è la divisione, migliori sono le skin. Tocca una skin nelle ricompense per guardarla da vicino. Indossa una skin dalla finestra della carta nel mazzo: la vedono entrambi i giocatori.",
   "Що нового": "Novità",
   "Зміни останнього оновлення": "Le modifiche dell’ultimo aggiornamento",
+  "{0} до {1} у вас": "{0} a {1} ora tua",
+  "{0} до {1} за Києвом": "{0} a {1} ora di Kyiv",
 };
 export default dict;

@@ -1773,7 +1773,6 @@ const dict: Record<string, string> = {
   "З ботами": "Mit Bots",
   "З гравцями": "Mit Spielern",
   "старт {0} · кінець ?": "Start {0} · Ende ?",
-  "{0} до {1}, ваш час": "{0} bis {1}, deine Zeit",
   "Цей Тиждень слави завершився.": "Diese Woche des Ruhms ist vorbei.",
   "Тиждень слави ще не почався.": "Die Woche des Ruhms hat noch nicht begonnen.",
   "Час демо": "Demo-Uhr",
@@ -1790,9 +1789,11 @@ const dict: Record<string, string> = {
   "{0} перемог · {1}/{2}": "{0} Siege · {1}/{2}",
   "● іде · {0}": "● läuft · {0}",
   "Скін {0}/{1} · {2}": "Skin {0}/{1} · {2}",
-  "Новий рейтинговий режим щотижня з {0} до {1} за вашим часом. Від 500 кубків: 5 дивізіонів, 15 матчів, кожен з новим ботом, нагороди за 3, 6, 9, 12 і 15 перемог. Такий самий тиждень з гравцями скоро. Кнопка поруч із «Бій» на головній.": "Ein neuer Ranglistenmodus jede Woche von {0} bis {1}, deine Zeit. Ab 500 Trophäen: 5 Divisionen, 15 Matches, jedes gegen einen neuen Bot, Belohnungen für 3, 6, 9, 12 und 15 Siege. Dieselbe Woche mit Spielern kommt bald. Der Knopf neben „Kampf“ auf der Startseite.",
+  "Новий рейтинговий режим щотижня: {0}. Від 500 кубків: 5 дивізіонів, 15 матчів, кожен з новим ботом, нагороди за 3, 6, 9, 12 і 15 перемог. Такий самий тиждень з гравцями скоро. Кнопка поруч із «Бій» на головній.": "Ein neuer Ranglistenmodus jede Woche: {0}. Ab 500 Trophäen: 5 Divisionen, 15 Matches, jedes gegen einen neuen Bot, Belohnungen für 3, 6, 9, 12 und 15 Siege. Dieselbe Woche mit Spielern kommt bald. Der Knopf neben „Kampf“ auf der Startseite.",
   "Старт {0}, кінець поки «?». За 12 перемог у Тижні слави дають скіни Берсерка, за 15 ще й плашку «Лють Берсерка». Що вищий дивізіон, то кращі скіни. Торкніться скіна в нагородах, щоб роздивитись. Скін вдягається у вікні картки в колоді, його бачать обидва гравці.": "Start {0}, Ende vorerst „?“. 12 Siege in der Woche des Ruhms bringen Berserker-Skins, 15 Siege dazu das Abzeichen „Berserkerwut“. Je höher die Division, desto besser die Skins. Tippe auf einen Skin in den Belohnungen, um ihn näher anzusehen. Einen Skin legst du im Kartenfenster im Deck an, beide Spieler sehen ihn.",
   "Що нового": "Neuigkeiten",
   "Зміни останнього оновлення": "Änderungen im letzten Update",
+  "{0} до {1} у вас": "{0} bis {1} deine Zeit",
+  "{0} до {1} за Києвом": "{0} bis {1} Kyjiwer Zeit",
 };
 export default dict;

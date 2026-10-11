@@ -5,7 +5,7 @@ import { pieceSprite } from './cardArt';
 import { getSettings } from './settings';
 import { errorText, useSession } from './state';
 import { DivisionBadge } from './WeeklyPage';
-import { seasonStart, weekSchedule } from './weeklyTime';
+import { seasonStart, weekScheduleLine } from './weeklyTime';
 import { t } from '../i18n';
 
 /** One page of the notes: a picture, a heading, a few plain lines. */
@@ -17,7 +17,7 @@ interface Page {
 
 function pages(): Page[] {
   const style = getSettings().blackStyle;
-  const { from, to } = weekSchedule();
+  const schedule = weekScheduleLine();
   const sprite = (id: string, type: string) => pieceSprite(id, type, 'w', style).src;
   return [
     {
@@ -58,7 +58,7 @@ function pages(): Page[] {
         </div>
       ),
       title: t('Тиждень слави'),
-      text: t('Новий рейтинговий режим щотижня з {0} до {1} за вашим часом. Від 500 кубків: 5 дивізіонів, 15 матчів, кожен з новим ботом, нагороди за 3, 6, 9, 12 і 15 перемог. Такий самий тиждень з гравцями скоро. Кнопка поруч із «Бій» на головній.', from, to),
+      text: t('Новий рейтинговий режим щотижня: {0}. Від 500 кубків: 5 дивізіонів, 15 матчів, кожен з новим ботом, нагороди за 3, 6, 9, 12 і 15 перемог. Такий самий тиждень з гравцями скоро. Кнопка поруч із «Бій» на головній.', schedule),
     },
     {
       art: (

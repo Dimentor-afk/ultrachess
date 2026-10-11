@@ -289,7 +289,7 @@ function ModeSwitch({ mode }: { mode: WeeklyMode }) {
 
 /** The season, the week's schedule in the player's own time, and how long until it opens or closes. */
 function WeeklyHero({ open, countdown }: { open: boolean | null; countdown: string }) {
-  const { from, to } = weekSchedule();
+  const sched = weekSchedule();
   return (
     <header className={`wk-hero ${open ? 'open' : 'closed'}`}>
       <span className="wk-rays" aria-hidden="true" />
@@ -312,7 +312,8 @@ function WeeklyHero({ open, countdown }: { open: boolean | null; countdown: stri
             <span>{t('Наступний через {0}', countdown)}</span>
           )}
         </p>
-        <small className="wk-sched">{t('{0} до {1}, ваш час', from, to)}</small>
+        {sched.local && <small className="wk-sched">{sched.local}</small>}
+        <small className="wk-sched">{sched.kyiv}</small>
         <small className="wk-sched">{t('{0} матчів проти ботів', WEEKLY_GAMES)}</small>
       </div>
     </header>
