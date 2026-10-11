@@ -87,6 +87,7 @@ describe('bot', () => {
       expect(turn.actions.length).toBeGreaterThan(0);
       for (const a of turn.actions) m = performAction(m, a);
     }
-    expect(m.history.length).toBeGreaterThan(10);
+    // Either 60 turns went by, or the game really ended: with these cards a hurried bot can be mated in 3 moves.
+    expect(m.result !== null || m.history.length >= 60).toBe(true);
   }, 60000);
 });

@@ -498,9 +498,9 @@ export const CARD_SCRIPTS: Record<string, ClipScript> = {
     steps: [
       {
         ability: 'd1',
-        key: /^rank:5:1$/,
+        key: /^slide:rank:5:1$/,
         say: t('Кнопка: обираєте лінію без королів…'),
-        then: t('…і всі фігури на ній зсуваються на 1'),
+        then: t('…фігури зсуваються на 1, а біля краю стоять'),
       },
       { move: 'd1 d4', say: t('Хід не витрачено — тура ще й ходить') },
     ],

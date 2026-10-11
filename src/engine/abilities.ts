@@ -84,18 +84,52 @@ function earthquakeLabel(kind: 'file' | 'rank', index: number, dir: number): str
   return `Горизонталь ${index + 1} ${dir > 0 ? '→' : '←'}`;
 }
 
-function shiftLine(pos: Position, squares: Square[], dir: number): Position {
-  const next = clonePosition(pos);
+/**
+ * Where each square of the line sends its piece: one step in `dir`, but never past the edge. The piece
+ * at the edge stays, and so do the ones pressed against it; a gap lets the pieces behind it move up.
+ */
+function slideTargets(occupied: boolean[], dir: number): number[] {
+  const n = occupied.length;
+  const to = occupied.map((_, i) => i);
+  const taken: boolean[] = Array(n).fill(false);
+  // From the edge the line moves toward, so each piece knows whether the one ahead has moved.
+  for (let k = 0; k < n; k++) {
+    const i = dir > 0 ? n - 1 - k : k;
+    if (!occupied[i]) continue;
+    const j = i + dir;
+    if (j >= 0 && j < n && !taken[j]) to[i] = j;
+    taken[to[i]] = true;
+  }
+  return to;
+}
+
+/** Where the line's pieces go: slid toward the edge, or (`wrap`, games recorded before the edge rule) around it. */
+function lineTargets(pos: Position, squares: Square[], dir: number, wrap: boolean): number[] {
   const n = squares.length;
+  if (wrap) return squares.map((_, i) => (i + dir + n) % n);
+  // Illusions are solid like pieces: the opponent sees them as pieces, so they must behave like them.
+  const illusions = new Set([...pos.hiddenState.w.illusions, ...pos.hiddenState.b.illusions].map((i) => i.square));
+  return slideTargets(
+    squares.map((s) => pos.board[s] !== null || illusions.has(s)),
+    dir,
+  );
+}
+
+function shiftLine(pos: Position, squares: Square[], dir: number, wrap = false): Position {
+  const next = clonePosition(pos);
+  const to = lineTargets(pos, squares, dir, wrap);
   const old = squares.map((s) => pos.board[s]);
-  for (let i = 0; i < n; i++) next.board[squares[(i + dir + n) % n]] = old[i];
+  for (const s of squares) next.board[s] = null;
+  old.forEach((p, i) => {
+    if (p) next.board[squares[to[i]]] = p;
+  });
   for (const c of ['w', 'b'] as Color[]) {
     const h = next.hiddenState[c];
     next.hiddenState[c] = {
       ...h,
       illusions: h.illusions.map((ill) => {
         const i = squares.indexOf(ill.square);
-        return i < 0 ? ill : { ...ill, square: squares[(i + dir + n) % n] };
+        return i < 0 ? ill : { ...ill, square: squares[to[i]] };
       }),
     };
   }
@@ -105,20 +139,30 @@ function shiftLine(pos: Position, squares: Square[], dir: number): Position {
 
 function earthquakeValid(pos: Position, kind: 'file' | 'rank', squares: Square[], dir: number): boolean {
   if (squares.some((s) => pos.board[s]?.type === 'king')) return false;
-  // Shifting an empty line would only waste the cooldown. Illusions count as
-  // pieces so that the option list never reveals them.
-  const illusions = [...pos.hiddenState.w.illusions, ...pos.hiddenState.b.illusions];
-  if (squares.every((s) => !pos.board[s] && !illusions.some((i) => i.square === s))) return false;
+  // A line where nothing would move (empty, or pressed against the edge) would only waste the cooldown.
+  // Illusions count as pieces so that the option list never reveals them.
+  const to = lineTargets(pos, squares, dir, false);
+  if (to.every((j, i) => j === i)) return false;
   if (kind === 'file') {
-    const n = squares.length;
-    for (let i = 0; i < n; i++) {
-      const p = pos.board[squares[i]];
-      if (p?.type !== 'pawn') continue;
-      const r = rankOf(squares[(i + dir + n) % n]);
+    for (let i = 0; i < squares.length; i++) {
+      if (pos.board[squares[i]]?.type !== 'pawn') continue;
+      const r = rankOf(squares[to[i]]);
       if (r === 0 || r === 7) return false;
     }
   }
   return legalMoves(shiftLine(pos, squares, dir)).length > 0;
+}
+
+/**
+ * An earthquake key: `slide:<file|rank>:<index>:<dir>`. Games recorded before the edge rule hold
+ * `<file|rank>:<index>:<dir>`, and their line wrapped around (the edge piece went to the far end).
+ */
+function quakeKey(key: string): { kind: 'file' | 'rank'; index: number; dir: number; wrap: boolean } | null {
+  const parts = key.split(':');
+  const wrap = parts[0] !== 'slide';
+  const [kind, index, dir] = wrap ? parts : parts.slice(1);
+  if ((kind !== 'file' && kind !== 'rank') || !(Number(index) >= 0 && Number(index) < 8) || Math.abs(Number(dir)) !== 1) return null;
+  return { kind, index: Number(index), dir: Number(dir), wrap };
 }
 
 export function abilityOptions(pos: Position, pieceId: string): AbilityOption[] {
@@ -148,7 +192,7 @@ export function abilityOptions(pos: Position, pieceId: string): AbilityOption[] 
           const squares = lineSquares(kind, index);
           for (const dir of [1, -1]) {
             if (!earthquakeValid(pos, kind, squares, dir)) continue;
-            out.push({ key: `${kind}:${index}:${dir}`, label: earthquakeLabel(kind, index, dir), squares });
+            out.push({ key: `slide:${kind}:${index}:${dir}`, label: earthquakeLabel(kind, index, dir), squares });
           }
         }
       }
@@ -163,11 +207,18 @@ export function abilityOptions(pos: Position, pieceId: string): AbilityOption[] 
   }
 }
 
-export function applyAbility(pos: Position, pieceId: string, key: string): { pos: Position; events: AbilityEvent[] } {
-  const option = abilityOptions(pos, pieceId).find((o) => o.key === key);
-  if (!option) throw new Error(`Ability option ${key} is not available`);
-  const p = pos.board[findPiece(pos, pieceId)]!;
-  const def = ABILITY_DEFS[p.cardId];
+/**
+ * `recorded`: the action comes from a stored game (checked when it was played). An earthquake then
+ * shifts the line it shifted, by the rule of its key, even if the rules have changed since.
+ */
+export function applyAbility(pos: Position, pieceId: string, key: string, recorded = false): { pos: Position; events: AbilityEvent[] } {
+  const p = pos.board[findPiece(pos, pieceId)];
+  const def = p ? ABILITY_DEFS[p.cardId] : undefined;
+  const stored = recorded && def?.id === 'earthquake' ? quakeKey(key) : null;
+  const option = stored
+    ? { key, label: earthquakeLabel(stored.kind, stored.index, stored.dir), squares: lineSquares(stored.kind, stored.index) }
+    : abilityOptions(pos, pieceId).find((o) => o.key === key);
+  if (!option || !p || !def) throw new Error(`Ability option ${key} is not available`);
   const color = p.color;
   let next: Position;
   let events: AbilityEvent[];
@@ -186,8 +237,8 @@ export function applyAbility(pos: Position, pieceId: string, key: string): { pos
       break;
     }
     case 'earthquake': {
-      const dir = Number(key.split(':')[2]);
-      next = shiftLine(pos, option.squares, dir);
+      const q = quakeKey(key)!;
+      next = shiftLine(pos, option.squares, q.dir, q.wrap);
       events = [{ type: 'earthquake', squares: option.squares, color, label: option.label }];
       break;
     }

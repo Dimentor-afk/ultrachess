@@ -290,7 +290,7 @@ export function performAction(state: MatchState, action: Action, recorded = fals
     case 'ability': {
       const piece = state.board.find((p) => p?.id === action.pieceId);
       const def = piece ? ABILITY_DEFS[piece.cardId] : undefined;
-      const { pos, events } = applyAbility(state, action.pieceId, action.key);
+      const { pos, events } = applyAbility(state, action.pieceId, action.key, recorded);
       const text = events.map(abilityText).join('; ');
       return record(state, pos, { ply: state.ply, color, text: def?.hidden ? null : text, ownText: text }, null, false, {
         ability: { pieceId: action.pieceId, events },

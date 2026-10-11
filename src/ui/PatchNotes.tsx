@@ -6,18 +6,17 @@ import { getSettings } from './settings';
 import { errorText, useSession } from './state';
 import { DivisionBadge } from './WeeklyPage';
 import { seasonStart, weekScheduleLine } from './weeklyTime';
-import { t } from '../i18n';
+import { t, tr } from '../i18n';
 
 /** One page of the notes: a picture, a heading, a few plain lines. */
 interface Page {
   art: ReactNode;
   title: string;
-  text: string;
+  points: string[];
 }
 
 function pages(): Page[] {
   const style = getSettings().blackStyle;
-  const schedule = weekScheduleLine();
   const sprite = (id: string, type: string) => pieceSprite(id, type, 'w', style).src;
   return [
     {
@@ -35,7 +34,11 @@ function pages(): Page[] {
         </div>
       ),
       title: t('Бот за кубками'),
-      text: t('Сила бота тепер залежить від ваших кубків: 460 🏆 означає бота приблизно на 460 Elo. Арени розтягнуто до 3000, тож верхні справді найсильніші.'),
+      points: [
+        t('460 🏆 у лізі ботів: бот приблизно на 460 Elo.'),
+        t('Більше кубків, сильніший бот.'),
+        t('Арени тепер до 3000 🏆.'),
+      ],
     },
     {
       art: (
@@ -47,7 +50,12 @@ function pages(): Page[] {
         </div>
       ),
       title: t('Серія перемог'),
-      text: t('Виграйте двічі поспіль у лізі ботів, і третя перемога дасть +30 🏆, а далі по +40. Поразка чи нічия обнуляє серію. Лічильник під кнопкою «Бій».'),
+      points: [
+        t('3-тя перемога поспіль у лізі ботів: +30 🏆.'),
+        t('Кожна наступна: +40 🏆.'),
+        t('Поразка чи нічия обнуляє серію.'),
+        t('Лічильник під кнопкою «Бій».'),
+      ],
     },
     {
       art: (
@@ -58,7 +66,13 @@ function pages(): Page[] {
         </div>
       ),
       title: t('Тиждень слави'),
-      text: t('Новий рейтинговий режим щотижня: {0}. Від 500 кубків: 5 дивізіонів, 15 матчів, кожен з новим ботом, нагороди за 3, 6, 9, 12 і 15 перемог. Такий самий тиждень з гравцями скоро. Кнопка поруч із «Бій» на головній.', schedule),
+      points: [
+        t('Щотижня: {0}.', weekScheduleLine()),
+        t('Вхід від 500 🏆 у лізі ботів, 5 дивізіонів.'),
+        t('15 матчів, кожен з новим ботом.'),
+        t('Нагороди за 3, 6, 9, 12 і 15 перемог.'),
+        t('Кнопка поруч із «Бій». Режим з гравцями скоро.'),
+      ],
     },
     {
       art: (
@@ -69,7 +83,13 @@ function pages(): Page[] {
         </div>
       ),
       title: t('Сезон Берсерка'),
-      text: t('Старт {0}, кінець поки «?». За 12 перемог у Тижні слави дають скіни Берсерка, за 15 ще й плашку «Лють Берсерка». Що вищий дивізіон, то кращі скіни. Торкніться скіна в нагородах, щоб роздивитись. Скін вдягається у вікні картки в колоді, його бачать обидва гравці.', seasonStart()),
+      points: [
+        t('Старт {0}, кінець поки «?».', seasonStart()),
+        t('12 перемог у Тижні слави: скін Берсерка. Що вищий дивізіон, то кращий.'),
+        t('15 перемог: ще й плашка «Лють Берсерка».'),
+        t('Скін вдягається у вікні картки, його бачать обидва гравці.'),
+        t('Торкніться скіна в нагородах, щоб роздивитись.'),
+      ],
     },
     {
       art: (
@@ -84,7 +104,34 @@ function pages(): Page[] {
         </div>
       ),
       title: t('Драфт з друзями'),
-      text: t('У Друзях з’явилась кнопка «Драфт». П’ять раундів: з двох карток одну берете собі, другу отримує суперник. Без міфологічних карт і без нагород, просто для розваги.'),
+      points: [
+        t('Кнопка «Драфт» у Друзях.'),
+        t('5 раундів: з двох карток одну берете собі, другу отримує суперник.'),
+        t('Без міфологічних карт і без нагород.'),
+      ],
+    },
+    {
+      art: (
+        <div className="patch-art patch-quake" aria-hidden="true">
+          <img className="pixel" src={sprite('rook-earthquake', 'rook')} alt="" />
+          <span className="patch-quake-line">
+            <i>→</i>
+            <i />
+            <i>
+              <img className="pixel" src={sprite('pawn-classic', 'pawn')} alt="" />
+            </i>
+            <i className="edge">
+              <img className="pixel" src={sprite('knight-classic', 'knight')} alt="" />
+            </i>
+          </span>
+        </div>
+      ),
+      title: tr('Землетрус'),
+      points: [
+        t('Фігури більше не перелітають на протилежний край дошки.'),
+        t('Фігура біля краю стоїть, і ті, що впираються в неї, теж.'),
+        t('Решта лінії зсувається на 1, як і раніше.'),
+      ],
     },
   ];
 }
@@ -123,7 +170,11 @@ export function PatchNotes({ onClose }: { onClose?: () => void }) {
         <div className="patch-page" key={at}>
           {page.art}
           <h2>{page.title}</h2>
-          <p>{page.text}</p>
+          <ul className="patch-points">
+            {page.points.map((x) => (
+              <li key={x}>{x}</li>
+            ))}
+          </ul>
         </div>
         <div className="patch-nav">
           <button className="btn patch-arrow" onClick={() => setAt(at - 1)} disabled={at === 0} aria-label={t('Назад')}>

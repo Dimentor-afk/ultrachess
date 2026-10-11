@@ -137,7 +137,7 @@ const QUAKE: Board = {
   kind: 'board',
   caption: 'This rook causes an *earthquake*',
   pos: { ...KH, d1: 'w:rook-earthquake', b6: 'b:bishop-classic', d6: 'b:knight-classic', f6: 'b:rook-classic', g6: 'b:pawn-classic' },
-  steps: ['!rook-earthquake:rank:5:1'],
+  steps: ['!rook-earthquake:slide:rank:5:1'],
   focus: 'e6',
   zoom: 1.3,
   lead: 500,
@@ -809,7 +809,7 @@ const FX2_POS: Record<string, string> = {
   a8: 'b:rook-displacer', a7: 'b:pawn-classic', a6: 'b:bishop-piercer', b7: 'b:pawn-phantom', b6: 'b:pawn-classic',
   b4: 'b:knight-classic', d5: 'b:knight-classic', e4: 'b:bishop-classic',
 };
-const FX2_MOVES = ['b1e4~', 'b7b5', 'c4d5~', 'a6c4', 'd1>levitate', '!bishop-eclipse:diag:1:2', 'a8a7', '!rook-earthquake:file:1:-1', 'c1b4~', 'a7b7', '*queen-levitation'];
+const FX2_MOVES = ['b1e4~', 'b7b5', 'c4d5~', 'a6c4', 'd1>levitate', '!bishop-eclipse:diag:1:2', 'a8a7', '!rook-earthquake:slide:file:1:-1', 'c1b4~', 'a7b7', '*queen-levitation'];
 const fx2 = shotOf(FX2_POS, FX2_MOVES);
 /** The quake's rook leaps before the line moves: its slam (550 ms in) is what lands on the beat. */
 const QUAKE_SLAM = 241;

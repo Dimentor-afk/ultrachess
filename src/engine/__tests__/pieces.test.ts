@@ -284,15 +284,37 @@ describe('rook cards', () => {
     expect(targets(free, 'd7')).toContain('e6');
   });
 
-  it('Землетрус shifts a line cyclically and does not spend the turn', () => {
+  it('Землетрус shifts a line up to the edge and does not spend the turn', () => {
     const pos = build({ ...K, a1: 'w:rook-earthquake', h3: 'b:knight-classic', c3: 'w:pawn-classic' });
     const options = abilityOptions(pos, 'w-a1');
     expect(options.some((o) => o.label.startsWith('Вертикаль e'))).toBe(false);
-    const after = applyAbility(pos, 'w-a1', 'rank:2:1').pos;
-    expect(at(after, 'a3')).toBe('b:knight-classic');
+    const after = applyAbility(pos, 'w-a1', 'slide:rank:2:1').pos;
+    // The knight at the edge stays: nothing goes round to the other side.
+    expect(at(after, 'h3')).toBe('b:knight-classic');
+    expect(at(after, 'a3')).toBeNull();
     expect(at(after, 'd3')).toBe('w:pawn-classic');
     expect(after.turn).toBe('w');
     expect(after.cooldowns['w-a1']).toBe(8);
+  });
+
+  it('Землетрус: pieces pressed against the edge stay, a gap lets the ones behind move up', () => {
+    const pos = build({ ...K, a1: 'w:rook-earthquake', h3: 'b:knight-classic', g3: 'b:bishop-classic', e3: 'w:pawn-classic', b3: 'w:knight-classic' });
+    const after = applyAbility(pos, 'w-a1', 'slide:rank:2:1').pos;
+    expect(['b3', 'c3', 'e3', 'f3', 'g3', 'h3'].map((s) => at(after, s))).toEqual([null, 'w:knight-classic', null, 'w:pawn-classic', 'b:bishop-classic', 'b:knight-classic']);
+    // A line already pressed against the edge is not offered that way: nothing would move.
+    const full = build({ ...K, a1: 'w:rook-earthquake', h3: 'b:knight-classic', g3: 'b:bishop-classic' });
+    const keys = abilityOptions(full, 'w-a1').map((o) => o.key);
+    expect(keys).not.toContain('slide:rank:2:1');
+    expect(keys).toContain('slide:rank:2:-1');
+  });
+
+  it('Землетрус in a game recorded before the edge rule replays the way it was played', () => {
+    const pos = build({ ...K, a1: 'w:rook-earthquake', h3: 'b:knight-classic', c3: 'w:pawn-classic' });
+    // The old key is not offered any more, but a stored game still wraps the line round.
+    expect(() => applyAbility(pos, 'w-a1', 'rank:2:1')).toThrow();
+    const after = applyAbility(pos, 'w-a1', 'rank:2:1', true).pos;
+    expect(at(after, 'a3')).toBe('b:knight-classic');
+    expect(at(after, 'd3')).toBe('w:pawn-classic');
   });
 });
 
