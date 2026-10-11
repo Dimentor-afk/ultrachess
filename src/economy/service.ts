@@ -39,6 +39,7 @@ import {
   runSettled,
   seasonPlateId,
   tierIndex,
+  type WeekWindow,
   weekClosesAt,
   weekWindow,
   weeklyBotElo,
@@ -730,7 +731,7 @@ export class GameService {
       referredBy: '',
       refStage: 0,
       refGames: 0,
-      patchSeen: PATCH_ID,
+      patchSeen: this.notesForNew ? '' : PATCH_ID,
       skins: '[]',
       skinChoice: '{}',
       weekly: '',
@@ -796,6 +797,13 @@ export class GameService {
   mailer: Mailer | null = null;
   /** The browser demo has no mail: actions answer with the link itself. */
   showLinks = false;
+  /**
+   * The browser demo, to try the weekly league any day: a week stays open until the next one starts
+   * (Monday 10:00, so weekends too), and anyone can enter, below 500 trophies as well (rated 500).
+   */
+  weeklyForAll = false;
+  /** New accounts see the latest patch notes too (the demo, where every tester is new). */
+  notesForNew = false;
   /** Letters in the reader's language (the server sets it; without it they are Ukrainian). */
   localize: ((lang: string) => Say | null) | null = null;
   private say(lang?: string): Say {
@@ -1099,12 +1107,31 @@ export class GameService {
 
   // ── Weekly league ──
 
+  /** This week's window (the demo's runs from Monday 10:00 to the next Monday 10:00). */
+  private weekNow(): WeekWindow {
+    const w = weekWindow(this.now());
+    if (!this.weeklyForAll) return w;
+    // Before Monday 10:00 it is still last week's.
+    const week = this.now() < w.opensAt ? weekWindow(w.opensAt - 7 * 86_400_000) : w;
+    return { ...week, open: true, closesAt: weekWindow(week.opensAt).nextOpensAt };
+  }
+
+  /** When a week's games stop counting (the demo: when the next week opens). */
+  private weekEnd(key: string): number {
+    return this.weeklyForAll ? weekWindow(weekClosesAt(key)).nextOpensAt : weekClosesAt(key);
+  }
+
+  /** The rating the week goes by: the bot-ladder trophies (the demo lifts anyone below 500 to 500). */
+  private weeklyRating(u: UserRow): number {
+    return this.weeklyForAll ? Math.max(WEEKLY_MIN_TROPHIES, u.botTrophies) : u.botTrophies;
+  }
+
   /** The run kept for a player, and whether its reward is settled (all played, out of reach, week closed). */
   private weeklyRun(u: UserRow): { run: WeeklyRun | null; over: boolean; current: boolean } {
     const run = parseRun(u.weekly);
     if (!run) return { run: null, over: false, current: false };
-    const current = run.week === weekWindow(this.now()).key;
-    return { run, over: runSettled(run) || this.now() >= weekClosesAt(run.week), current };
+    const current = run.week === this.weekNow().key;
+    return { run, over: runSettled(run) || this.now() >= this.weekEnd(run.week), current };
   }
 
   private weeklyClaimable(u: UserRow): boolean {
@@ -1113,7 +1140,7 @@ export class GameService {
   }
 
   private weeklyBrief(u: UserRow): WeeklyBrief {
-    const w = weekWindow(this.now());
+    const w = this.weekNow();
     const { run, current } = this.weeklyRun(u);
     const mine = current ? run : null;
     return {
@@ -1121,8 +1148,8 @@ export class GameService {
       opensAt: w.opensAt,
       closesAt: w.closesAt,
       nextOpensAt: w.nextOpensAt,
-      eligible: u.botTrophies >= WEEKLY_MIN_TROPHIES,
-      division: mine ? mine.division : (divisionFor(u.botTrophies)?.n ?? null),
+      eligible: this.weeklyRating(u) >= WEEKLY_MIN_TROPHIES,
+      division: mine ? mine.division : (divisionFor(this.weeklyRating(u))?.n ?? null),
       wins: mine ? winsOf(mine) : 0,
       played: mine ? mine.results.length : 0,
       settled: mine ? runSettled(mine) : false,
@@ -1193,7 +1220,7 @@ export class GameService {
 
   /** The week's run for a new game: this week's, or a new one (last week's waiting reward is given first). */
   private async weeklyRunForGame(u: UserRow): Promise<WeeklyRun> {
-    const w = weekWindow(this.now());
+    const w = this.weekNow();
     const { run, current } = this.weeklyRun(u);
     if (run && current) {
       if (runSettled(run)) throw new ApiError(409, 'Матчі цього тижня зіграно: заберіть нагороду.');
@@ -1201,10 +1228,11 @@ export class GameService {
       return run;
     }
     if (!w.open) throw new ApiError(409, 'Тиждень слави ще не почався.');
-    const division = divisionFor(u.botTrophies);
+    const rating = this.weeklyRating(u);
+    const division = divisionFor(rating);
     if (!division) throw new ApiError(403, `Потрібно щонайменше ${WEEKLY_MIN_TROPHIES} кубків у лізі ботів.`);
     if (this.weeklyClaimable(u)) await this.giveWeekly(u);
-    return { week: w.key, season: SEASON.id, division: division.n, rating: u.botTrophies, results: [] };
+    return { week: w.key, season: SEASON.id, division: division.n, rating, results: [] };
   }
 
   // ── Achievements ──

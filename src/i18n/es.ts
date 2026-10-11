@@ -1766,8 +1766,6 @@ const dict: Record<string, string> = {
   "Цієї картки немає серед ваших варіантів.": "Esta carta no está entre tus opciones.",
   "Не вдалося вибрати.": "No se pudo elegir.",
   "з гравцями": "con jugadores",
-  "Новий рейтинговий режим щотижня з {0} до {1} за вашим часом. Від 500 кубків: 5 дивізіонів, 15 матчів, кожен з новим ботом, нагороди за 3, 6, 9, 12 і 15 перемог. Такий самий тиждень з гравцями скоро. Вкладка «Тиждень» у Лігах.": "Un nuevo modo clasificatorio cada semana de {0} a {1}, tu hora. Desde 500 trofeos: 5 divisiones, 15 partidas, cada una contra un bot nuevo, recompensas por 3, 6, 9, 12 y 15 victorias. La misma semana con jugadores llega pronto. La pestaña «Semana» en Ligas.",
-  "Старт {0}, кінець поки «?». За 12 перемог у Тижні слави дають скіни Берсерка, за 15 ще й плашку «Лють Берсерка». Що вищий дивізіон, то кращі скіни. Скін вдягається у вікні картки в колоді, його бачать обидва гравці.": "Empieza {0}, final por ahora «?». 12 victorias en la Semana de gloria dan aspectos del Berserker, 15 también la placa «Furia del Berserker». Cuanto más alta la división, mejores los aspectos. Equipa un aspecto en la ventana de la carta en tu mazo: lo ven ambos jugadores.",
   "Ваш рейтинг тижня: {0}. Кожен матч новий бот: від вашого рейтингу до {1}, точна сила прихована.": "Tu puntuación de la semana: {0}. Cada partida trae un bot nuevo, desde tu puntuación hasta {1}; su fuerza exacta está oculta.",
   "Колоди ботів з будь-якими картками, навіть міфологічними.": "Los mazos de los bots pueden tener cualquier carta, incluso mitológicas.",
   "Тиждень слави відпочиває до {0}.": "La Semana de gloria descansa hasta {0}.",
@@ -1792,5 +1790,9 @@ const dict: Record<string, string> = {
   "{0} перемог · {1}/{2}": "{0} victorias · {1}/{2}",
   "● іде · {0}": "● en curso · {0}",
   "Скін {0}/{1} · {2}": "Aspecto {0}/{1} · {2}",
+  "Новий рейтинговий режим щотижня з {0} до {1} за вашим часом. Від 500 кубків: 5 дивізіонів, 15 матчів, кожен з новим ботом, нагороди за 3, 6, 9, 12 і 15 перемог. Такий самий тиждень з гравцями скоро. Кнопка поруч із «Бій» на головній.": "Un nuevo modo clasificatorio cada semana de {0} a {1}, tu hora. Desde 500 trofeos: 5 divisiones, 15 partidas, cada una contra un bot nuevo, recompensas por 3, 6, 9, 12 y 15 victorias. La misma semana con jugadores llega pronto. El botón junto a «Batalla» en el inicio.",
+  "Старт {0}, кінець поки «?». За 12 перемог у Тижні слави дають скіни Берсерка, за 15 ще й плашку «Лють Берсерка». Що вищий дивізіон, то кращі скіни. Торкніться скіна в нагородах, щоб роздивитись. Скін вдягається у вікні картки в колоді, його бачать обидва гравці.": "Empieza {0}, final por ahora «?». 12 victorias en la Semana de gloria dan aspectos del Berserker, 15 también la placa «Furia del Berserker». Cuanto más alta la división, mejores los aspectos. Toca un aspecto en las recompensas para verlo de cerca. Equipa un aspecto en la ventana de la carta en tu mazo: lo ven ambos jugadores.",
+  "Що нового": "Novedades",
+  "Зміни останнього оновлення": "Cambios de la última actualización",
 };
 export default dict;

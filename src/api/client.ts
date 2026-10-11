@@ -391,6 +391,9 @@ class LocalApi implements Api {
     this.svc = new GameService(store, webHasher, Date.now, Math.random, requestBotTurn);
     // No mail in the demo: the screens show the link from the "letter" instead.
     this.svc.showLinks = true;
+    // The weekly league can be tried any day, by anyone (on the server it keeps its days and its 500 trophies).
+    this.svc.weeklyForAll = true;
+    this.svc.notesForNew = true;
     // No money in the demo either: purchases go through the test payment page.
     this.svc.payments = new TestPayments();
     this.ready = this.svc.init();

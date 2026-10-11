@@ -58,7 +58,7 @@ function pages(): Page[] {
         </div>
       ),
       title: t('Тиждень слави'),
-      text: t('Новий рейтинговий режим щотижня з {0} до {1} за вашим часом. Від 500 кубків: 5 дивізіонів, 15 матчів, кожен з новим ботом, нагороди за 3, 6, 9, 12 і 15 перемог. Такий самий тиждень з гравцями скоро. Вкладка «Тиждень» у Лігах.', from, to),
+      text: t('Новий рейтинговий режим щотижня з {0} до {1} за вашим часом. Від 500 кубків: 5 дивізіонів, 15 матчів, кожен з новим ботом, нагороди за 3, 6, 9, 12 і 15 перемог. Такий самий тиждень з гравцями скоро. Кнопка поруч із «Бій» на головній.', from, to),
     },
     {
       art: (
@@ -69,7 +69,7 @@ function pages(): Page[] {
         </div>
       ),
       title: t('Сезон Берсерка'),
-      text: t('Старт {0}, кінець поки «?». За 12 перемог у Тижні слави дають скіни Берсерка, за 15 ще й плашку «Лють Берсерка». Що вищий дивізіон, то кращі скіни. Скін вдягається у вікні картки в колоді, його бачать обидва гравці.', seasonStart()),
+      text: t('Старт {0}, кінець поки «?». За 12 перемог у Тижні слави дають скіни Берсерка, за 15 ще й плашку «Лють Берсерка». Що вищий дивізіон, то кращі скіни. Торкніться скіна в нагородах, щоб роздивитись. Скін вдягається у вікні картки в колоді, його бачать обидва гравці.', seasonStart()),
     },
     {
       art: (
@@ -89,13 +89,17 @@ function pages(): Page[] {
   ];
 }
 
-/** The latest changes, shown once to every player: one change per page, arrows between them. */
-export function PatchNotes() {
+/**
+ * The latest changes, shown once to every player: one change per page, arrows between them.
+ * With `onClose` it is opened again from the settings and only closes.
+ */
+export function PatchNotes({ onClose }: { onClose?: () => void }) {
   const s = useSession();
   const [list] = useState(pages);
   const [at, setAt] = useState(0);
   const [closing, setClosing] = useState(false);
   const close = async () => {
+    if (onClose) return onClose();
     if (closing) return;
     setClosing(true);
     try {

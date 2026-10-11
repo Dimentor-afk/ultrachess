@@ -9,6 +9,7 @@ import { getSettings, onSettings, play, setSettings } from './settings';
 import { errorText, useSession } from './state';
 import { t, tr, locale } from '../i18n';
 import { LangSelect } from './LangSelect';
+import { PatchNotes } from './PatchNotes';
 import { AchievementsPanel, TitlePlate } from './Achievements';
 import { HistoryList } from './HistoryList';
 
@@ -208,6 +209,7 @@ export function ProfilePage() {
 
 function SettingsPanel() {
   const [st, setSt] = useState(getSettings());
+  const [notes, setNotes] = useState(false);
   useEffect(() => onSettings(() => setSt(getSettings())), []);
   const rows: { key: 'sound' | 'animations' | 'coordinates'; label: string; hint: string }[] = [
     { key: 'sound', label: t('Звуки'), hint: t('Ходи, взяття, шах, відкриття паків') },
@@ -259,6 +261,16 @@ function SettingsPanel() {
         </span>
         <LangSelect />
       </div>
+      <div className="setting-row">
+        <span>
+          <b>{t('Що нового')}</b>
+          <small className="muted">{t('Зміни останнього оновлення')}</small>
+        </span>
+        <button className="btn btn-sm" onClick={() => setNotes(true)}>
+          {t('Відкрити')}
+        </button>
+      </div>
+      {notes && <PatchNotes onClose={() => setNotes(false)} />}
     </div>
   );
 }

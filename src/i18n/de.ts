@@ -1766,8 +1766,6 @@ const dict: Record<string, string> = {
   "Цієї картки немає серед ваших варіантів.": "Diese Karte gehört nicht zu deiner Auswahl.",
   "Не вдалося вибрати.": "Auswahl fehlgeschlagen.",
   "з гравцями": "mit Spielern",
-  "Новий рейтинговий режим щотижня з {0} до {1} за вашим часом. Від 500 кубків: 5 дивізіонів, 15 матчів, кожен з новим ботом, нагороди за 3, 6, 9, 12 і 15 перемог. Такий самий тиждень з гравцями скоро. Вкладка «Тиждень» у Лігах.": "Ein neuer Ranglistenmodus jede Woche von {0} bis {1}, deine Zeit. Ab 500 Trophäen: 5 Divisionen, 15 Matches, jedes gegen einen neuen Bot, Belohnungen für 3, 6, 9, 12 und 15 Siege. Dieselbe Woche mit Spielern kommt bald. Der Reiter „Woche“ in den Ligen.",
-  "Старт {0}, кінець поки «?». За 12 перемог у Тижні слави дають скіни Берсерка, за 15 ще й плашку «Лють Берсерка». Що вищий дивізіон, то кращі скіни. Скін вдягається у вікні картки в колоді, його бачать обидва гравці.": "Start {0}, Ende vorerst „?“. 12 Siege in der Woche des Ruhms bringen Berserker-Skins, 15 Siege dazu das Abzeichen „Berserkerwut“. Je höher die Division, desto besser die Skins. Einen Skin legst du im Kartenfenster im Deck an, beide Spieler sehen ihn.",
   "Ваш рейтинг тижня: {0}. Кожен матч новий бот: від вашого рейтингу до {1}, точна сила прихована.": "Deine Wertung diese Woche: {0}. Jedes Match bringt einen neuen Bot, von deiner Wertung bis {1}; seine genaue Stärke bleibt verborgen.",
   "Колоди ботів з будь-якими картками, навіть міфологічними.": "Bot-Decks können alle Karten enthalten, sogar mythologische.",
   "Тиждень слави відпочиває до {0}.": "Die Woche des Ruhms pausiert bis {0}.",
@@ -1792,5 +1790,9 @@ const dict: Record<string, string> = {
   "{0} перемог · {1}/{2}": "{0} Siege · {1}/{2}",
   "● іде · {0}": "● läuft · {0}",
   "Скін {0}/{1} · {2}": "Skin {0}/{1} · {2}",
+  "Новий рейтинговий режим щотижня з {0} до {1} за вашим часом. Від 500 кубків: 5 дивізіонів, 15 матчів, кожен з новим ботом, нагороди за 3, 6, 9, 12 і 15 перемог. Такий самий тиждень з гравцями скоро. Кнопка поруч із «Бій» на головній.": "Ein neuer Ranglistenmodus jede Woche von {0} bis {1}, deine Zeit. Ab 500 Trophäen: 5 Divisionen, 15 Matches, jedes gegen einen neuen Bot, Belohnungen für 3, 6, 9, 12 und 15 Siege. Dieselbe Woche mit Spielern kommt bald. Der Knopf neben „Kampf“ auf der Startseite.",
+  "Старт {0}, кінець поки «?». За 12 перемог у Тижні слави дають скіни Берсерка, за 15 ще й плашку «Лють Берсерка». Що вищий дивізіон, то кращі скіни. Торкніться скіна в нагородах, щоб роздивитись. Скін вдягається у вікні картки в колоді, його бачать обидва гравці.": "Start {0}, Ende vorerst „?“. 12 Siege in der Woche des Ruhms bringen Berserker-Skins, 15 Siege dazu das Abzeichen „Berserkerwut“. Je höher die Division, desto besser die Skins. Tippe auf einen Skin in den Belohnungen, um ihn näher anzusehen. Einen Skin legst du im Kartenfenster im Deck an, beide Spieler sehen ihn.",
+  "Що нового": "Neuigkeiten",
+  "Зміни останнього оновлення": "Änderungen im letzten Update",
 };
 export default dict;
