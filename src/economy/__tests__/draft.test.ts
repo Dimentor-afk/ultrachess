@@ -19,7 +19,7 @@ function seeded(seed: number) {
 }
 
 describe('draft rules', () => {
-  it('offers two cards of one rarity per side, four different cards a round, no mythological', () => {
+  it('offers two random cards per side, four different cards a round, no mythological', () => {
     for (let seed = 1; seed < 30; seed++) {
       const d = newDraft('A', 'B', seeded(seed), 0);
       expect(d.offers).toHaveLength(DRAFT_ROUNDS.length);
@@ -27,16 +27,15 @@ describe('draft rules', () => {
         const all = [...o.w, ...o.b];
         expect(new Set(all).size).toBe(4);
         for (const id of all) expect(CARD_BY_ID[id].rarity).not.toBe('mythological');
-        if (round < 4) {
-          expect(CARD_BY_ID[o.w[0]].rarity).toBe(CARD_BY_ID[o.w[1]].rarity);
-          expect(CARD_BY_ID[o.b[0]].rarity).toBe(CARD_BY_ID[o.b[1]].rarity);
-          for (const id of all) expect(CARD_BY_ID[id].pieceType).toBe(DRAFT_ROUNDS[round]);
-        }
+        if (round < 4) for (const id of all) expect(CARD_BY_ID[id].pieceType).toBe(DRAFT_ROUNDS[round]);
       });
       // The crown: White picks a king, Black a queen.
       expect(d.offers[4].w.map((id) => CARD_BY_ID[id].pieceType)).toEqual(['king', 'king']);
       expect(d.offers[4].b.map((id) => CARD_BY_ID[id].pieceType)).toEqual(['queen', 'queen']);
     }
+    // Random pairs: rarities mix.
+    const mixed = Array.from({ length: 30 }, (_, i) => newDraft('A', 'B', seeded(i + 1), 0).offers[0].w).filter(([a, b]) => CARD_BY_ID[a].rarity !== CARD_BY_ID[b].rarity);
+    expect(mixed.length).toBeGreaterThan(0);
   });
 
   it('picks fill your left side, leftovers the opponent’s right side', () => {

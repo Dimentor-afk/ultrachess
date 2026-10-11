@@ -1196,10 +1196,10 @@ export class GameService {
     const { run, current } = this.weeklyRun(u);
     if (run && current) {
       if (runSettled(run)) throw new ApiError(409, 'Матчі цього тижня зіграно: заберіть нагороду.');
-      if (!w.open) throw new ApiError(409, 'Тиждень слави завершився. Наступний почнеться в понеділок о 10:00.');
+      if (!w.open) throw new ApiError(409, 'Цей Тиждень слави завершився.');
       return run;
     }
-    if (!w.open) throw new ApiError(409, 'Тиждень слави почнеться в понеділок о 10:00 за Києвом.');
+    if (!w.open) throw new ApiError(409, 'Тиждень слави ще не почався.');
     const division = divisionFor(u.botTrophies);
     if (!division) throw new ApiError(403, `Потрібно щонайменше ${WEEKLY_MIN_TROPHIES} кубків у лізі ботів.`);
     if (this.weeklyClaimable(u)) await this.giveWeekly(u);
@@ -2081,10 +2081,11 @@ export class GameService {
         if (old && old.status === 'active') return this.matchStart(old);
       }
       playerDeck = await this.playableDeck(u.id, opts.deckId);
-      // As strong as the player's rating or stronger, up to the division's ceiling; never shown.
+      // A new bot every game: as strong as the player's rating or stronger, up to the division's
+      // ceiling (never shown), with any cards at all, mythological ones too, in every division.
       const elo = weeklyBotElo(divisionByN(run.division), run.rating, this.rng());
       botLevel = levelForElo(elo);
-      botDeck = this.botDeck(BOT_LEAGUES[leagueIndex('bot', elo)].botMaxRarity!);
+      botDeck = this.botDeck('mythological');
       mode = 'weekly';
       weeklyRun = run;
     } else if (opts.trial) {

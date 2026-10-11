@@ -72,7 +72,7 @@ export function TitlePlate({ id, small }: { id: string | null | undefined; small
     const skin = SKIN_BY_ID[weekly.season.skins[5 - weekly.division.n]];
     return (
       <span className={`title-plate weekly-plate div-${weekly.division.n} ${small ? 'small' : ''}`} title={t('{0}: 15 перемог у Тижні слави, дивізіон {1}', tr(weekly.season.name), weekly.division.roman)}>
-        {skin && <img src={skin.art} alt="" />}
+        {skin && <img src={skin.board} alt="" />}
         {tr(weekly.season.plate)} · {weekly.division.roman}
       </span>
     );

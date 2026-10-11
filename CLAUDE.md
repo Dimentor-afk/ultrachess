@@ -41,7 +41,8 @@ the fallback), per-viewer views so hidden information reaches only its owner
 **README in the lab's format** (plus `docs/networking.md` for the Reflection questions and
 `docs/two-players.gif`).
 Oct 2026: bot strength = the player's bot-ladder trophies (fractional levels, `levelForElo`), win
-streak bonus (+30, +40), the weekly league «Тиждень слави» (`src/economy/weekly.ts`, `#/weekly`),
+streak bonus (+30, +40), the weekly league «Тиждень слави» (`src/economy/weekly.ts`, `#/weekly`; Kyiv
+schedule shown in the player's time; modes `bot` now and `pvp` shown as coming, own reward tables),
 season skins (`src/economy/skins.ts`, picked in the card window) and the friend draft
 (`src/economy/draft.ts`, `#/draft/<id>`, kept in the challenge row).
 Game archive (`#/replay/<m|p>/<id>`, from the profile history and the post-game summary): the server

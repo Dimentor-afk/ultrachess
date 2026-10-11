@@ -83,7 +83,7 @@ export function CardView({
 /** Card art only (pixel art when available). */
 export function CardArt({ cardId, skin, className = '' }: { cardId: string; skin?: string | null; className?: string }) {
   // A skin is a detailed sprite: drawn smooth, not pixelated.
-  if (skin && SKIN_BY_ID[skin]) return <img className={`skin-art ${className}`} src={SKIN_BY_ID[skin].art} alt="" loading="lazy" />;
+  if (skin && SKIN_BY_ID[skin]) return <img className={`skin-art ${className}`} src={SKIN_BY_ID[skin].board} alt="" loading="lazy" />;
   const art = cardArt(cardId);
   const card = getCard(cardId);
   return art ? <img className={`pixel ${className}`} src={art} alt="" loading="lazy" /> : <PieceSvg type={card.pieceType} color="w" className={className} />;

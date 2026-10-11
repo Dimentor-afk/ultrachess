@@ -1,10 +1,13 @@
-// "Тиждень слави": a weekly league against bots, like a weekend league but on weekdays. It opens on
-// Monday at 10:00 and closes on Friday at 22:00, Kyiv time. From 500 bot-ladder trophies the player
-// enters the division of their trophies (fixed for the week) and has 15 games; every bot is as strong
-// as the player's rating or stronger, up to the division's ceiling, never weaker. The rewards go by
-// the number of wins (3, 6, 9, 12, 15), each tier its own set, not added up; they are given once all
-// 15 games are played, once no higher tier can be reached any more, or when the week closes.
-// Seasons give the top tiers their own prizes: in the Berserker season, skins and a plate.
+// "Тиждень слави": a weekly league, like a weekend league but on weekdays. It opens on Monday at
+// 10:00 and closes on Friday at 22:00, Kyiv time (players elsewhere see the same moment in their
+// own time). It comes in two modes on one schedule: against bots (now) and against players (to come).
+// From 500 trophies of that mode's ladder the player enters the division of their trophies (fixed
+// for the week) and has 15 games. Against bots, every game draws a new bot: a hidden rating from the
+// player's own up to the division's ceiling (never weaker than the player) and a random deck with
+// any cards, mythological ones too. The rewards go by the number of wins (3, 6, 9, 12, 15), each tier
+// its own set, not added up; they are given once all 15 games are played, once no higher tier can
+// be reached any more, or when the week closes. Seasons give the top tiers their own prizes: in the
+// Berserker season, skins and a plate.
 
 import type { PackType } from './packs';
 
@@ -14,6 +17,12 @@ export const WEEKLY_TIERS = [3, 6, 9, 12, 15] as const;
 export const WEEKLY_TZ = 'Europe/Kyiv';
 
 export type DivisionN = 1 | 2 | 3 | 4 | 5;
+
+/** Against bots, or (to come) against players: the same week, divisions and season, own runs and rewards. */
+export type WeeklyMode = 'bot' | 'pvp';
+export const WEEKLY_MODES: WeeklyMode[] = ['bot', 'pvp'];
+/** Modes that can be played now; the others are shown as coming. */
+export const WEEKLY_LIVE: Record<WeeklyMode, boolean> = { bot: true, pvp: false };
 
 export interface Division {
   /** 5 the lowest … 1 the highest, shown in Roman numerals. */
@@ -62,6 +71,10 @@ export interface Season {
   skins: string[];
   /** The plate for 15 wins; its division follows the name ("Лють Берсерка · III"). */
   plate: string;
+  /** The Monday of its first week (Kyiv), YYYY-MM-DD. */
+  start: string;
+  /** The Monday after its last week; null: no end set yet. */
+  end: string | null;
 }
 
 export const SEASON: Season = {
@@ -70,6 +83,8 @@ export const SEASON: Season = {
   card: 'knight-berserk',
   skins: ['berserk-1', 'berserk-2', 'berserk-3', 'berserk-4', 'berserk-5'],
   plate: 'Лють Берсерка',
+  start: '2026-10-12',
+  end: null,
 };
 
 /** The plate a season gives for 15 wins in a division. */
@@ -99,10 +114,11 @@ export interface WeeklyReward {
 const r = (gold: number, packs: RewardPack[] = [], shards = 0): WeeklyReward => ({ gold, shards, packs, skins: [], plate: null });
 
 /**
- * Per division (5 … 1), per tier (3, 6, 9, 12, 15 wins). Kept modest: these are bots; a league against
- * people will pay more. The season's skins and plate are added by `weeklyReward`.
+ * Per mode, per division (5 … 1), per tier (3, 6, 9, 12, 15 wins). Against bots it is kept modest;
+ * against players, of the same division, it pays a little more. The season's skins and plate (the
+ * same in both modes) are added by `weeklyReward`.
  */
-const BASE: Record<DivisionN, WeeklyReward[]> = {
+const BOT: Record<DivisionN, WeeklyReward[]> = {
   5: [r(120), r(180, ['common']), r(250, ['common', 'common']), r(300, ['rare'], 40), r(400, ['rare', 'common', 'common'], 60)],
   4: [r(150, [], 20), r(220, ['common']), r(300, ['rare']), r(380, ['rare', 'common']), r(500, ['epic'], 80)],
   3: [r(180, ['common']), r(260, ['rare']), r(350, ['rare'], 50), r(450, ['epic']), r(600, ['epic', 'rare'], 100)],
@@ -110,9 +126,19 @@ const BASE: Record<DivisionN, WeeklyReward[]> = {
   1: [r(260, ['rare'], 30), r(380, ['epic']), r(500, ['epic', 'rare']), r(650, ['legendary']), r(900, ['legendary', 'epic'], 200)],
 };
 
+const PVP: Record<DivisionN, WeeklyReward[]> = {
+  5: [r(150, ['common']), r(220, ['common'], 20), r(300, ['rare']), r(380, ['rare', 'common'], 50), r(500, ['epic', 'common'], 80)],
+  4: [r(190, ['common'], 20), r(280, ['rare']), r(380, ['rare', 'common']), r(480, ['epic']), r(650, ['epic', 'rare'], 100)],
+  3: [r(230, ['rare']), r(330, ['rare'], 40), r(450, ['epic']), r(580, ['epic', 'rare']), r(780, ['legendary'], 130)],
+  2: [r(280, ['rare'], 30), r(400, ['epic']), r(540, ['epic', 'rare']), r(700, ['legendary']), r(950, ['legendary', 'epic'], 200)],
+  1: [r(330, ['epic']), r(480, ['epic'], 40), r(640, ['legendary']), r(820, ['legendary', 'epic']), r(1150, ['legendary', 'legendary'], 260)],
+};
+
+const TABLES: Record<WeeklyMode, Record<DivisionN, WeeklyReward[]>> = { bot: BOT, pvp: PVP };
+
 /** The reward of a tier (0: 3 wins … 4: 15 wins) in a division, with the season's prizes. */
-export function weeklyReward(n: DivisionN, tier: number, season: Season = SEASON): WeeklyReward {
-  const base = BASE[n][tier];
+export function weeklyReward(n: DivisionN, tier: number, mode: WeeklyMode = 'bot', season: Season = SEASON): WeeklyReward {
+  const base = TABLES[mode][n][tier];
   // 12 wins: the division's skins (V the plainest, I all five); 15 wins: the same and the plate.
   const skins = tier >= 3 ? season.skins.slice(0, 6 - n) : [];
   return { ...base, packs: [...base.packs], skins, plate: tier === 4 ? seasonPlateId(season, n) : null };

@@ -8,16 +8,18 @@ export interface Skin {
   name: string;
   /** 1 the plainest … 5 the finest of its card's set. */
   tier: 1 | 2 | 3 | 4 | 5;
-  /** Image (a detailed sprite, drawn smooth rather than pixelated). */
+  /** Image (a detailed sprite, drawn smooth rather than pixelated), 256 px, pedestal centred. */
   art: string;
+  /** The same, 128 px and sharpened: for the board and anything small (a big image scaled far down blurs). */
+  board: string;
 }
 
 export const SKINS: Skin[] = [
-  { id: 'berserk-1', card: 'knight-berserk', name: 'Ветеран', tier: 1, art: 'assets/skins/berserk-1.png' },
-  { id: 'berserk-2', card: 'knight-berserk', name: 'Сталева лють', tier: 2, art: 'assets/skins/berserk-2.png' },
-  { id: 'berserk-3', card: 'knight-berserk', name: 'Кривавий чемпіон', tier: 3, art: 'assets/skins/berserk-3.png' },
-  { id: 'berserk-4', card: 'knight-berserk', name: 'Пекельний', tier: 4, art: 'assets/skins/berserk-4.png' },
-  { id: 'berserk-5', card: 'knight-berserk', name: 'Рагнарок', tier: 5, art: 'assets/skins/berserk-5.png' },
+  { id: 'berserk-1', card: 'knight-berserk', name: 'Ветеран', tier: 1, art: 'assets/skins/berserk-1.png', board: 'assets/skins/berserk-1-board.png' },
+  { id: 'berserk-2', card: 'knight-berserk', name: 'Сталева лють', tier: 2, art: 'assets/skins/berserk-2.png', board: 'assets/skins/berserk-2-board.png' },
+  { id: 'berserk-3', card: 'knight-berserk', name: 'Кривавий чемпіон', tier: 3, art: 'assets/skins/berserk-3.png', board: 'assets/skins/berserk-3-board.png' },
+  { id: 'berserk-4', card: 'knight-berserk', name: 'Пекельний', tier: 4, art: 'assets/skins/berserk-4.png', board: 'assets/skins/berserk-4-board.png' },
+  { id: 'berserk-5', card: 'knight-berserk', name: 'Рагнарок', tier: 5, art: 'assets/skins/berserk-5.png', board: 'assets/skins/berserk-5-board.png' },
 ];
 
 export const SKIN_BY_ID: Record<string, Skin> = Object.fromEntries(SKINS.map((s) => [s.id, s]));

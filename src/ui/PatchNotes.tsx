@@ -5,6 +5,7 @@ import { pieceSprite } from './cardArt';
 import { getSettings } from './settings';
 import { errorText, useSession } from './state';
 import { DivisionBadge } from './WeeklyPage';
+import { seasonStart, weekSchedule } from './weeklyTime';
 import { t } from '../i18n';
 
 /** One page of the notes: a picture, a heading, a few plain lines. */
@@ -16,6 +17,7 @@ interface Page {
 
 function pages(): Page[] {
   const style = getSettings().blackStyle;
+  const { from, to } = weekSchedule();
   const sprite = (id: string, type: string) => pieceSprite(id, type, 'w', style).src;
   return [
     {
@@ -56,7 +58,7 @@ function pages(): Page[] {
         </div>
       ),
       title: t('Тиждень слави'),
-      text: t('Новий рейтинговий режим з понеділка 10:00 до п’ятниці 22:00 за Києвом. Від 500 кубків: 5 дивізіонів, 15 матчів проти ботів, нагороди за 3, 6, 9, 12 і 15 перемог. Вкладка «Тиждень» у Лігах.'),
+      text: t('Новий рейтинговий режим щотижня з {0} до {1} за вашим часом. Від 500 кубків: 5 дивізіонів, 15 матчів, кожен з новим ботом, нагороди за 3, 6, 9, 12 і 15 перемог. Такий самий тиждень з гравцями скоро. Вкладка «Тиждень» у Лігах.', from, to),
     },
     {
       art: (
@@ -67,7 +69,7 @@ function pages(): Page[] {
         </div>
       ),
       title: t('Сезон Берсерка'),
-      text: t('За 12 перемог у Тижні слави дають скіни Берсерка, за 15 ще й плашку «Лють Берсерка». Що вищий дивізіон, то кращі скіни. Вдягнути скін можна у вікні картки в колоді, і його бачать обидва гравці.'),
+      text: t('Старт {0}, кінець поки «?». За 12 перемог у Тижні слави дають скіни Берсерка, за 15 ще й плашку «Лють Берсерка». Що вищий дивізіон, то кращі скіни. Скін вдягається у вікні картки в колоді, його бачать обидва гравці.', seasonStart()),
     },
     {
       art: (

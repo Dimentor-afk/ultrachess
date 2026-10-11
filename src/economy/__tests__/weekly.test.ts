@@ -8,7 +8,10 @@ import { MemoryStore } from '../memoryStore';
 import { type BotRunner, GameService } from '../service';
 import type { Hasher } from '../store';
 import { SKIN_DUPE_GOLD } from '../skins';
-import { type WeeklyRun, weekWindow, weeklyBotElo, divisionByN, kyivMoment } from '../weekly';
+import { type WeeklyRun, weekWindow, weeklyBotElo, divisionByN, kyivMoment, weeklyReward, DIVISIONS, SEASON, WEEKLY_TIERS } from '../weekly';
+import { PACK_SHARD_PRICE } from '../packs';
+import { CARD_BY_ID } from '../../engine/cards';
+import { deckPositions } from '../../engine/deck';
 
 const hasher: Hasher = { hash: async (p) => `h:${p}`, verify: async (p, h) => h === `h:${p}` };
 
@@ -137,7 +140,7 @@ describe('weekly league', () => {
     expect((await svc.me(token)).weekly).toMatchObject({ wins: 6, played: 6, settled: false, claimable: false });
     clock.now = SATURDAY;
     expect((await svc.me(token)).weekly).toMatchObject({ open: false, claimable: true });
-    await expect(svc.startMatch(token, { ranked: false, weekly: true })).rejects.toThrow(/понеділок/);
+    await expect(svc.startMatch(token, { ranked: false, weekly: true })).rejects.toThrow(/завершився/);
     // Next week: starting gives last week's reward first.
     clock.now = kyivMoment(2026, 10, 19, 11);
     const gold = (await svc.me(token)).gold;
@@ -145,5 +148,43 @@ describe('weekly league', () => {
     const me = await svc.me(token);
     expect(me.gold).toBe(gold + 180);
     expect(me.weekly).toMatchObject({ wins: 0, played: 0, claimable: false });
+  });
+
+  it('every game draws a new bot, with any cards, even in the lowest division', async () => {
+    const { store, svc, token, id } = await setup();
+    await store.updateUser(id, { botTrophies: 520 });
+    const decks: string[][] = [];
+    const levels = new Set<number>();
+    for (let g = 0; g < 8; g++) {
+      const start = await svc.startMatch(token, { ranked: false, weekly: true });
+      const m = (await store.getMatch(start.matchId))!;
+      decks.push(deckPositions(m.botDeck));
+      levels.add(m.botLevel);
+      expect(m.botLevel).toBeGreaterThanOrEqual(levelForElo(520));
+      await svc.finishMatch(token, start.matchId, true);
+    }
+    expect(levels.size).toBeGreaterThan(1);
+    const top = decks.flat().filter((c) => ['legendary', 'mythological'].includes(CARD_BY_ID[c].rarity));
+    expect(top.length).toBeGreaterThan(0);
+  });
+
+  it('the week with players pays a little more than with bots, tier by tier', () => {
+    const value = (r: ReturnType<typeof weeklyReward>) => r.gold + 2 * r.shards + 2 * r.packs.reduce((n, p) => n + PACK_SHARD_PRICE[p], 0);
+    for (const d of DIVISIONS)
+      WEEKLY_TIERS.forEach((_, tier) => {
+        const bot = weeklyReward(d.n, tier, 'bot');
+        const pvp = weeklyReward(d.n, tier, 'pvp');
+        expect(pvp.gold).toBeGreaterThan(bot.gold);
+        expect(value(pvp)).toBeGreaterThan(value(bot));
+        // The season's prizes are the same in both.
+        expect(pvp.skins).toEqual(bot.skins);
+        expect(pvp.plate).toBe(bot.plate);
+      });
+  });
+
+  it('the Berserker season starts on a Monday and has no end yet', () => {
+    const [y, m, d] = SEASON.start.split('-').map(Number);
+    expect(weekWindow(kyivMoment(y, m, d, 12)).key).toBe(SEASON.start);
+    expect(SEASON.end).toBeNull();
   });
 });

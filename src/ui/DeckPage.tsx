@@ -327,7 +327,7 @@ function DeckHub({ deck }: { deck: Deck }) {
         </span>
         {skinsOfCard(c.id).length > 0 && (
           <span className={`mini-skin ${s.profile.skinChoice[c.id] ? 'worn' : ''}`} title={t('Є скіни')}>
-            {s.profile.skinChoice[c.id] ? <img src={skinsOfCard(c.id).find((k) => k.id === s.profile.skinChoice[c.id])?.art} alt="" /> : '✦'}
+            {s.profile.skinChoice[c.id] ? <img src={skinsOfCard(c.id).find((k) => k.id === s.profile.skinChoice[c.id])?.board} alt="" /> : '✦'}
           </span>
         )}
       </div>

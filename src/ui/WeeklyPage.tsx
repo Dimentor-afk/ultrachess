@@ -3,12 +3,27 @@ import type { MatchStart, WeeklyClaim, WeeklyView } from '../api/client';
 import { captureFxById } from '../economy/captureFx';
 import { packName } from '../economy/packs';
 import { SKIN_BY_ID } from '../economy/skins';
-import { DIVISIONS, SEASON, WEEKLY_GAMES, WEEKLY_MIN_TROPHIES, WEEKLY_TIERS, type WeeklyReward, divisionByN, weeklyReward } from '../economy/weekly';
+import {
+  DIVISIONS,
+  SEASON,
+  WEEKLY_GAMES,
+  WEEKLY_LIVE,
+  WEEKLY_MIN_TROPHIES,
+  WEEKLY_MODES,
+  WEEKLY_TIERS,
+  type WeeklyMode,
+  type WeeklyReward,
+  divisionByN,
+  divisionFor,
+  weeklyReward,
+} from '../economy/weekly';
 import { TitlePlate } from './Achievements';
 import { packArt } from './cardArt';
 import { useCountdown } from './cosmetics';
 import type { FxName } from './fxSprites';
 import { Game } from './LazyGame';
+import { currentPath, onNavigate } from './router';
+import { seasonStart, weekMoment, weekSchedule } from './weeklyTime';
 import { errorText, useSession } from './state';
 import { t, tr } from '../i18n';
 
@@ -31,7 +46,7 @@ export function RewardChips({ reward, big }: { reward: WeeklyReward; big?: boole
       {reward.skins.length > 0 && (
         <span className="rc rc-skins" title={reward.skins.map((id) => tr(SKIN_BY_ID[id].name)).join(', ')}>
           {reward.skins.map((id) => (
-            <img key={id} src={SKIN_BY_ID[id].art} alt="" />
+            <img key={id} src={SKIN_BY_ID[id].board} alt="" />
           ))}
           <small>{skinsLabel(reward.skins.length)}</small>
         </span>
@@ -63,8 +78,9 @@ export function WeeklyPage() {
   const [view, setView] = useState<WeeklyView | null>(null);
   const [game, setGame] = useState<{ start: MatchStart; key: number } | null>(null);
   const [claim, setClaim] = useState<WeeklyClaim | null>(null);
-  const [tab, setTab] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
+  const [mode, setMode] = useState<WeeklyMode>(modeFromPath);
+  useEffect(() => onNavigate(() => setMode(modeFromPath())), []);
 
   const load = () => api.weekly().then(setView, (e) => s.toast(errorText(e), 'error'));
   useEffect(() => {
@@ -135,7 +151,6 @@ export function WeeklyPage() {
 
   const run = view?.run ?? null;
   const division = run ? run.division : view?.division ?? null;
-  const shown = tab ?? division ?? 5;
   const wins = run ? run.results.filter((x) => x === 'w').length : 0;
   const played = run ? run.results.length : 0;
   const nextTier = WEEKLY_TIERS.find((x) => x > wins);
@@ -151,162 +166,235 @@ export function WeeklyPage() {
 
   return (
     <section className="page weekly">
-      <header className={`wk-hero ${view?.open ? 'open' : 'closed'}`}>
-        <span className="wk-rays" aria-hidden="true" />
-        <img className="wk-hero-art" src={SKIN_BY_ID[SEASON.skins[4]].art} alt="" />
-        <div className="wk-hero-text">
-          <span className="wk-season">{tr(SEASON.name)}</span>
-          <h1>{t('Тиждень слави')}</h1>
-          <p className="wk-when">
-            {view ? (
-              view.open ? (
-                <>
-                  <span className="wk-live">● {t('Іде зараз')}</span>
-                  <span>{t('ще {0}', countdown)}</span>
-                </>
-              ) : (
-                <span>{t('Наступний через {0}', countdown)}</span>
-              )
-            ) : (
-              '…'
-            )}
-          </p>
-          <small className="wk-sched">{t('Пн 10:00 до пт 22:00, Київ')}</small>
-          <small className="wk-sched">{t('{0} матчів проти ботів', WEEKLY_GAMES)}</small>
-        </div>
-      </header>
+      <ModeSwitch mode={mode} />
+      <WeeklyHero mode={mode} open={view?.open ?? null} countdown={countdown} />
 
-      {view && !view.eligible && !run && (
-        <div className="panel wk-locked">
-          <b>🔒 {t('Вхід з {0} кубків у лізі ботів', WEEKLY_MIN_TROPHIES)}</b>
-          <div className="bar small-bar" aria-hidden="true">
-            <span style={{ width: `${Math.min(100, (view.trophies / WEEKLY_MIN_TROPHIES) * 100)}%` }} />
-          </div>
-          <span className="muted small">{t('У вас {0} 🏆, ще {1}', view.trophies, WEEKLY_MIN_TROPHIES - view.trophies)}</span>
-          <a className="btn btn-sm" href="#/play">
-            {t('До ліги ботів')}
-          </a>
-        </div>
-      )}
-
-      {view && d && (view.eligible || run) && (
-        <div className="wk-main">
-          <div className="panel wk-division">
-            <DivisionBadge n={d.n} size="lg" />
-            <div>
-              <span className="eyebrow">{t('Дивізіон {0}', d.roman)}</span>
-              <h2>{tr(d.name)}</h2>
-              <span className="muted small">
-                {run
-                  ? t('Ваш рейтинг тижня: {0}. Боти від нього до {1}, точна сила прихована.', run.rating, d.max ? d.max - 1 : '3000+')
-                  : t('За вашими кубками ({0}) ви потрапите сюди. Дивізіон закріплюється на тиждень з першим матчем.', view.trophies)}
-              </span>
-            </div>
-          </div>
-
-          <div className="panel wk-progress">
-            <div className="wk-score">
-              <b>{wins}</b>
-              <span>
-                {t('перемог')}
-                <small className="muted">{t('зіграно {0} з {1}', played, WEEKLY_GAMES)}</small>
-              </span>
-            </div>
-            <ol className="wk-results" aria-label={t('Матчі тижня')}>
-              {Array.from({ length: WEEKLY_GAMES }, (_, i) => {
-                const r = run?.results[i];
-                return (
-                  <li key={i} className={r ? `r-${r}` : i === played && run?.playing ? 'now' : ''} title={r === 'w' ? t('Перемога') : r === 'l' ? t('Поразка') : r === 'd' ? t('Нічия') : ''}>
-                    {r === 'w' ? '✓' : r === 'l' ? '✕' : r === 'd' ? '=' : i + 1}
-                  </li>
-                );
-              })}
-            </ol>
-            <div className="wk-road" style={{ '--fill': `${Math.min(1, wins / WEEKLY_GAMES)}` } as CSSProperties}>
-              <span className="wk-road-bar" aria-hidden="true" />
-              {WEEKLY_TIERS.map((need, i) => (
-                <span key={need} className={`wk-node ${wins >= need ? 'got' : ''} ${run && i === run.tier ? 'mine' : ''}`} style={{ '--at': `${need / WEEKLY_GAMES}` } as CSSProperties}>
-                  <b>{need}</b>
-                </span>
-              ))}
-            </div>
-            <p className="wk-next">
-              {run?.over
-                ? run.tier >= 0
-                  ? run.claimed
-                    ? t('Нагороди тижня отримано. До зустрічі в понеділок!')
-                    : t('Тиждень завершено: ваша нагорода за {0} перемог готова.', WEEKLY_TIERS[run.tier])
-                  : t('Цього тижня без нагороди: потрібно щонайменше 3 перемоги.')
-                : nextTier
-                  ? t('До нагороди за {0} перемог: ще {1}', nextTier, nextTier - wins)
-                  : t('Найвища нагорода тижня вже ваша')}
-            </p>
-            {run && run.tier >= 0 && run.reward && (
-              <div className="wk-current">
-                <span className="eyebrow">{run.over ? t('Ваша нагорода') : t('Зараз ви заробили')}</span>
-                <RewardChips reward={run.reward} />
+      {mode === 'pvp' ? (
+        <PvpSoon />
+      ) : (
+        <>
+          {view && !view.eligible && !run && (
+            <div className="panel wk-locked">
+              <b>🔒 {t('Вхід з {0} кубків у лізі ботів', WEEKLY_MIN_TROPHIES)}</b>
+              <div className="bar small-bar" aria-hidden="true">
+                <span style={{ width: `${Math.min(100, (view.trophies / WEEKLY_MIN_TROPHIES) * 100)}%` }} />
               </div>
-            )}
-          </div>
-        </div>
-      )}
+              <span className="muted small">{t('У вас {0} 🏆, ще {1}', view.trophies, WEEKLY_MIN_TROPHIES - view.trophies)}</span>
+              <a className="btn btn-sm" href="#/play">
+                {t('До ліги ботів')}
+              </a>
+            </div>
+          )}
 
-      {action && (
-        <button className={`btn btn-battle wk-action ${action.kind}`} disabled={busy} onClick={action.onClick}>
-          {action.kind === 'claim' ? '🎁 ' : '⚔ '}
-          {action.label}
-        </button>
-      )}
-      {view && !view.open && !claimable && view.eligible && <p className="center muted">{t('Тиждень слави відпочиває до понеділка, 10:00.')}</p>}
+          {view && d && (view.eligible || run) && (
+            <div className="wk-main">
+              <div className="panel wk-division">
+                <DivisionBadge n={d.n} size="lg" />
+                <div>
+                  <span className="eyebrow">{t('Дивізіон {0}', d.roman)}</span>
+                  <h2>{tr(d.name)}</h2>
+                  <span className="muted small">
+                    {run
+                      ? t('Ваш рейтинг тижня: {0}. Кожен матч новий бот: від вашого рейтингу до {1}, точна сила прихована.', run.rating, d.max ? d.max - 1 : '3000+')
+                      : t('За вашими кубками ({0}) ви потрапите сюди. Дивізіон закріплюється на тиждень з першим матчем.', view.trophies)}
+                  </span>
+                  <span className="wk-note">🃏 {t('Колоди ботів з будь-якими картками, навіть міфологічними.')}</span>
+                </div>
+              </div>
 
-      <div className="panel wk-rewards">
-        <div className="section-head">
-          <h2>{t('Нагороди')}</h2>
-          <span className="muted small">{t('за кожен рівень свої, не сумуються')}</span>
-        </div>
-        <div className="wk-tabs" role="tablist" aria-label={t('Дивізіони')}>
-          {DIVISIONS.map((x) => (
-            <button key={x.n} role="tab" aria-selected={shown === x.n} className={`wk-tab ${shown === x.n ? 'on' : ''} ${division === x.n ? 'mine' : ''}`} onClick={() => setTab(x.n)}>
-              <DivisionBadge n={x.n} size="sm" />
-              <span>
-                <b>{tr(x.name)}</b>
-                <small>{x.max ? `${x.min}–${x.max - 1}` : `${x.min}+`} 🏆</small>
-              </span>
+              <div className="panel wk-progress">
+                <div className="wk-score">
+                  <b>{wins}</b>
+                  <span>
+                    {t('перемог')}
+                    <small className="muted">{t('зіграно {0} з {1}', played, WEEKLY_GAMES)}</small>
+                  </span>
+                </div>
+                <ol className="wk-results" aria-label={t('Матчі тижня')}>
+                  {Array.from({ length: WEEKLY_GAMES }, (_, i) => {
+                    const r = run?.results[i];
+                    return (
+                      <li key={i} className={r ? `r-${r}` : i === played && run?.playing ? 'now' : ''} title={r === 'w' ? t('Перемога') : r === 'l' ? t('Поразка') : r === 'd' ? t('Нічия') : ''}>
+                        {r === 'w' ? '✓' : r === 'l' ? '✕' : r === 'd' ? '=' : i + 1}
+                      </li>
+                    );
+                  })}
+                </ol>
+                <div className="wk-road" style={{ '--fill': `${Math.min(1, wins / WEEKLY_GAMES)}` } as CSSProperties}>
+                  <span className="wk-road-bar" aria-hidden="true" />
+                  {WEEKLY_TIERS.map((need, i) => (
+                    <span key={need} className={`wk-node ${wins >= need ? 'got' : ''} ${run && i === run.tier ? 'mine' : ''}`} style={{ '--at': `${need / WEEKLY_GAMES}` } as CSSProperties}>
+                      <b>{need}</b>
+                    </span>
+                  ))}
+                </div>
+                <p className="wk-next">
+                  {run?.over
+                    ? run.tier >= 0
+                      ? run.claimed
+                        ? t('Нагороди тижня отримано. До зустрічі в понеділок!')
+                        : t('Тиждень завершено: ваша нагорода за {0} перемог готова.', WEEKLY_TIERS[run.tier])
+                      : t('Цього тижня без нагороди: потрібно щонайменше 3 перемоги.')
+                    : nextTier
+                      ? t('До нагороди за {0} перемог: ще {1}', nextTier, nextTier - wins)
+                      : t('Найвища нагорода тижня вже ваша')}
+                </p>
+                {run && run.tier >= 0 && run.reward && (
+                  <div className="wk-current">
+                    <span className="eyebrow">{run.over ? t('Ваша нагорода') : t('Зараз ви заробили')}</span>
+                    <RewardChips reward={run.reward} />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {action && (
+            <button className={`btn btn-battle wk-action ${action.kind}`} disabled={busy} onClick={action.onClick}>
+              {action.kind === 'claim' ? '🎁 ' : '⚔ '}
+              {action.label}
             </button>
-          ))}
-        </div>
-        <ol className="wk-tiers">
-          {WEEKLY_TIERS.map((need, i) => {
-            const reward = weeklyReward(divisionByN(shown).n, i);
-            const mine = !!run && run.division === shown && run.tier === i;
-            return (
-              <li key={need} className={`wk-tier ${mine ? 'mine' : ''} ${i >= 3 ? 'season' : ''}`}>
-                <span className="wk-tier-need">
-                  <b>{need}</b>
-                  <small>{t('перемог')}</small>
-                </span>
-                <RewardChips reward={reward} />
-              </li>
-            );
-          })}
-        </ol>
-        <p className="muted small">
-          {t('Нагороди видаються, коли зіграно всі {0} матчів, коли вищий рівень уже не досягти, або коли тиждень закінчився.', WEEKLY_GAMES)}{' '}
-          {t('Скін, який уже є, замінюється золотом.')}
-        </p>
-      </div>
+          )}
+          {view && !view.open && !claimable && view.eligible && <p className="center muted">{t('Тиждень слави відпочиває до {0}.', weekMoment(view.nextOpensAt))}</p>}
 
-      <div className="panel wk-online">
-        <span className="wk-online-icon">⚔</span>
-        <div>
-          <b>{t('Тиждень слави з гравцями')}</b>
-          <span className="muted small">{t('Скоро: такий самий тиждень проти живих суперників вашого рівня, з кращими нагородами.')}</span>
-        </div>
-        <span className="pill">{t('скоро')}</span>
-      </div>
+          <RewardsPanel mode="bot" division={division} mineTier={run ? run.tier : null} />
+        </>
+      )}
 
       {claim && <ClaimModal claim={claim} onClose={() => setClaim(null)} />}
     </section>
+  );
+}
+
+const modeFromPath = (): WeeklyMode => (currentPath().split('/')[2] === 'pvp' ? 'pvp' : 'bot');
+
+/** The two weeks on one schedule: against bots now, against players soon. */
+function ModeSwitch({ mode }: { mode: WeeklyMode }) {
+  const { profile } = useSession();
+  return (
+    <div className="ladder-switch wk-modes" role="tablist" aria-label={t('Режим')}>
+      {WEEKLY_MODES.map((m) => (
+        <a key={m} role="tab" aria-selected={mode === m} href={m === 'bot' ? '#/weekly' : '#/weekly/pvp'} className={`ladder-tab ${mode === m ? 'on' : ''}`}>
+          <span className="ladder-icon">{m === 'bot' ? '🤖' : '⚔'}</span>
+          <span>
+            <b>{m === 'bot' ? t('З ботами') : t('З гравцями')}</b>
+            <small>{WEEKLY_LIVE[m] ? `🏆 ${profile.ladders[m].trophies}` : t('скоро')}</small>
+          </span>
+        </a>
+      ))}
+    </div>
+  );
+}
+
+/** The season, the week's schedule in the player's own time, and how long until it opens or closes. */
+function WeeklyHero({ mode, open, countdown }: { mode: WeeklyMode; open: boolean | null; countdown: string }) {
+  const { from, to } = weekSchedule();
+  return (
+    <header className={`wk-hero ${open ? 'open' : 'closed'} mode-${mode}`}>
+      <span className="wk-rays" aria-hidden="true" />
+      <img className="wk-hero-art" src={SKIN_BY_ID[SEASON.skins[4]].art} alt="" />
+      <div className="wk-hero-text">
+        <span className="wk-season-row">
+          <span className="wk-season">{tr(SEASON.name)}</span>
+          <small className="wk-season-dates">{t('старт {0} · кінець ?', seasonStart())}</small>
+        </span>
+        <h1>{t('Тиждень слави')}</h1>
+        <p className="wk-when">
+          {!WEEKLY_LIVE[mode] ? (
+            <span className="wk-soon">{t('З гравцями: скоро')}</span>
+          ) : open === null ? (
+            '…'
+          ) : open ? (
+            <>
+              <span className="wk-live">● {t('Іде зараз')}</span>
+              <span>{t('ще {0}', countdown)}</span>
+            </>
+          ) : (
+            <span>{t('Наступний через {0}', countdown)}</span>
+          )}
+        </p>
+        <small className="wk-sched">{t('{0} до {1}, ваш час', from, to)}</small>
+        <small className="wk-sched">{mode === 'bot' ? t('{0} матчів проти ботів', WEEKLY_GAMES) : t('{0} матчів проти гравців', WEEKLY_GAMES)}</small>
+      </div>
+    </header>
+  );
+}
+
+/** Every division's rewards for one mode, five tiers each; the player's division opens first. */
+function RewardsPanel({ mode, division, mineTier }: { mode: WeeklyMode; division: number | null; mineTier: number | null }) {
+  const [tab, setTab] = useState<number | null>(null);
+  const shown = tab ?? division ?? 5;
+  return (
+    <div className="panel wk-rewards">
+      <div className="section-head">
+        <h2>{mode === 'bot' ? t('Нагороди') : t('Нагороди з гравцями')}</h2>
+        <span className="muted small">{t('за кожен рівень свої, не сумуються')}</span>
+      </div>
+      <div className="wk-tabs" role="tablist" aria-label={t('Дивізіони')}>
+        {DIVISIONS.map((x) => (
+          <button key={x.n} role="tab" aria-selected={shown === x.n} className={`wk-tab ${shown === x.n ? 'on' : ''} ${division === x.n ? 'mine' : ''}`} onClick={() => setTab(x.n)}>
+            <DivisionBadge n={x.n} size="sm" />
+            <span>
+              <b>{tr(x.name)}</b>
+              <small>{x.max ? `${x.min}–${x.max - 1}` : `${x.min}+`} 🏆</small>
+            </span>
+          </button>
+        ))}
+      </div>
+      <ol className="wk-tiers">
+        {WEEKLY_TIERS.map((need, i) => (
+          <li key={need} className={`wk-tier ${division === shown && mineTier === i ? 'mine' : ''} ${i >= 3 ? 'season' : ''}`}>
+            <span className="wk-tier-need">
+              <b>{need}</b>
+              <small>{t('перемог')}</small>
+            </span>
+            <RewardChips reward={weeklyReward(divisionByN(shown).n, i, mode)} />
+          </li>
+        ))}
+      </ol>
+      <p className="muted small">
+        {t('Нагороди видаються, коли зіграно всі {0} матчів, коли вищий рівень уже не досягти, або коли тиждень закінчився.', WEEKLY_GAMES)}{' '}
+        {t('Скін, який уже є, замінюється золотом.')}
+      </p>
+      {mode === 'bot' && (
+        <a className="wk-pvp-link" href="#/weekly/pvp">
+          ⚔ {t('З гравцями нагороди будуть кращі')} <span aria-hidden="true">›</span>
+        </a>
+      )}
+    </div>
+  );
+}
+
+/** The week against players: not open yet; what it will be, where the player would stand, its rewards. */
+function PvpSoon() {
+  const { profile } = useSession();
+  const trophies = profile.ladders.pvp.trophies;
+  const d = divisionFor(trophies);
+  return (
+    <>
+      <div className="panel wk-soon-panel">
+        {d ? <DivisionBadge n={d.n} size="lg" /> : <span className="wk-soon-lock">🔒</span>}
+        <div>
+          <span className="eyebrow">{t('Скоро')}</span>
+          <h2>{t('Тиждень слави з гравцями')}</h2>
+          <span className="muted small">
+            {d
+              ? t('За кубками ліги гравців ({0}) ви були б тут: дивізіон {1}, {2}.', trophies, d.roman, tr(d.name))
+              : t('Вхід з {0} кубків у лізі гравців, у вас {1}.', WEEKLY_MIN_TROPHIES, trophies)}
+          </span>
+          <ul className="wk-soon-list">
+            <li>{t('Ті самі дні й години, той самий сезон і скіни.')}</li>
+            <li>{t('15 матчів проти живих гравців вашого дивізіону.')}</li>
+            <li>{t('Дивізіон за кубками ліги гравців, окремий від тижня з ботами.')}</li>
+            <li>{t('Нагороди трохи кращі, ніж з ботами.')}</li>
+          </ul>
+        </div>
+      </div>
+      <button className="btn btn-battle wk-action" disabled>
+        ⚔ {t('Скоро')}
+      </button>
+      <RewardsPanel mode="pvp" division={d?.n ?? null} mineTier={null} />
+    </>
   );
 }
 

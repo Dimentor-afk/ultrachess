@@ -7,7 +7,7 @@
 // to Black), Black picks a queen (the other one goes to White). No mythological cards.
 
 import { CARDS, CLASSIC_CARD } from '../engine/cards';
-import type { Card, Color, Deck, PieceType, Rarity } from '../engine/types';
+import type { Card, Color, Deck, PieceType } from '../engine/types';
 
 /** Seconds for a pick; then a card is taken at random. */
 export const DRAFT_PICK_MS = 20_000;
@@ -43,19 +43,12 @@ export interface DraftState {
 type Rnd = () => number;
 const pickOne = <T>(xs: T[], rnd: Rnd): T => xs[Math.floor(rnd() * xs.length) % xs.length];
 
-/**
- * Two offers of one rarity where the pool allows it: whichever a player takes, the opponent gets
- * a card of the same rarity, so a round never decides the game by itself.
- */
+/** Two random offers, any rarities, not among the cards this round already uses. */
 function pair(pool: Card[], taken: Set<string>, rnd: Rnd): [string, string] {
   const free = pool.filter((c) => !taken.has(c.id));
-  const byRarity = new Map<Rarity, Card[]>();
-  for (const c of free) byRarity.set(c.rarity, [...(byRarity.get(c.rarity) ?? []), c]);
-  const twos = [...byRarity.values()].filter((xs) => xs.length >= 2);
-  const from = twos.length ? pickOne(twos, rnd) : free;
-  const a = pickOne(from, rnd);
+  const a = pickOne(free, rnd);
   const b = pickOne(
-    from.filter((c) => c.id !== a.id),
+    free.filter((c) => c.id !== a.id),
     rnd,
   );
   taken.add(a.id);

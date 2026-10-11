@@ -582,7 +582,7 @@ function PieceViewInner({ piece }: { piece: ViewPiece }) {
   const skinId = useContext(SkinContext)[piece.color]?.[piece.cardId];
   const skin = skinId ? SKIN_BY_ID[skinId] : undefined;
   const outline = blackStyle === 'team' ? (piece.color === 'w' ? '#3d8bff' : '#ff4d6d') : piece.color === 'w' ? '#0d1326' : '#e9cf87';
-  const art = useOutlined(skin ? skin.art : sprite.src, outline);
+  const art = useOutlined(skin ? skin.board : sprite.src, outline);
   return (
     <span
       className={`piece piece-${piece.color} ${blackStyle === 'team' ? 'team' : ''} r-${card.rarity} ${special ? 'special' : ''} ${piece.illusion ? 'illusion' : ''} ${
