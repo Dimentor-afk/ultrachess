@@ -33,9 +33,6 @@ pack opening, directed shot by shot. Nothing here ships with the game.
   `chessfx2`: round 2 on the same grid with other cards (Galloper, Phantom, Duelist, Piercer, Levitation,
   Eclipse, Displacer, Earthquake, Ricochet), mate by a queen back from beyond the board. A new round is
   a position and its moves for `shotOf(pos, moves)`.
-  `chessfx3`: round 3 on a different board in every shot (`theme`, as the reference changes its colours): Mirage
-  (the queen takes an illusion), Rider (only its pawn dies: `c6c5@d3` plays the capture and the knight jumping off),
-  Battering Ram, Comet, Castle Rook, and a smothered mate by the Mirage (`d4e6>mirage`: a move of that kind to that square).
 - `portaledit`: a phonk edit of the Portal Bishop ("The board has edges. He doesn't."), cut to the grid of
   our own phonk: `python3 scripts/promo/phonk.py phonk.wav --bpm 130 --intro 3 --drop 5` (synthesised:
   cowbell riff, 808, claps, hats; prints the drop time and the beat). The game's effect sounds go on

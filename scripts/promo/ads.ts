@@ -831,37 +831,6 @@ const CHESSFX2: Shot[] = [
   { kind: 'end', text: 'Every piece has a superpower', ms: fb(6) + 1050, bumps: [fb(2), fb(4), fb(6) + 220] },
 ];
 
-// Round 3, same track and grid, on a different board in every shot (the reference changes its colours
-// too): the Mirage leaves illusions and the queen takes one, the Rider loses only its pawn, the Battering
-// Ram takes the queen through a pawn, the Comet king flies across to take a knight, the Castle Rook
-// teleports next to its king and walls it in, and the Mirage mates it smothered.
-const FX3_POS: Record<string, string> = {
-  g1: 'w:king-comet', g2: 'w:pawn-classic', h2: 'w:pawn-classic', f3: 'w:pawn-classic', a2: 'w:pawn-classic',
-  d4: 'w:knight-mirage', b3: 'w:knight-rider', c5: 'w:pawn-classic', h5: 'w:rook-battering',
-  h8: 'b:king-classic', g7: 'b:pawn-classic', h7: 'b:pawn-classic', a7: 'b:pawn-classic', b6: 'b:pawn-classic', f5: 'b:pawn-classic',
-  d7: 'b:queen-classic', a8: 'b:rook-castle', c7: 'b:bishop-martyr', b5: 'b:knight-classic',
-};
-const FX3_MOVES = ['d4e6>mirage', 'd7c6', 'b3c5>mount', 'c6c5@d3', 'h5c5', 'b5d4', 'g1d4>dash', 'a8g8>teleport', 'e6g5', 'a7a6', 'g5f7'];
-const fx3 = shotOf(FX3_POS, FX3_MOVES);
-const FX3_LINE = 'Round 3. Every move *rated*.';
-const CHESSFX3: Shot[] = [
-  { kind: 'board', crowd: false, pos: FX3_POS, steps: [], caption: FX3_LINE, theme: 'emerald', zoom: 1.04, focus: 'd5', ms: 5480 - fb(6) },
-  { kind: 'board', crowd: false, pos: FX3_POS, steps: [], caption: FX3_LINE, theme: 'emerald', cam: 'tilt-l', focus: 'd5', zoom: 1.3, ms: fb(6) },
-  fx3(0, { ms: fb(8), land: fb(3), cam: 'punch', theme: 'graphite', focus: 'd4', zoom: 1.35, grade: { sq: 'e6', g: '!!' }, paint: ['d4', 'e6'], label: 'Mirage', bumps: [fb(3), fb(5)] }),
-  fx3(1, { ms: fb(4), land: fb(2), cam: 'tilt-r', theme: 'mint', focus: 'c6', zoom: 1.8, grade: { sq: 'c6', g: '??' }, paint: ['d7', 'c6'], label: 'Just an illusion', bumps: [fb(2)] }),
-  fx3(2, { ms: fb(4), land: fb(2), cam: 'spin', theme: 'emerald', focus: 'c4', zoom: 1.8, grade: { sq: 'c5', g: '!' }, paint: ['b3', 'c5'], label: 'Rider', bumps: [fb(2)] }),
-  fx3(3, { ms: fb(6), land: fb(2), cam: 'tilt-l', theme: 'marble', focus: 'c4', zoom: 1.6, grade: { sq: 'c5', g: '?!' }, paint: ['c6', 'c5', 'd3'], label: 'Only the pawn dies', bumps: [fb(2), fb(3)] }),
-  fx3(4, { ms: fb(8), land: fb(3), cam: 'punch', theme: 'ocean', focus: 'e5', zoom: 1.4, grade: { sq: 'c5', g: '!!' }, paint: ['h5', 'f5', 'c5'], label: 'Battering Ram', bumps: [fb(3), fb(5)] }),
-  fx3(5, { ms: fb(4), land: fb(2), cam: 'tilt-r', theme: 'emerald', focus: 'd5', zoom: 1.8, grade: { sq: 'd4', g: '?' }, paint: ['b5', 'd4'], label: 'Fork?', bumps: [fb(2)] }),
-  fx3(6, { ms: fb(6), land: fb(3), cam: 'spin', theme: 'graphite', focus: 'e3', zoom: 1.5, grade: { sq: 'd4', g: '!!' }, paint: ['g1', 'f2', 'e3', 'd4'], label: 'Comet', bumps: [fb(3), fb(4)] }),
-  fx3(7, { ms: fb(4), land: fb(2), cam: 'tilt-l', theme: 'ice', focus: 'g7', zoom: 1.4, grade: { sq: 'g8', g: '??' }, paint: ['a8', 'g8'], label: 'Castle Rook', bumps: [fb(2)] }),
-  fx3(8, { ms: fb(4), land: fb(2), cam: 'tilt-r', theme: 'emerald', focus: 'f6', zoom: 1.8, grade: { sq: 'g5', g: 'best' }, paint: ['e6', 'g5'], label: 'Quiet move', bumps: [fb(2)] }),
-  fx3(9, { ms: fb(2), land: fb(1), cam: 'tilt-l', theme: 'night', focus: 'b6', zoom: 1.35, grade: { sq: 'a6', g: '??' }, paint: ['a7', 'a6'], bumps: [fb(1)] }),
-  fx3(10, { ms: fb(10), land: fb(2), cam: 'tilt-r', theme: 'emerald', focus: 'e6', zoom: 1.12, grade: { sq: 'f7', g: '#' }, paint: ['g5', 'f7'], label: 'Smothered', bumps: [fb(2), fb(4)] }),
-  { kind: 'board', crowd: false, pos: FX3_POS, pre: FX3_MOVES, steps: [], theme: 'emerald', cam: 'spin', focus: 'd5', zoom: 1.04, ms: fb(4), bumps: [fb(2)] },
-  { kind: 'end', text: 'Every piece has a superpower', ms: fb(6) + 1050, bumps: [fb(2), fb(4), fb(6) + 220] },
-];
-
 // "Black: yeah, FREE ROOK‼️ … oh wait 😢" (EN), a meme split screen on the reference's sound. The board is ours;
 // the reaction under it is the reference's own clip, cut out and laid in with ffmpeg (see README), so the panel
 // here is left black. Nothing threatens Black: the Fortress Rook checks on d8 and the bishop has to take it, a free
@@ -948,7 +917,6 @@ export const ADS: Record<string, Shot[]> = {
   portaledit: PORTAL_EDIT,
   chessfx: CHESSFX,
   chessfx2: CHESSFX2,
-  chessfx3: CHESSFX3,
   freerook: FREE_ROOK,
   closeup: CLOSEUP,
   memes: MEMES,

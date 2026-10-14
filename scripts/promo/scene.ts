@@ -19,7 +19,7 @@ export interface SceneSpec {
   crowd?: boolean | Record<string, string>;
   clear?: string[];
   /** "e2e4", "e2e4~" (the longest of the moves there), "f1>levitate" (a move of that kind),
-   *  "d4e6>mirage" (a move of that kind to that square), "*card" (that card's move, a capture if it has one), "!queen-immortal:arm" or
+   *  "*card" (that card's move, a capture if it has one), "!queen-immortal:arm" or
    *  "!rook-earthquake:*" (an ability, it does not use the turn); "…|caption" changes the caption;
    *  "d8d5^": a move into an Ambusher, in two states: the piece travels and takes, then the blast. */
   steps: string[];
@@ -58,8 +58,7 @@ export function startState(spec: SceneSpec): MatchState {
 }
 
 function step(m: MatchState, raw: string): MatchState {
-  const [s, land] = raw.split('|')[0].trim().split('@');
-  if (land) return landed(step(m, s), land);
+  const s = raw.split('|')[0].trim();
   if (s.startsWith('!')) {
     const [card, ...rest] = s.slice(1).split(':');
     const key = rest.join(':');
@@ -78,10 +77,8 @@ function step(m: MatchState, raw: string): MatchState {
     return performAction(m, { type: 'move', move });
   }
   if (s.includes('>')) {
-    // "f1>levitate", or "d4e6>mirage" when the piece has several moves of that kind.
     const [sq, kind] = s.split('>');
-    const to = sq.length === 4 ? parseSquare(sq.slice(2)) : null;
-    const move = legalMoves(m).find((x) => x.from === parseSquare(sq.slice(0, 2)) && x.kind === kind && (to === null || (x.target ?? x.to) === to));
+    const move = legalMoves(m).find((x) => x.from === parseSquare(sq) && x.kind === kind);
     if (!move) throw new Error(`no ${kind} from ${sq}`);
     return performAction(m, { type: 'move', move });
   }
@@ -93,17 +90,6 @@ function step(m: MatchState, raw: string): MatchState {
   if (!all.length) throw new Error(`no move ${s}: ${legalMoves(m).filter((x) => x.from === from).map((x) => `${x.target}/${x.label}`).join(', ')}`);
   const move = longest ? all.sort((a, b) => (b.legs?.length ?? 0) - (a.legs?.length ?? 0))[0] : all.find((x) => x.to === to) ?? all[0];
   return performAction(m, { type: 'move', move });
-}
-
-/** "c6c5@d3": the Rider taken on c5 jumps off to d3. The owner's choice is played at once and shown
- *  with the move: the capture, then the knight hopping off where it was taken. */
-function landed(m: MatchState, land: string): MatchState {
-  const at = m.lastMove?.target ?? m.lastMove?.to;
-  const r = performAction(m, { type: 'choose', square: parseSquare(land) });
-  if (!m.fx || at === null || at === undefined) return r;
-  const to = parseSquare(land);
-  const hop = { from: at, to, legs: [{ to, style: 'hop' as const }], after: true };
-  return { ...r, lastMove: m.lastMove, fx: { ...m.fx, moves: [...m.fx.moves, hop], sprites: [...m.fx.sprites, ...(r.fx?.sprites ?? [])] } };
 }
 
 export function playScene(spec: SceneSpec): MatchState[] {
