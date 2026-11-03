@@ -75,10 +75,11 @@ Still to do:
 
 ### Deferred by the author (Oct 2026)
 
-Mobile app: first PWA push ("your move") with a service worker (manifest and icons exist), then
-Android, then iOS via Capacitor around the same client and server. The blocker is payments:
-stores require their own in-app purchases for shards/packs (a third provider behind the payments
-interface), or no selling inside the app. Also from the ideas list, not started: admin funnel
+Mobile app (Nov 2026: the author has an iPhone and tests from Xcode first): `ios/` is a Capacitor 8
+shell that loads https://ultrachess.app (`capacitor.config.ts`, bundle id `app.ultrachess`), built on
+the author's Mac; steps in `docs/mobile.md`. Next: push "your move", Android. The blocker for the
+stores is payments: they require their own in-app purchases for shards/packs (a third provider behind
+the payments interface), or no selling inside the app. Also from the ideas list, not started: admin funnel
 (sign-up → first game → 10 games), puzzle of the day, "clip of the moment" share video,
 Telegram Mini App, draft mode, weekend tournament, a 2-minute interactive tutorial.
 
